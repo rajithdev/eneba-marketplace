@@ -225,6 +225,37 @@ error page. Errors under `/api` are now always JSON.
 Each run creates one throwaway `deploy-check-…@example.com` account; two
 exist from these runs.
 
+### Catalog deployment (2026-11-17)
+
+The games/variants migration, the catalog seeder and the catalog API were
+deployed to production.
+
+Before pushing, on a local copy of production's schema as it was (old
+tables, with user and session rows, no catalog):
+
+| Check | Result |
+|---|---|
+| The pending migration applies | yes; user rows identical before and after |
+| A purchase, a reservation, product and seller sales counts and a switched-off offer, then two more deploys | all unchanged |
+| The migration on a database that unexpectedly has products | refused; schema untouched, migration not recorded |
+
+On the live site afterwards:
+
+| Check | Result |
+|---|---|
+| Deploy | new version serving 48 seconds after the push; `/api/health` answered 200 throughout |
+| Seeded catalog | 71 products, 272 offers, 3 sold out: identical to a fresh local seed, row ids included, compared through the API |
+| Recorded response examples (`web/src/contracts`) | all three identical to the live responses |
+| `make verify` | 48 of 48, including the new catalog section and a cover image served by the site |
+| A second deployment | catalog identical, same row ids (nothing recreated or reset) |
+| Sign-in | still verified end to end |
+
+Cover images need no routing rule. They are static files in the frontend
+build (`web/public/covers`), and the frontend host serves an existing file
+before it considers any rewrite. A cover path with no file behind it would
+get the app's page instead of a 404; `generate-covers.mjs --check`, which
+runs with the tests, fails if any game lacks its cover.
+
 ### Still open
 
 - What a visitor sees while the Render service is waking from sleep. The
