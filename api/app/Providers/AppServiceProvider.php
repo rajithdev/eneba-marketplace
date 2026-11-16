@@ -39,6 +39,14 @@ class AppServiceProvider extends ServiceProvider
         //                            hence the higher number)
         //   10 per email address    (guessing one account's password stays
         //                            limited wherever the requests come from)
+        // Search suggestions are requested as the visitor types (the frontend
+        // waits for a pause first). Generous for a person, a ceiling for a
+        // script: 120 a minute per visitor address, 600 per edge address.
+        RateLimiter::for('search', fn (Request $request) => [
+            Limit::perMinute(120)->by('claimed:'.ClientAddress::claimed($request)),
+            Limit::perMinute(600)->by('edge:'.ClientAddress::edge($request)),
+        ]);
+
         RateLimiter::for('auth', fn (Request $request) => [
             Limit::perMinute(10)->by('claimed:'.ClientAddress::claimed($request)),
             Limit::perMinute(60)->by('edge:'.ClientAddress::edge($request)),

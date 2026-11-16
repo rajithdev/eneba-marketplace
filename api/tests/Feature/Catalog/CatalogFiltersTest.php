@@ -72,6 +72,12 @@ class CatalogFiltersTest extends TestCase
                 ['value' => 'newest', 'label' => 'Newest releases'],
             ])
             ->assertJsonPath('data.default_sort', 'popular')
+            // "Best match" exists only while searching, so it is listed apart.
+            ->assertJsonPath('data.search', [
+                'sort' => ['value' => 'relevance', 'label' => 'Best match'],
+                'max_length' => 80,
+                'suggestions_min_length' => 2,
+            ])
             ->assertJsonPath('data.per_page', ['default' => 24, 'max' => 48]);
     }
 

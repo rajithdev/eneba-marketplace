@@ -1,0 +1,145 @@
+{
+    "request": "GET /api/search/suggestions?q=eldn+ring",
+    "response": {
+        "data": [
+            {
+                "slug": "elden-ring-playstation-network-key-europe",
+                "name": "Elden Ring PlayStation Network Key EUROPE",
+                "type": "game",
+                "cover_image_url": "/covers/elden-ring.svg",
+                "release_date": "2022-02-25",
+                "platform": {
+                    "slug": "psn",
+                    "name": "PlayStation Network"
+                },
+                "region": {
+                    "slug": "europe",
+                    "name": "Europe"
+                },
+                "in_stock": true,
+                "price": {
+                    "amount_cents": 3649,
+                    "currency": "EUR",
+                    "original_amount_cents": null,
+                    "discount_percent": null
+                },
+                "offers_count": 2
+            },
+            {
+                "slug": "elden-ring-xbox-live-key-europe",
+                "name": "Elden Ring Xbox Live Key EUROPE",
+                "type": "game",
+                "cover_image_url": "/covers/elden-ring.svg",
+                "release_date": "2022-02-25",
+                "platform": {
+                    "slug": "xbox-live",
+                    "name": "Xbox Live"
+                },
+                "region": {
+                    "slug": "europe",
+                    "name": "Europe"
+                },
+                "in_stock": true,
+                "price": {
+                    "amount_cents": 3049,
+                    "currency": "EUR",
+                    "original_amount_cents": null,
+                    "discount_percent": null
+                },
+                "offers_count": 3
+            },
+            {
+                "slug": "elden-ring-steam-key-europe",
+                "name": "Elden Ring Steam Key EUROPE",
+                "type": "game",
+                "cover_image_url": "/covers/elden-ring.svg",
+                "release_date": "2022-02-25",
+                "platform": {
+                    "slug": "steam",
+                    "name": "Steam"
+                },
+                "region": {
+                    "slug": "europe",
+                    "name": "Europe"
+                },
+                "in_stock": true,
+                "price": {
+                    "amount_cents": 3129,
+                    "currency": "EUR",
+                    "original_amount_cents": null,
+                    "discount_percent": null
+                },
+                "offers_count": 4
+            },
+            {
+                "slug": "elden-ring-shadow-of-the-erdtree-steam-key-global",
+                "name": "Elden Ring: Shadow of the Erdtree Steam Key GLOBAL",
+                "type": "dlc",
+                "cover_image_url": "/covers/elden-ring-shadow-of-the-erdtree.svg",
+                "release_date": "2024-06-21",
+                "platform": {
+                    "slug": "steam",
+                    "name": "Steam"
+                },
+                "region": {
+                    "slug": "global",
+                    "name": "Global"
+                },
+                "in_stock": true,
+                "price": {
+                    "amount_cents": 3379,
+                    "currency": "EUR",
+                    "original_amount_cents": null,
+                    "discount_percent": null
+                },
+                "offers_count": 2
+            },
+            {
+                "slug": "elden-ring-shadow-of-the-erdtree-xbox-live-key-europe",
+                "name": "Elden Ring: Shadow of the Erdtree Xbox Live Key EUROPE",
+                "type": "dlc",
+                "cover_image_url": "/covers/elden-ring-shadow-of-the-erdtree.svg",
+                "release_date": "2024-06-21",
+                "platform": {
+                    "slug": "xbox-live",
+                    "name": "Xbox Live"
+                },
+                "region": {
+                    "slug": "europe",
+                    "name": "Europe"
+                },
+                "in_stock": true,
+                "price": {
+                    "amount_cents": 3049,
+                    "currency": "EUR",
+                    "original_amount_cents": null,
+                    "discount_percent": null
+                },
+                "offers_count": 5
+            },
+            {
+                "slug": "elden-ring-steam-key-global",
+                "name": "Elden Ring Steam Key GLOBAL",
+                "type": "game",
+                "cover_image_url": "/covers/elden-ring.svg",
+                "release_date": "2022-02-25",
+                "platform": {
+                    "slug": "steam",
+                    "name": "Steam"
+                },
+                "region": {
+                    "slug": "global",
+                    "name": "Global"
+                },
+                "in_stock": true,
+                "price": {
+                    "amount_cents": 3149,
+                    "currency": "EUR",
+                    "original_amount_cents": null,
+                    "discount_percent": null
+                },
+                "offers_count": 5
+            }
+        ]
+    }
+}

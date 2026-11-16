@@ -293,18 +293,76 @@ the same run against the public address: Vercel's documentation does not say
 how a rewrite treats cookies. If it fails there, the cause is diagnosed first
 (see DEPLOYMENT.md); option C is the fallback, option A a last resort.
 
-## Search (Planned; extension and index Built)
+## Search (Built)
 
-One implementation serves both the header search and the store's name filter.
+One implementation, `Product::scopeSearch` ordered by
+`Product::scopeOrderByRelevance`, serves both places a visitor can search:
 
-- PostgreSQL `pg_trgm` with a GIN index on `products.name`. Ranking: names that
-  start with or contain the query first, then trigram similarity, then
-  popularity. Queries under three characters fall back to prefix matching.
-- Measured on test data: PostgreSQL's default similarity threshold (0.6)
-  misses a single dropped letter in a nine-letter word ("mincraft" scores
-  0.58). The search increment sets its own lower threshold.
-- Alternative considered: a dedicated search engine such as Meilisearch. Better
-  ranking, but a second always-on service and a sync job on a free tier.
+| Where | Endpoint | Returns |
+|---|---|---|
+| Header search box, while typing | `GET /api/search/suggestions?q=` | The 6 best matches, in the product-list shape |
+| Store, after pressing Enter | `GET /api/products?q=…` | The same search, with filters, sorting and pagination |
+
+Because it is the same query, the suggestions are always the first results
+the store would show; a test asserts exactly that.
+
+**What matches.** The text is cleaned once (`SearchTerm`: trimmed, lowercased,
+whitespace folded, control characters removed, at most 80 characters and 6
+words). Every word must match the product's name, in any order:
+
+| Word length | Matches when |
+|---|---|
+| 1 or 2 letters | it starts a word in the name ("fc" finds "EA Sports FC 25", not "Trafficker") |
+| 3 or more | it appears anywhere in the name, **or** is a near miss of a word in it (a typo) |
+
+"Near miss" is PostgreSQL `pg_trgm` word similarity of at least 0.5. The
+threshold was chosen by measurement on this catalog: the default 0.6 misses
+ordinary one-letter slips ("mincraft" scores 0.58, "sekro" 0.50); 0.4 starts
+matching unrelated titles; 0.5 caught every tested slip with no false match.
+
+**Ranking.** In this order:
+
+1. Tier: (0) the term is the whole name or the game's title; (1) the name
+   starts with the term; (2) every word appears in the name; (3) at least one
+   word matched only as a near miss.
+2. How closely the term resembles the name (similarity score).
+3. Products that can be bought before sold-out ones.
+4. Popularity (sales count).
+
+So exact and prefix matches always come before fuzzy ones, and popularity
+only decides between equally relevant products. An exact match stays first
+even when sold out: someone who typed the exact title is looking for it.
+"Best match" is the default order while searching; choosing another order
+(price, popularity, newest) re-sorts the same matches.
+
+**Keeping it cheap.**
+
+- A fixed number of queries per request (5 for suggestions, 6 for the store).
+- Text and word limits; suggestions for fewer than 2 characters are answered
+  without touching the database.
+- Suggestions are rate limited (120 a minute per visitor, 600 per edge
+  address). Rate-limit counters are kept in a local file store: with the
+  database store, each suggestion cost 12 extra queries just to be counted.
+- The trigram index is used. The typo threshold is a database setting that
+  the index-capable operator reads, so each search runs in a short
+  transaction that sets it (`FuzzySearch::run`) and it cannot leak into
+  another request. At 12,000 products a typo search took 1 to 15 ms in the
+  database; a one-letter search matching 7,000 products took about 110 ms.
+- `%`, `_` and `\` are escaped, so they match themselves instead of acting
+  as wildcards, and everything reaches the database as a bound parameter.
+
+**In the browser.** The header box waits 250 ms after the last keystroke,
+asks only from 2 characters, and abandons the request for text that is no
+longer in the box. It follows the standard combobox keyboard pattern (arrow
+keys, Enter, Escape). Choosing a suggestion opens the product; Enter opens
+`/store?q=…`, where the search is one more URL parameter alongside the
+filters, so refresh, back and shared links work as for everything else.
+
+**Known limits.** Swapped letters in short words ("zleda") and a letter
+missing from a very short word ("rng" for "ring") score too low to match.
+Abbreviations ("gta", "rdr2") and synonyms are not understood. Only product
+names are searched, not descriptions. Matching is on letters as typed:
+accents are not folded.
 
 ## Homepage (Planned; tables Built)
 

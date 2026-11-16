@@ -9,6 +9,7 @@ use App\Models\Platform;
 use App\Models\Product;
 use App\Models\Region;
 use App\Support\Price;
+use App\Support\SearchTerm;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -52,8 +53,15 @@ class CatalogFilterController extends Controller
                 'sorts' => array_map(fn (ProductSort $sort) => [
                     'value' => $sort->value,
                     'label' => $sort->label(),
-                ], ProductSort::cases()),
+                ], ProductSort::withoutSearch()),
                 'default_sort' => ProductSort::DEFAULT->value,
+                // What applies only while searching: an extra sort order, which
+                // is then the default, and the limits on the search text.
+                'search' => [
+                    'sort' => ['value' => ProductSort::Relevance->value, 'label' => ProductSort::Relevance->label()],
+                    'max_length' => SearchTerm::MAX_LENGTH,
+                    'suggestions_min_length' => SearchTerm::SUGGESTIONS_MIN_LENGTH,
+                ],
                 'per_page' => [
                     'default' => ListProductsRequest::DEFAULT_PER_PAGE,
                     'max' => ListProductsRequest::MAX_PER_PAGE,

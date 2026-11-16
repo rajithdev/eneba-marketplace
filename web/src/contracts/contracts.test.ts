@@ -1,8 +1,9 @@
 import { expect, it } from 'vitest'
-import type { FiltersResponse, ProductDetailResponse, ProductListResponse } from '../lib/catalog'
+import type { FiltersResponse, ProductDetailResponse, ProductListResponse, SuggestionsResponse } from '../lib/catalog'
 import filtersExample from './filters.json'
 import listExample from './products.list.json'
 import showExample from './products.show.json'
+import suggestionsExample from './search.suggestions.json'
 
 /**
  * The contract between the API and this frontend.
@@ -15,6 +16,7 @@ import showExample from './products.show.json'
 const list: ProductListResponse = listExample.response
 const show: ProductDetailResponse = showExample.response
 const filters: FiltersResponse = filtersExample.response
+const suggestions: SuggestionsResponse = suggestionsExample.response
 
 it('the recorded examples cover the cases the pages must handle', () => {
   // A discounted product, a full-price one and a sold-out one.
@@ -25,4 +27,6 @@ it('the recorded examples cover the cases the pages must handle', () => {
   expect(show.data.offers.length).toBeGreaterThan(1)
   expect(show.data.variants.length).toBeGreaterThan(0)
   expect(filters.data.platforms.length).toBeGreaterThan(0)
+  expect(filters.data.search.sort.value).toBe('relevance')
+  expect(suggestions.data.length).toBeGreaterThan(0)
 })

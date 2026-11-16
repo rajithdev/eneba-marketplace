@@ -10,6 +10,7 @@ use App\Http\Resources\ProductSummaryResource;
 use App\Models\Platform;
 use App\Models\Product;
 use App\Models\Region;
+use App\Support\FuzzySearch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -42,21 +43,33 @@ class ProductController extends Controller
             // Price filters compare against the best in-stock price. A sold-out
             // product has none, so it never matches a price range.
             ->when(isset($filters['min_price']), fn ($query) => $query->where('best.price_cents', '>=', (int) $filters['min_price']))
-            ->when(isset($filters['max_price']), fn ($query) => $query->where('best.price_cents', '<=', (int) $filters['max_price']))
+            ->when(isset($filters['max_price']), fn ($query) => $query->where('best.price_cents', '<=', (int) $filters['max_price']));
+
+        $term = $request->searchTerm();
+        if ($term) {
+            $products->search($term);
+        }
+
+        $sort = $request->sort();
+        if ($sort === ProductSort::Relevance) {
+            $products->orderByRelevance();
+        } else {
             // Whatever the chosen order, products that can be bought come
             // first and sold-out ones after them.
-            ->orderByRaw('best.price_cents IS NULL');
+            $products->orderByRaw('best.price_cents IS NULL');
 
-        match ($request->sort()) {
-            ProductSort::Popular => $products->orderByDesc('products.sales_count'),
-            ProductSort::PriceAsc => $products->orderBy('best.price_cents'),
-            ProductSort::PriceDesc => $products->orderByDesc('best.price_cents'),
-            ProductSort::Newest => $products->orderByRaw('games.release_date DESC NULLS LAST'),
-        };
+            match ($sort) {
+                ProductSort::Popular => $products->orderByDesc('products.sales_count'),
+                ProductSort::PriceAsc => $products->orderBy('best.price_cents'),
+                ProductSort::PriceDesc => $products->orderByDesc('best.price_cents'),
+                ProductSort::Newest => $products->orderByRaw('games.release_date DESC NULLS LAST'),
+            };
+        }
 
         // A final, unique tie-breaker: without it, products with equal values
         // could swap places between two pages.
-        $page = $products->orderBy('products.id')->paginate($request->perPage());
+        $paginate = fn () => $products->orderBy('products.id')->paginate($request->perPage());
+        $page = $term ? FuzzySearch::run($paginate) : $paginate();
 
         return response()->json([
             'data' => ProductSummaryResource::collection($page->items())->resolve($request),

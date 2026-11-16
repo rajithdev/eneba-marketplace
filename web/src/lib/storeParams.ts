@@ -1,7 +1,7 @@
 /**
  * The store's state lives in the URL and nowhere else.
  *
- *   /store?platform=steam,xbox-live&region=europe&min_price=1000&sort=price_asc&page=2
+ *   /store?q=elden&platform=steam,xbox-live&region=europe&min_price=1000&sort=price_asc&page=2
  *
  * These are the API's own parameter names and values, so the address bar,
  * the request to the API and what is on screen are always the same thing.
@@ -13,7 +13,7 @@
 export const LIST_FILTERS = ['platform', 'region', 'type'] as const
 export type ListFilter = (typeof LIST_FILTERS)[number]
 
-const KNOWN = [...LIST_FILTERS, 'min_price', 'max_price', 'sort', 'page'] as const
+const KNOWN = ['q', ...LIST_FILTERS, 'min_price', 'max_price', 'sort', 'page'] as const
 
 /** The values currently chosen for a list filter. */
 export function selected(params: URLSearchParams, key: ListFilter): string[] {
@@ -43,13 +43,22 @@ export function withValue(params: URLSearchParams, key: (typeof KNOWN)[number], 
   return next
 }
 
-/** A copy with every filter removed. The sort order is kept. */
+/** A copy with every filter removed. The search text and sort order are kept. */
 export function withoutFilters(params: URLSearchParams): URLSearchParams {
   const next = new URLSearchParams()
-  const sort = params.get('sort')
-  if (sort) next.set('sort', sort)
+  for (const key of ['q', 'sort']) {
+    const value = params.get(key)
+    if (value) next.set(key, value)
+  }
 
   return next
+}
+
+/** The address of the store showing the results of a search, or the whole store for an empty one. */
+export function storeSearchPath(text: string): string {
+  const term = text.trim().replace(/\s+/g, ' ')
+
+  return term ? `/store?${new URLSearchParams({ q: term })}` : '/store'
 }
 
 /** How many filters are active, for the "Filters (2)" button. */

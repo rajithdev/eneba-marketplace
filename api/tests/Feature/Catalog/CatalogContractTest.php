@@ -31,6 +31,8 @@ class CatalogContractTest extends TestCase
         'products.list.json' => '/api/products?platform=ea-app&sort=price_asc',
         'products.show.json' => '/api/products/elden-ring-steam-key-global',
         'filters.json' => '/api/filters',
+        // A misspelt search: the same product shape as the list, best match first.
+        'search.suggestions.json' => '/api/search/suggestions?q=eldn+ring',
     ];
 
     protected function setUp(): void

@@ -4,12 +4,14 @@ namespace App\Http\Requests;
 
 use App\Enums\GameType;
 use App\Enums\ProductSort;
+use App\Support\SearchTerm;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
  * The query string of GET /api/products.
  *
+ *   q                        search text; matches product names, tolerating typos
  *   platform, region, type   one or more values separated by commas,
  *                            e.g. platform=steam,xbox-live
  *   min_price, max_price     whole cents, compared with the product's
@@ -47,6 +49,8 @@ class ListProductsRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // Free text. Cleaned up by SearchTerm; empty means "no search".
+            'q' => ['sometimes', 'nullable', 'string', 'max:'.SearchTerm::MAX_LENGTH],
             'platform' => ['sometimes', 'array', 'max:20'],
             'platform.*' => ['string', Rule::exists('platforms', 'slug')],
             'region' => ['sometimes', 'array', 'max:20'],
@@ -72,9 +76,25 @@ class ListProductsRequest extends FormRequest
         ];
     }
 
+    public function searchTerm(): ?SearchTerm
+    {
+        return SearchTerm::from($this->validated('q'));
+    }
+
+    /**
+     * With a search term the default order is best match first; without one
+     * there is nothing to be relevant to, so "relevance" means the default.
+     */
     public function sort(): ProductSort
     {
-        return ProductSort::tryFrom((string) $this->validated('sort')) ?? ProductSort::DEFAULT;
+        $searching = $this->searchTerm() !== null;
+        $chosen = ProductSort::tryFrom((string) $this->validated('sort'));
+
+        if ($chosen === null) {
+            return $searching ? ProductSort::Relevance : ProductSort::DEFAULT;
+        }
+
+        return $chosen === ProductSort::Relevance && ! $searching ? ProductSort::DEFAULT : $chosen;
     }
 
     public function perPage(): int

@@ -16,10 +16,12 @@ import { useDocumentTitle } from '../lib/useDocumentTitle'
  * that, and changes the address when the visitor changes something.
  */
 export function StorePage() {
-  useDocumentTitle('Store')
-
   const [params, setParams] = useSearchParams()
   const query = apiQuery(params)
+  // The search text, typed in the header's search box, lives in the address
+  // like every other part of the store's state.
+  const searchTerm = (params.get('q') ?? '').trim()
+  useDocumentTitle(searchTerm ? `Search: ${searchTerm}` : 'Store')
   const filtersPanelId = useId()
   const [filtersOpen, setFiltersOpen] = useState(false)
 
@@ -33,13 +35,25 @@ export function StorePage() {
   })
 
   const activeFilters = activeFilterCount(params)
-  const sort = params.get('sort') ?? filters.data?.data.default_sort ?? ''
+  // While searching there is one more order, "best match", and it is the
+  // default; without a search the store's usual default applies.
+  const options = filters.data?.data
+  const sortOptions = options ? (searchTerm ? [options.search.sort, ...options.sorts] : options.sorts) : []
+  const defaultSort = options ? (searchTerm ? options.search.sort.value : options.default_sort) : ''
+  const sort = params.get('sort') ?? defaultSort
   // The API rejected the address itself (for example a mistyped filter).
   const invalidAddress = products.error instanceof ApiError && products.error.status === 422
 
   return (
     <>
-      <h1 className="py-6 text-3xl font-bold">Store</h1>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-6">
+        <h1 className="text-3xl font-bold">{searchTerm ? <>Results for “{searchTerm}”</> : 'Store'}</h1>
+        {searchTerm && (
+          <Link to={{ search: withValue(params, 'q', null).toString() }} className="text-sm font-extrabold underline hover:text-accent">
+            Clear search
+          </Link>
+        )}
+      </div>
 
       <div className="lg:grid lg:grid-cols-[240px_1fr] lg:gap-8">
         <aside aria-label="Filters">
@@ -69,7 +83,7 @@ export function StorePage() {
                 <>
                   <span className="font-extrabold text-white">{products.data.meta.total}</span>{' '}
                   {products.data.meta.total === 1 ? 'product' : 'products'}
-                  {activeFilters > 0 && ' match your filters'}
+                  {searchTerm ? ' found' : activeFilters > 0 ? ' match your filters' : ''}
                 </>
               )}
             </p>
@@ -86,14 +100,12 @@ export function StorePage() {
                   <select
                     value={sort}
                     onChange={(event) =>
-                      setParams(
-                        // The default order needs no parameter: /store stays /store.
-                        withValue(params, 'sort', event.target.value === filters.data.data.default_sort ? null : event.target.value),
-                      )
+                      // The default order needs no parameter: /store stays /store.
+                      setParams(withValue(params, 'sort', event.target.value === defaultSort ? null : event.target.value))
                     }
                     className="h-10 border border-line bg-card px-2 font-extrabold text-white"
                   >
-                    {filters.data.data.sorts.map((option) => (
+                    {sortOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -124,7 +136,25 @@ export function StorePage() {
             </Notice>
           )}
 
-          {products.data && products.data.data.length === 0 && (
+          {products.data && products.data.data.length === 0 && searchTerm && (
+            <Notice title={`No products match “${searchTerm}”`}>
+              <p>
+                {activeFilters > 0
+                  ? 'Check the spelling, try fewer words, or remove a filter.'
+                  : 'Check the spelling or try fewer words. Small typos are understood; abbreviations are not.'}
+              </p>
+              {activeFilters > 0 && (
+                <Link to={{ search: withoutFilters(params).toString() }} className={primaryButton}>
+                  Clear filters
+                </Link>
+              )}
+              <Link to="/store" className={activeFilters > 0 ? 'font-extrabold underline hover:text-accent' : primaryButton}>
+                Show all products
+              </Link>
+            </Notice>
+          )}
+
+          {products.data && products.data.data.length === 0 && !searchTerm && (
             <Notice title="No products match these filters">
               <p>Try removing a filter or widening the price range.</p>
               <Link to={{ search: withoutFilters(params).toString() }} className={primaryButton}>

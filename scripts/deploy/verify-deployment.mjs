@@ -443,6 +443,57 @@ heading('8. Catalog')
   check('An unknown product is a JSON 404', missing.status === 404 && missing.json?.message === 'Product not found.', `HTTP ${missing.status}`)
 }
 
+heading('9. Search')
+{
+  const anonymous = { cookies: new Map() }
+  const suggest = (term) => request('GET', `/api/search/suggestions?${new URLSearchParams({ q: term })}`, anonymous)
+  const searchStore = (term, more = '') => request('GET', `/api/products?${new URLSearchParams({ q: term })}${more}`, anonymous)
+  const names = (response) => (response.json?.data ?? []).map((product) => product.name)
+
+  const typo = await suggest('eldn ring')
+  check('A misspelt search still suggests the right product', typo.status === 200 && names(typo)[0]?.startsWith('Elden Ring'), `HTTP ${typo.status}, first: ${names(typo)[0] ?? 'nothing'}`)
+
+  const store = await searchStore('eldn ring', '&per_page=48')
+  check(
+    'Suggestions are the first results of the same search the store runs',
+    names(typo).length > 0 && JSON.stringify(names(typo)) === JSON.stringify(names(store).slice(0, names(typo).length)),
+  )
+
+  const sample = (await request('GET', '/api/products?per_page=1', anonymous)).json?.data?.[0]
+  check(
+    'A suggestion has the same fields as a product in the list',
+    Boolean(sample) && JSON.stringify(Object.keys(typo.json?.data?.[0] ?? {})) === JSON.stringify(Object.keys(sample)),
+  )
+
+  const oneTypo = await searchStore('mincraft')
+  check('A one-letter slip finds only the intended title', names(oneTypo).length > 0 && names(oneTypo).every((name) => name.startsWith('Minecraft')), names(oneTypo).join(' | ').slice(0, 80))
+
+  const combined = await searchStore('steam', '&region=europe&sort=price_asc&per_page=48')
+  const combinedPrices = (combined.json?.data ?? []).filter((product) => product.in_stock).map((product) => product.price.amount_cents)
+  check(
+    'Search combines with a filter and a sort order',
+    combined.status === 200 &&
+      names(combined).length > 0 &&
+      (combined.json?.data ?? []).every((product) => product.region.slug === 'europe' && /steam/i.test(product.name)) &&
+      combinedPrices.every((price, i) => i === 0 || price >= combinedPrices[i - 1]),
+    `${names(combined).length} results`,
+  )
+
+  const nothing = await searchStore('zzzzqq')
+  check('A search with no matches is an empty list, not an error', nothing.status === 200 && nothing.json?.meta?.total === 0, `HTTP ${nothing.status}`)
+
+  const short = await suggest('e')
+  const wildcard = await suggest('%%')
+  check('One letter, or only wildcard characters, suggests nothing', short.status === 200 && names(short).length === 0 && wildcard.status === 200 && names(wildcard).length === 0)
+
+  const hostile = await searchStore("'; DROP TABLE products; --")
+  const afterwards = await request('GET', '/api/products?per_page=1', anonymous)
+  check('Hostile input is treated as text and changes nothing', hostile.status === 200 && hostile.json?.meta?.total === 0 && afterwards.json?.meta?.total > 0, `HTTP ${hostile.status}`)
+
+  const tooLong = await searchStore('a'.repeat(81))
+  check('Overlong search text is rejected', tooLong.status === 422, `HTTP ${tooLong.status}`)
+}
+
 // --------------------------------------------------------------- summary ---
 
 const failed = results.filter((result) => !result.passed)

@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\GameType;
+use App\Support\FuzzySearch;
+use App\Support\SearchTerm;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -107,6 +109,89 @@ class Product extends Model
                 'best.original_price_cents as best_original_price_cents',
             ])
             ->selectSub((clone $inStock)->selectRaw('count(*)'), 'in_stock_offers_count');
+    }
+
+    /**
+     * Keeps only products whose name matches what the visitor typed, and adds
+     * two columns used to rank them:
+     *
+     *   search_tier   0 the whole name (or the game's title) is the term
+     *                 1 the name starts with the term
+     *                 2 every word of the term appears in the name
+     *                 3 at least one word matched only as a near miss (a typo)
+     *   search_score  how closely the term resembles the name, 0 to 1
+     *
+     * Each word of the term must match on its own, so "ring elden" finds
+     * Elden Ring. A word of one or two letters only counts at the start of a
+     * word in the name ("fc" finds "EA Sports FC 25" but not "traffic"), and
+     * typo tolerance starts at three letters: shorter fragments resemble too
+     * many things.
+     *
+     * The query must join `games` and run inside FuzzySearch::run(), which
+     * sets the typo threshold the "<%" operator uses.
+     *
+     * @param  Builder<Product>  $query
+     */
+    public function scopeSearch(Builder $query, SearchTerm $term): void
+    {
+        $everyWordAppears = [];
+        $bindingsForAppears = [];
+
+        foreach ($term->words as $word) {
+            $like = SearchTerm::likePattern($word);
+
+            if (mb_strlen($word) < 3) {
+                $appears = '(products.name ILIKE ? OR products.name ILIKE ?)';
+                $appearsBindings = ["{$like}%", "% {$like}%"];
+            } else {
+                $appears = 'products.name ILIKE ?';
+                $appearsBindings = ["%{$like}%"];
+            }
+
+            $everyWordAppears[] = $appears;
+            array_push($bindingsForAppears, ...$appearsBindings);
+
+            // The word is in the name, or (from three letters) is a near miss
+            // of a word in it. "<%" is what lets PostgreSQL use the trigram
+            // index; the explicit score check keeps the result correct even
+            // if the threshold setting were ever missing.
+            if (mb_strlen($word) < 3) {
+                $query->whereRaw($appears, $appearsBindings);
+            } else {
+                $query->whereRaw(
+                    "({$appears} OR (? <% products.name AND word_similarity(?, products.name) >= ?))",
+                    [...$appearsBindings, $word, $word, FuzzySearch::THRESHOLD],
+                );
+            }
+        }
+
+        $query
+            ->selectRaw(
+                'CASE
+                    WHEN lower(products.name) = ? OR lower(games.title) = ? THEN 0
+                    WHEN products.name ILIKE ? THEN 1
+                    WHEN '.implode(' AND ', $everyWordAppears).' THEN 2
+                    ELSE 3
+                 END AS search_tier',
+                [$term->text, $term->text, SearchTerm::likePattern($term->text).'%', ...$bindingsForAppears],
+            )
+            ->selectRaw('word_similarity(?, products.name) AS search_score', [$term->text]);
+    }
+
+    /**
+     * Best match first: by tier, then by how closely the name resembles the
+     * term, then products that can be bought before sold-out ones, then the
+     * more popular. Needs search() and withBestOffer().
+     *
+     * @param  Builder<Product>  $query
+     */
+    public function scopeOrderByRelevance(Builder $query): void
+    {
+        $query
+            ->orderBy('search_tier')
+            ->orderByDesc('search_score')
+            ->orderByRaw('best.price_cents IS NULL')
+            ->orderByDesc('products.sales_count');
     }
 
     /** True when at least one seller can deliver a key (needs withBestOffer()). */

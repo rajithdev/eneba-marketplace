@@ -166,4 +166,89 @@ describe('store page', () => {
     fireEvent.click(toggle)
     expect(screen.getByRole('button', { name: 'Hide filters (2)' })).toHaveAttribute('aria-expanded', 'true')
   })
+
+  describe('searching', () => {
+    it('sends the search in the address to the API along with the filters', async () => {
+      const requested = storeApi()
+      renderAt('/store?q=witcher&platform=steam&page=2')
+
+      expect(await screen.findByRole('heading', { level: 1, name: 'Results for “witcher”' })).toBeInTheDocument()
+      expect(productRequests(requested)[0]).toBe('/api/products?q=witcher&platform=steam&page=2')
+      expect(document.title).toBe('Search: witcher | keymarket')
+      await waitFor(() => expect(document.querySelector('[aria-live="polite"]')).toHaveTextContent('3 products found'))
+    })
+
+    it('offers "best match" as the order, and it is the default while searching', async () => {
+      storeApi()
+      const router = renderAt('/store?q=witcher')
+      const sort = await screen.findByRole('combobox', { name: 'Sort by' })
+
+      expect(within(sort).getAllByRole('option').map((option) => option.textContent)).toEqual([
+        filtersExample.response.data.search.sort.label,
+        ...filtersExample.response.data.sorts.map((option) => option.label),
+      ])
+      expect(sort).toHaveValue('relevance')
+
+      fireEvent.change(sort, { target: { value: 'price_asc' } })
+      await waitFor(() => expect(router.state.location.search).toBe('?q=witcher&sort=price_asc'))
+
+      // Back to the default: no parameter needed.
+      fireEvent.change(sort, { target: { value: 'relevance' } })
+      await waitFor(() => expect(router.state.location.search).toBe('?q=witcher'))
+    })
+
+    it('does not offer "best match" when there is nothing to match', async () => {
+      storeApi()
+      renderAt('/store')
+      const sort = await screen.findByRole('combobox', { name: 'Sort by' })
+
+      expect(within(sort).queryByRole('option', { name: 'Best match' })).not.toBeInTheDocument()
+      expect(sort).toHaveValue(filtersExample.response.data.default_sort)
+    })
+
+    it('keeps the search when a filter changes, and returns to page 1', async () => {
+      const requested = storeApi()
+      const router = renderAt('/store?q=witcher&page=3')
+
+      fireEvent.click(await screen.findByRole('checkbox', { name: /Steam/ }))
+
+      await waitFor(() => expect(router.state.location.search).toBe('?q=witcher&platform=steam'))
+      await waitFor(() => expect(productRequests(requested).at(-1)).toBe('/api/products?q=witcher&platform=steam'))
+    })
+
+    it('keeps the search in every page link', async () => {
+      storeApi({ ...listExample.response, meta: { current_page: 1, per_page: 24, total: 60, last_page: 3 } })
+      renderAt('/store?q=witcher&platform=steam')
+
+      const pagination = await screen.findByRole('navigation', { name: 'Pagination' })
+      expect(within(pagination).getByRole('link', { name: 'Page 2' })).toHaveAttribute('href', '/store?q=witcher&platform=steam&page=2')
+    })
+
+    it('clears the search but keeps the filters', async () => {
+      storeApi()
+      const router = renderAt('/store?q=witcher&platform=steam&sort=price_asc&page=2')
+
+      fireEvent.click(await screen.findByRole('link', { name: 'Clear search' }))
+
+      await waitFor(() => expect(router.state.location.search).toBe('?platform=steam&sort=price_asc'))
+      expect(await screen.findByRole('heading', { level: 1, name: 'Store' })).toBeInTheDocument()
+    })
+
+    it('clears the filters but keeps the search', async () => {
+      storeApi()
+      const router = renderAt('/store?q=witcher&platform=steam&min_price=100')
+
+      fireEvent.click(await screen.findByRole('link', { name: 'Clear filters' }))
+
+      await waitFor(() => expect(router.state.location.search).toBe('?q=witcher'))
+    })
+
+    it('names the search when nothing matches it', async () => {
+      storeApi({ data: [], meta: { current_page: 1, per_page: 24, total: 0, last_page: 1 } })
+      renderAt('/store?q=zzzz')
+
+      expect(await screen.findByRole('heading', { name: 'No products match “zzzz”' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Show all products' })).toHaveAttribute('href', '/store')
+    })
+  })
 })

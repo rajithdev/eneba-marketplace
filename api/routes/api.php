@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CatalogFilterController;
 use App\Http\Controllers\DiagnosticsController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SearchSuggestionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,6 +27,8 @@ Route::get('/health', fn () => response()->json([
 Route::get('/filters', CatalogFilterController::class);
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{slug}', [ProductController::class, 'show']);
+// Called on every pause in typing, so it has its own limit (see AppServiceProvider).
+Route::get('/search/suggestions', SearchSuggestionController::class)->middleware('throttle:search');
 
 Route::prefix('auth')->group(function () {
     // Limited per IP address and per email (see AppServiceProvider).

@@ -73,6 +73,13 @@ export interface FiltersResponse {
     price: { min_cents: number | null; max_cents: number | null; currency: string }
     sorts: { value: string; label: string }[]
     default_sort: string
+    /** What applies only while searching. */
+    search: {
+      /** An extra sort order, and the default one when there is a search term. */
+      sort: { value: string; label: string }
+      max_length: number
+      suggestions_min_length: number
+    }
     per_page: { default: number; max: number }
   }
 }
@@ -83,3 +90,12 @@ export const fetchProducts = (query: string) => apiFetch<ProductListResponse>(`/
 export const fetchProduct = (slug: string) => apiFetch<ProductDetailResponse>(`/products/${encodeURIComponent(slug)}`)
 
 export const fetchFilters = () => apiFetch<FiltersResponse>('/filters')
+
+/** The header's suggestions: the first few results of the same search the store runs. */
+export interface SuggestionsResponse {
+  data: ProductSummary[]
+}
+
+/** `signal` lets a request be abandoned when the visitor has typed something newer. */
+export const fetchSuggestions = (term: string, signal?: AbortSignal) =>
+  apiFetch<SuggestionsResponse>(`/search/suggestions?${new URLSearchParams({ q: term })}`, { signal })

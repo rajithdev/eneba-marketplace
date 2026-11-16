@@ -92,6 +92,14 @@
                 }
             ],
             "default_sort": "popular",
+            "search": {
+                "sort": {
+                    "value": "relevance",
+                    "label": "Best match"
+                },
+                "max_length": 80,
+                "suggestions_min_length": 2
+            },
             "per_page": {
                 "default": 24,
                 "max": 48

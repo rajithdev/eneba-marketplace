@@ -6,9 +6,10 @@ backend-defined blocks, product pages comparing offers from several sellers,
 and a checkout that delivers a digital key.
 
 **Status: deployed.** Sign-up and sign-in work end to end. The store (filters,
-sorting, pagination) and product pages (seller offers, other platforms and
-regions) are live on a seeded catalog. Search, cart and checkout, and the
-block-based homepage are still to come, one at a time.
+sorting, pagination), typo-tolerant search (header suggestions and store
+results) and product pages (seller offers, other platforms and regions) are
+live on a seeded catalog. Cart and checkout, and the block-based homepage,
+are still to come.
 
 | | |
 |---|---|
@@ -114,7 +115,17 @@ Things a reviewer should know are deliberate, approximate or not done yet.
   prices to the data files and adds anything missing. It never changes a key
   that exists, a sales count, or whether an offer is switched on. A game
   removed from the data files is not removed from a deployed database.
-- There is no search yet; typo-tolerant search is its own phase.
+
+**Search**
+
+- Small typos are understood ("mincraft", "eldn ring", "witchr"). Swapped
+  letters in short words ("zleda") and a letter missing from a very short
+  word ("rng") are not.
+- Abbreviations and nicknames ("gta", "rdr2", "fifa") find nothing: only the
+  words in a product's name are searched, not descriptions.
+- Accents are not folded: "pokemon" would not find "Pokémon".
+- A one- or two-letter search only matches the start of a word, and the
+  header suggests nothing below two characters.
 
 **Store and product pages**
 

@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { activeFilterCount, apiQuery, centsToEuros, eurosToCents, selected, withToggled, withValue, withoutFilters } from './storeParams'
+import {
+  activeFilterCount,
+  apiQuery,
+  centsToEuros,
+  eurosToCents,
+  selected,
+  storeSearchPath,
+  withToggled,
+  withValue,
+  withoutFilters,
+} from './storeParams'
 
 const params = (query: string) => new URLSearchParams(query)
 
@@ -22,8 +32,21 @@ describe('store URL parameters', () => {
     expect(withValue(params('platform=steam&sort=price_asc'), 'page', '2').toString()).toBe('platform=steam&sort=price_asc&page=2')
   })
 
-  it('clears every filter but keeps the chosen sort order', () => {
+  it('clears every filter but keeps the search and the chosen sort order', () => {
     expect(withoutFilters(params('platform=steam&min_price=100&sort=newest&page=2')).toString()).toBe('sort=newest')
+    expect(withoutFilters(params('q=elden&platform=steam&sort=newest&page=2')).toString()).toBe('q=elden&sort=newest')
+  })
+
+  it('builds the address of a search, tidying the text', () => {
+    expect(storeSearchPath('  elden   ring ')).toBe('/store?q=elden+ring')
+    expect(storeSearchPath('100% & more')).toBe('/store?q=100%25+%26+more')
+    expect(storeSearchPath('   ')).toBe('/store')
+  })
+
+  it('treats the search as part of the address like any filter', () => {
+    expect(apiQuery(params('platform=steam&q=elden&page=2'))).toBe('q=elden&platform=steam&page=2')
+    expect(withValue(params('q=elden&page=3'), 'q', 'ring').toString()).toBe('q=ring')
+    expect(activeFilterCount(params('q=elden'))).toBe(0)
   })
 
   it('counts active filters', () => {

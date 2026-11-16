@@ -19,6 +19,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Rate Limiter Store
+    |--------------------------------------------------------------------------
+    |
+    | Where request counters for rate limits are kept. A local file store, not
+    | the database: measured with the database store, every rate-limited
+    | request (each search suggestion while typing) cost a dozen extra
+    | database queries just to count it. The counters only need to live on the
+    | one server that enforces them, and losing them on a restart is harmless.
+    |
+    */
+
+    'limiter' => env('CACHE_LIMITER_STORE', 'file'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Cache Stores
     |--------------------------------------------------------------------------
     |
