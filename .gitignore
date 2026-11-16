@@ -1,0 +1,6 @@
+.DS_Store
+
+# Original AI session transcripts. Preserved locally, not published: they
+# contain machine and account details unrelated to this project.
+# See docs/ai-log/README.md.
+docs/ai-log/raw/
