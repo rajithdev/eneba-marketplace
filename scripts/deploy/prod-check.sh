@@ -46,6 +46,8 @@ docker compose up -d db >/dev/null
     echo "DB_USERNAME=eneba"
     echo "DB_SSLMODE=disable"
     echo "DB_SSLROOTCERT="
+    echo "# --- on for this local run only, so the checks can see the server's view"
+    echo "DEPLOY_DIAGNOSTICS=true"
 } > "$ENV_FILE"
 $COMPOSE build -q api-prod
 

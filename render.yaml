@@ -75,7 +75,8 @@ services:
       - key: TRUSTED_PROXIES
         value: "*"
 
-      # Temporary: lets scripts/deploy/verify-deployment.mjs show what the
-      # server receives through the proxies. Set to "false" once verified.
+      # Off. Set to "true" only while debugging a deployment: it makes
+      # GET /api/_diagnostics report what the server receives through the
+      # proxies, which scripts/deploy/verify-deployment.mjs then checks.
       - key: DEPLOY_DIAGNOSTICS
-        value: "true"
+        value: "false"

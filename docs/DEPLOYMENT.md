@@ -229,10 +229,11 @@ exist from these runs.
 
 - What a visitor sees while the Render service is waking from sleep. The
   service was awake during every run.
-- `DEPLOY_DIAGNOSTICS` is still `true` on Render. It exposes no secrets, but
-  it was meant to be temporary: set it to `false` in Render once no more
-  deployment debugging is expected. `make verify` keeps working without it,
-  minus the checks that need the server's view of a request.
+- `DEPLOY_DIAGNOSTICS` was switched off in `render.yaml` once authentication
+  was verified, so `/api/_diagnostics` answers 404 in production. `make
+  verify` keeps working without it, minus the checks that need the server's
+  view of a request; the local production check switches it on for itself.
+  To debug a deployment again, set it to `true` in Render's dashboard.
 
 ## Step by step
 
