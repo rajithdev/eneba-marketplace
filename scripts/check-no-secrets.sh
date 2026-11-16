@@ -23,7 +23,12 @@ forbidden=$(echo "$files" | grep -E '(^|/)\.env($|\.)|\.pem$|\.key$|(^|/)auth\.j
 # 2. Content shaped like a secret. The patterns need a real value after the
 #    name, so documentation that merely mentions "APP_KEY" does not match.
 patterns='APP_KEY=base64:[A-Za-z0-9+/]{20,}|base64:[A-Za-z0-9+/]{43}=|postgres(ql)?://[^:/@[:space:]]+:[^@[:space:]]+@|npg_[A-Za-z0-9]{10,}|rnd_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|sk_live_[A-Za-z0-9]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|ep-[a-z]+-[a-z]+-[a-z0-9]{6,}[a-z0-9.-]*\.neon\.tech'
-hits=$(echo "$files" | grep -v '^scripts/check-no-secrets.sh$' | while read -r f; do [ -f "$f" ] && grep -IlE "$patterns" "$f"; done)
+# Known harmless matches: the made-up host name used in Neon's own
+# documentation, which the AI log quotes from a research report.
+allowed='ep-cool-darkness-a1b2c3d4'
+hits=$(echo "$files" | grep -v '^scripts/check-no-secrets.sh$' | while read -r f; do
+    [ -f "$f" ] && grep -IoE "$patterns" "$f" | grep -vF "$allowed" | grep -q . && echo "$f"
+done)
 [ -z "$hits" ] && pass "no tracked file contains a key, token, database URL or database host" \
     || fail "possible secret in: $(echo $hits)"
 
