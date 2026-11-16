@@ -18,12 +18,26 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
-        Sanctum::currentApplicationUrlWithPort(),
-        // Sanctum::currentRequestHost(),
-    ))),
+    // Only the React app's own address may use the login session. Derived
+    // from FRONTEND_URL ("https://shop.example.com" -> "shop.example.com"),
+    // so there is a single setting to get right per environment.
+    'stateful' => explode(',', env(
+        'SANCTUM_STATEFUL_DOMAINS',
+        preg_replace('#^https?://#', '', rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/')),
+    )),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Route prefix
+    |--------------------------------------------------------------------------
+    |
+    | Sanctum's CSRF cookie route becomes /api/sanctum/csrf-cookie. Keeping it
+    | under /api means the frontend host needs a single proxy rule for
+    | everything the browser calls.
+    |
+    */
+
+    'prefix' => 'api/sanctum',
 
     /*
     |--------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router'
 import { apiFetch } from '../lib/api'
 
 /**
@@ -19,6 +20,9 @@ export function HomePage() {
         {health.isError && 'The API is not reachable.'}
         {health.isSuccess && `API status: ${health.data.status}`}
       </p>
+      <Link to="/account" className="mt-4 inline-block underline">
+        Account
+      </Link>
     </main>
   )
 }

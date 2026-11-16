@@ -56,6 +56,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | Public address of the React app, without a trailing slash. It is the one
+    | origin allowed to use the login session (config/sanctum.php) and the one
+    | origin allowed by CORS (config/cors.php).
+    |
+    */
+
+    'frontend_url' => rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Deployment diagnostics
+    |--------------------------------------------------------------------------
+    |
+    | When true, GET /api/_diagnostics reports what the server receives through
+    | the proxies in front of it (scheme, host, forwarded headers, cookie
+    | names). Used once to verify a deployment, then switched off.
+    |
+    */
+
+    'deploy_diagnostics' => (bool) env('DEPLOY_DIAGNOSTICS', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
