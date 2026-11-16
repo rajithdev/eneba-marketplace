@@ -1,6 +1,45 @@
 @import 'tailwindcss';
 
 /*
- * Design tokens (colours, fonts, spacing) taken from eneba.com are added here
- * in the styling increment. Components use the tokens, never raw values.
+ * Design tokens. Values were read from eneba.com's own pages (computed
+ * styles of its store and product pages): the purple page background, the
+ * lighter purple of its panels, the near-black purple of its product cards,
+ * the yellow of its primary buttons, heavy type, square corners.
+ * Components use these names, never raw colour values.
+ *
+ * Eneba's typeface (Metropolis) is not bundled; it is used if the visitor has
+ * it, otherwise the system's sans-serif.
  */
+@theme {
+  --color-page: #4618ac;
+  --color-panel: #5825cc;
+  --color-card: #1f0a4d;
+  --color-line: #6f47d6;
+  --color-accent: #fad318;
+  --color-accent-strong: #ffe14d;
+  --color-muted: #cfc8e3;
+  --color-region: #3ddcb1;
+  --color-deal: #9cf03a;
+  --color-danger: #ffb3b3;
+  --font-sans: Metropolis, 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-page);
+    color: #fff;
+  }
+
+  /* One visible focus style everywhere, for keyboard users. */
+  :focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+}

@@ -191,8 +191,12 @@ heading('1. Frontend')
   const home = await request('GET', '/', { headers: { accept: 'text/html' }, cookies: new Map() })
   check('The home page is the React app', home.status === 200 && home.text.includes('id="root"'), `HTTP ${home.status}`)
 
-  const deepLink = await request('GET', '/account', { headers: { accept: 'text/html' }, cookies: new Map() })
-  check('A client-side route (/account) also returns the app', deepLink.status === 200 && deepLink.text.includes('id="root"'), `HTTP ${deepLink.status}`)
+  // Addresses that exist only inside the React app must still load when
+  // opened directly (a refresh, or a link someone shared).
+  for (const path of ['/account', '/store?platform=steam&sort=price_asc&page=2', '/product/elden-ring-steam-key-global']) {
+    const deepLink = await request('GET', path, { headers: { accept: 'text/html' }, cookies: new Map() })
+    check(`Opening ${path.split('?')[0]} directly returns the app`, deepLink.status === 200 && deepLink.text.includes('id="root"'), `HTTP ${deepLink.status}`)
+  }
 }
 
 heading('2. API through the same origin')

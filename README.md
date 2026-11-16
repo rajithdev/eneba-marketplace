@@ -5,10 +5,10 @@ assignment: a store with filters and search, a homepage assembled from
 backend-defined blocks, product pages comparing offers from several sellers,
 and a checkout that delivers a digital key.
 
-**Status: deployed.** Sign-up and sign-in work end to end, and the catalog
-API (products, seller offers, filters) is live with a seeded catalog. The
-store and product pages, search, cart and checkout, the homepage and the
-Eneba styling are still to come, one at a time.
+**Status: deployed.** Sign-up and sign-in work end to end. The store (filters,
+sorting, pagination) and product pages (seller offers, other platforms and
+regions) are live on a seeded catalog. Search, cart and checkout, and the
+block-based homepage are still to come, one at a time.
 
 | | |
 |---|---|
@@ -115,6 +115,20 @@ Things a reviewer should know are deliberate, approximate or not done yet.
   that exists, a sales count, or whether an offer is switched on. A game
   removed from the data files is not removed from a deployed database.
 - There is no search yet; typo-tolerant search is its own phase.
+
+**Store and product pages**
+
+- Nothing can be bought yet. Offers are shown for comparison; the cart and
+  checkout are a later phase, so there is no "add to cart" button.
+- The look follows Eneba's design language (colours, heavy type, square
+  corners, card and offer layout, read from eneba.com's own pages) without
+  copying its assets. The wordmark is a placeholder, and Eneba's typeface is
+  not bundled: the system sans-serif is used unless the visitor has it.
+- The store's address uses the API's own parameters, so a price filter
+  appears in cents (`min_price=1000` is 10.00).
+- The landing page is a placeholder until the block-based homepage is built.
+- Accessibility was checked by hand (keyboard, headings, labels, contrast),
+  not with an automated audit tool or a screen reader.
 
 **Authentication**
 

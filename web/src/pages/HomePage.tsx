@@ -1,28 +1,21 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
-import { apiFetch } from '../lib/api'
+import { primaryButton } from '../components/States'
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 
 /**
- * Placeholder for the real homepage (built from backend-defined blocks in a
- * later increment). For now it proves the browser can reach the API.
+ * A simple landing page for now. The real homepage, assembled from blocks
+ * that the backend defines (banner, best sellers, deals), is a later phase.
  */
 export function HomePage() {
-  const health = useQuery({
-    queryKey: ['health'],
-    queryFn: () => apiFetch<{ status: string }>('/health'),
-  })
+  useDocumentTitle('Digital game keys')
 
   return (
-    <main className="mx-auto max-w-3xl p-8">
-      <h1 className="text-2xl font-semibold">Eneba Marketplace</h1>
-      <p className="mt-2" role="status">
-        {health.isPending && 'Connecting to the API…'}
-        {health.isError && 'The API is not reachable.'}
-        {health.isSuccess && `API status: ${health.data.status}`}
-      </p>
-      <Link to="/account" className="mt-4 inline-block underline">
-        Account
+    <section className="py-16 sm:py-24">
+      <h1 className="max-w-2xl text-4xl font-black leading-tight sm:text-5xl">Game keys, gift cards and subscriptions</h1>
+      <p className="mt-4 max-w-xl text-lg text-muted">Compare offers from several sellers and pick the price that suits you.</p>
+      <Link to="/store" className={`${primaryButton} mt-8`}>
+        Browse the store
       </Link>
-    </main>
+    </section>
   )
 }

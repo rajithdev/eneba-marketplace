@@ -1,33 +1,23 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
-import { expect, it, vi } from 'vitest'
-import { HomePage } from './HomePage'
+import { screen } from '@testing-library/react'
+import { expect, it } from 'vitest'
+import { mockApi, renderAt } from '../test/render'
 
-function renderHomePage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+it('leads to the store, inside the shared header and navigation', () => {
+  mockApi(() => undefined)
+  renderAt('/')
 
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  )
-}
+  expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Browse the store' })).toHaveAttribute('href', '/store')
 
-it('shows the API status once the backend answers', async () => {
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"status":"ok"}', { status: 200 }))
-
-  renderHomePage()
-
-  expect(await screen.findByText('API status: ok')).toBeInTheDocument()
+  const nav = screen.getByRole('navigation', { name: 'Main' })
+  expect(nav).toHaveTextContent('Store')
+  expect(nav).toHaveTextContent('Account')
+  expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#main')
 })
 
-it('says so when the backend cannot be reached', async () => {
-  vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'))
+it('shows a not-found page for an address that does not exist', () => {
+  mockApi(() => undefined)
+  renderAt('/no-such-page')
 
-  renderHomePage()
-
-  expect(await screen.findByText('The API is not reachable.')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
 })

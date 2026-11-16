@@ -324,6 +324,56 @@ title and data. The frontend maps a type to a component and skips types it
 does not know. Reordering, hiding or adding a block is a database row change;
 nothing about the homepage is hardcoded in the frontend.
 
+## Store and product pages (Built)
+
+**The URL is the state.** `/store?platform=steam,xbox-live&region=europe&sort=price_asc&page=2`
+uses the API's own parameter names. The page reads the address, asks the API
+for exactly that, and changes the address when the visitor changes a filter.
+There is no second copy of the filters in component state, which is why
+refresh, the back button and a shared link all work with no extra code.
+Changing a filter or the sort returns to page 1. Page links are real links.
+
+**Nothing about the catalog is in the frontend.** Filter options, their
+counts, sort orders and the default sort come from `GET /api/filters`;
+products, prices, discounts, availability, sellers and variants come from
+the product endpoints. The frontend formats (currency, dates) and lays out.
+An address the API rejects (422) is shown as "these filters are not valid"
+rather than silently ignored.
+
+**Typed against the contract.** `web/src/lib/catalog.ts` holds the response
+types. `web/src/contracts/contracts.test.ts` assigns the recorded example
+responses to those types, so the type checker (which runs in the build)
+fails if the API's shape and the frontend's types disagree. The page tests
+use the same examples as mock data.
+
+**Reusable components** (`web/src/components`):
+
+| Component | Used for |
+|---|---|
+| `AppShell` | Header, navigation, skip link, footer around every page |
+| `ProductCard` | A product in any grid (store now; homepage blocks and search later) |
+| `PriceTag` | Every price: amount, struck-through original, percentage, or "Sold out" |
+| `FilterPanel` | Checkbox groups and price range, driven by the URL |
+| `Pagination` | Page links that keep the other parameters |
+| `OfferTable` | Sellers' offers side by side, in the API's order |
+| `VariantList` | The same game on other platforms and regions |
+| `Notice`, `ProductGridSkeleton` | Empty, error and loading states |
+
+**States.** Loading shows skeletons; changing page keeps the current results
+dimmed instead of flashing. "No results", "invalid filters", "not found" and
+"could not load" are distinct. Requests the server rejected as wrong (4xx)
+are not retried; failures that may pass (the free host waking up) are, and
+then offer "Try again".
+
+**Design.** Tokens in `web/src/index.css` hold the colours and type read from
+eneba.com's computed styles. No animation library; one hover transition,
+disabled for visitors who prefer reduced motion.
+
+**Accessibility.** Landmarks and a skip link; one `h1` per page with no
+skipped levels; every control labelled; the result count announced when it
+changes; a visible focus ring; offers in a real table with headers. Measured
+text contrast is at least 5.1:1 on both pages.
+
 ## Seed data and images (Built)
 
 **Curated, version-controlled data.** `api/database/data/games.json` lists

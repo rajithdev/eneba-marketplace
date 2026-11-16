@@ -88,3 +88,14 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
   return body as T
 }
+
+/**
+ * Whether a failed request is worth trying again. A server that is waking up
+ * or briefly unreachable is; an answer that says the request itself is wrong
+ * (not found, invalid filters, not signed in) will be the same next time.
+ */
+export function shouldRetry(failureCount: number, error: unknown): boolean {
+  const requestIsWrong = error instanceof ApiError && error.status >= 400 && error.status < 500
+
+  return !requestIsWrong && failureCount < 2
+}

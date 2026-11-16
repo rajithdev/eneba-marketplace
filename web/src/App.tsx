@@ -1,12 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router'
-import { AccountPage } from './pages/AccountPage'
-import { HomePage } from './pages/HomePage'
+import { routes } from './routes'
 
-// Routes are added per feature: store, search, product, cart, checkout, orders.
-const router = createBrowserRouter([
-  { path: '/', element: <HomePage /> },
-  { path: '/account', element: <AccountPage /> },
-])
+const router = createBrowserRouter(routes)
 
 export default function App() {
   return <RouterProvider router={router} />
