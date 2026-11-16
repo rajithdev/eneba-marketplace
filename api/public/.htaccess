@@ -13,10 +13,10 @@
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
+    # Laravel's default "redirect trailing slashes" rule is removed on purpose.
+    # Behind the hosting provider's load balancer Apache only knows its internal
+    # address, so that redirect pointed to http://<api-host>:10000/..., which is
+    # unreachable. Laravel's router matches a path with or without the slash.
 
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d

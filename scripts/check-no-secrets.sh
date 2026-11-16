@@ -41,8 +41,24 @@ emails=$(echo "$files" | grep -vE '(composer\.lock|package-lock\.json)$' | while
 [ -z "$emails" ] && pass "no personal email address in tracked files" \
     || fail "email addresses found: $(echo $emails)"
 
+# 3b. Text listed for removal from the AI logs must not appear in any tracked file.
+if [ -f docs/ai-log/redactions.local.json ]; then
+    leaked=$(node -e '
+        const fs = require("fs");
+        const terms = JSON.parse(fs.readFileSync("docs/ai-log/redactions.local.json", "utf8")).redactions.map((r) => r.text);
+        const files = fs.readFileSync(0, "utf8").split("\n").filter(Boolean);
+        const hits = files.filter((f) => fs.existsSync(f) && fs.statSync(f).isFile() && terms.some((t) => fs.readFileSync(f).includes(t)));
+        console.log(hits.join(" "));
+    ' <<LIST
+$files
+LIST
+)
+    [ -z "$leaked" ] && pass "no tracked file contains text marked private for the AI log" \
+        || fail "private text found in: $leaked"
+fi
+
 # 4. The ignore rules themselves.
-for path in api/.env api/.env.production web/.env web/.env.local docs/ai-log/raw/x.jsonl web/.vercel/project.json; do
+for path in api/.env api/.env.production web/.env web/.env.local docs/ai-log/raw/x.jsonl docs/ai-log/redactions.local.json web/.vercel/project.json; do
     git check-ignore -q "$path" || { fail "$path is not ignored by Git"; }
 done
 [ $status -eq 0 ] && pass "environment files, raw transcripts and host link files are ignored by Git"

@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Session\ArraySessionHandler;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -107,7 +108,8 @@ class AuthenticationTest extends TestCase
             ->assertOk()->assertJsonPath('data.id', $user->id);
 
         // The same request without the cookie is anonymous.
-        $this->asLaterRequestWithCookiesFrom(null)->getJson('/api/auth/me')->assertUnauthorized();
+        $this->asLaterRequestWithCookiesFrom(null)->getJson('/api/auth/me')
+            ->assertOk()->assertExactJson(['data' => null]);
     }
 
     public function test_signing_in_issues_a_new_session_id(): void
@@ -135,11 +137,37 @@ class AuthenticationTest extends TestCase
         $this->assertGuest('web');
     }
 
-    public function test_the_current_user_endpoint_requires_a_signed_in_user(): void
+    public function test_a_visitor_is_told_nobody_is_signed_in_without_an_error(): void
     {
-        $this->getJson('/api/auth/me')
+        $this->getJson('/api/auth/me')->assertOk()->assertExactJson(['data' => null]);
+    }
+
+    public function test_a_real_failure_of_the_current_user_endpoint_is_still_an_error(): void
+    {
+        // Simulate the database being unreachable while resolving the session.
+        $this->app['session']->driver()->setHandler(new class extends ArraySessionHandler
+        {
+            public function __construct()
+            {
+                parent::__construct(120);
+            }
+
+            public function read($sessionId): string|false
+            {
+                throw new \RuntimeException('database is down');
+            }
+        });
+
+        $this->getJson('/api/auth/me')->assertStatus(500);
+    }
+
+    public function test_a_signed_out_caller_of_a_protected_route_gets_401_even_when_asking_for_html(): void
+    {
+        // A browser navigating straight to the URL sends "Accept: text/html".
+        // There is no login page to redirect to, so this must still be a 401.
+        $this->post('/api/auth/logout', [], ['Accept' => 'text/html'])
             ->assertUnauthorized()
-            ->assertExactJson(['message' => 'Unauthenticated.']);
+            ->assertHeader('content-type', 'application/json');
     }
 
     public function test_signing_out_destroys_the_session_on_the_server(): void
@@ -150,7 +178,8 @@ class AuthenticationTest extends TestCase
         $this->asLaterRequestWithCookiesFrom($login)->postJson('/api/auth/logout')->assertNoContent();
 
         // Replaying the old cookie (as a thief who copied it would) no longer works.
-        $this->asLaterRequestWithCookiesFrom($login)->getJson('/api/auth/me')->assertUnauthorized();
+        $this->asLaterRequestWithCookiesFrom($login)->getJson('/api/auth/me')
+            ->assertOk()->assertExactJson(['data' => null]);
     }
 
     public function test_signing_out_requires_being_signed_in(): void
@@ -190,6 +219,40 @@ class AuthenticationTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.99'])
             ->postJson('/api/auth/login', ['email' => 'victim@example.com', 'password' => 'guess-11'])
             ->assertTooManyRequests();
+    }
+
+    public function test_a_direct_caller_cannot_escape_rate_limiting_by_inventing_forwarded_addresses(): void
+    {
+        // One real caller (same connecting address) claiming a different
+        // forwarded address and trying a different email on every request.
+        foreach (range(1, 60) as $attempt) {
+            $this->withHeader('X-Forwarded-For', '198.51.100.'.$attempt)
+                ->postJson('/api/auth/login', ['email' => "user{$attempt}@example.com", 'password' => 'guess'])
+                ->assertUnprocessable();
+        }
+
+        $this->withHeader('X-Forwarded-For', '198.51.100.200')
+            ->postJson('/api/auth/login', ['email' => 'user61@example.com', 'password' => 'guess'])
+            ->assertTooManyRequests();
+    }
+
+    public function test_visitors_arriving_through_the_same_frontend_server_are_limited_individually(): void
+    {
+        // Same edge address (the frontend's server), different real visitors.
+        foreach (range(1, 10) as $attempt) {
+            $this->withHeader('X-Forwarded-For', '198.51.100.1')
+                ->postJson('/api/auth/login', ['email' => "a{$attempt}@example.com", 'password' => 'guess'])
+                ->assertUnprocessable();
+        }
+
+        $this->withHeader('X-Forwarded-For', '198.51.100.1')
+            ->postJson('/api/auth/login', ['email' => 'a11@example.com', 'password' => 'guess'])
+            ->assertTooManyRequests();
+
+        // A different visitor behind the same frontend server is unaffected.
+        $this->withHeader('X-Forwarded-For', '198.51.100.2')
+            ->postJson('/api/auth/login', ['email' => 'b1@example.com', 'password' => 'guess'])
+            ->assertUnprocessable();
     }
 
     public function test_repeated_sign_in_attempts_are_rate_limited(): void

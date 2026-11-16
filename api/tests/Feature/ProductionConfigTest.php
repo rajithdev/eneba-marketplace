@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Support\ClientAddress;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -67,5 +69,40 @@ class ProductionConfigTest extends TestCase
         $response->assertOk();
         $this->assertSame(0, $queries);
         $this->assertEmpty($response->headers->getCookies());
+    }
+
+    public function test_forwarded_host_and_address_headers_are_not_believed(): void
+    {
+        config(['app.deploy_diagnostics' => true]);
+
+        $seen = $this->withHeaders([
+            'X-Forwarded-Host' => 'evil.example',
+            'X-Forwarded-For' => '203.0.113.7',
+        ])->getJson('/api/_diagnostics')->json('what_laravel_concluded');
+
+        $this->assertNotSame('evil.example', $seen['host']);
+        $this->assertNotSame('203.0.113.7', $seen['client_ip']);
+        $this->assertStringNotContainsString('evil.example', $seen['generated_url']);
+    }
+
+    public function test_the_edge_address_is_preferred_and_cannot_be_overridden_by_the_forwarded_header(): void
+    {
+        $request = Request::create('/api/health', 'GET', server: [
+            'REMOTE_ADDR' => '10.0.0.5',
+            'HTTP_X_FORWARDED_FOR' => '203.0.113.7, 198.51.100.4',
+            'HTTP_CF_CONNECTING_IP' => '198.51.100.4',
+        ]);
+
+        $this->assertSame('203.0.113.7', ClientAddress::claimed($request));
+        $this->assertSame('198.51.100.4', ClientAddress::edge($request));
+
+        $local = Request::create('/api/health', 'GET', server: ['REMOTE_ADDR' => '10.0.0.5']);
+        $this->assertSame('10.0.0.5', ClientAddress::claimed($local));
+        $this->assertSame('10.0.0.5', ClientAddress::edge($local));
+    }
+
+    public function test_a_path_with_a_trailing_slash_is_served_without_a_redirect(): void
+    {
+        $this->getJson('/api/health/')->assertOk()->assertExactJson(['status' => 'ok']);
     }
 }

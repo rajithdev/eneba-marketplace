@@ -46,5 +46,5 @@ audit: ## Fail if a secret or private file is tracked by Git
 app-key: ## Print a new application key. Run in your own terminal; never paste it into a chat.
 	@$(API) php artisan key:generate --show
 
-verify: ## Verify a deployment end to end: make verify URL=https://example.vercel.app
-	node scripts/deploy/verify-deployment.mjs $(URL)
+verify: ## Verify a deployment: make verify URL=https://x.vercel.app API_URL=https://y.onrender.com
+	node scripts/deploy/verify-deployment.mjs $(URL) $(if $(API_URL),--api-origin=$(API_URL))

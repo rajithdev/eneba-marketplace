@@ -9,19 +9,17 @@ export interface User {
 
 const currentUserKey = ['current-user']
 
-/** The signed-in user, or null for a visitor. */
+/**
+ * The signed-in user, or null for a visitor.
+ *
+ * The server answers 200 with {"data": null} for a visitor, so "nobody is
+ * signed in" is not an error. Anything that IS an error (server down, bad
+ * response) is thrown and shown as such; it is never mistaken for "signed out".
+ */
 export function useCurrentUser() {
   return useQuery({
     queryKey: currentUserKey,
-    queryFn: async (): Promise<User | null> => {
-      try {
-        return (await apiFetch<{ data: User }>('/auth/me')).data
-      } catch (error) {
-        // 401 is the normal answer for a visitor, not a failure.
-        if (error instanceof ApiError && error.status === 401) return null
-        throw error
-      }
-    },
+    queryFn: async (): Promise<User | null> => (await apiFetch<{ data: User | null }>('/auth/me')).data,
     retry: false,
   })
 }
@@ -37,6 +35,11 @@ function useAuthAction<Input>(path: string) {
       }),
     // Whatever happened, what the server says about "who am I" is the truth.
     onSuccess: (result) => queryClient.setQueryData(currentUserKey, result?.data ?? null),
+    // 401 here means the session had already ended (expired, or signed out in
+    // another tab): the user is a visitor now. Other errors stay errors.
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 401) queryClient.setQueryData(currentUserKey, null)
+    },
   })
 }
 

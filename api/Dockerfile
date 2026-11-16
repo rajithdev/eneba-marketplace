@@ -31,7 +31,8 @@ CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
 FROM base AS prod
 
 # PHP's recommended production settings (errors are logged, never displayed).
-RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+    && echo "expose_php = Off" > "$PHP_INI_DIR/conf.d/zz-app.ini"
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 

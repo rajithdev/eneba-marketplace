@@ -21,10 +21,11 @@ Route::prefix('auth')->group(function () {
         Route::post('/login', [AuthController::class, 'login']);
     });
 
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/me', [AuthController::class, 'me']);
-        Route::post('/logout', [AuthController::class, 'logout']);
-    });
+    // Answers for visitors too ("nobody is signed in"), so the frontend can
+    // ask on every page load without that being an error.
+    Route::get('/me', [AuthController::class, 'me']);
+
+    Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 });
 
 // Off unless DEPLOY_DIAGNOSTICS=true (answers 404). See DiagnosticsController.

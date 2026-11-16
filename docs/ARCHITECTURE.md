@@ -203,12 +203,17 @@ How it works:
 - CSRF: Laravel 13 accepts a request that changes data if the browser marks it
   same-origin (`Sec-Fetch-Site`) or if it carries the token from the readable
   `XSRF-TOKEN` cookie. The frontend always sends the token, so both paths work.
-- Sign-in and sign-up are limited to 10 attempts per minute per IP address and
-  per email address.
+- Sign-in and sign-up are rate limited per visitor address, per edge address
+  and per email address, so the limits hold even for callers that bypass the
+  frontend and forge their address (see DEPLOYMENT.md, "Calling the API host
+  directly").
+- `GET /api/auth/me` answers `{"data": null}` for a visitor rather than an
+  error: "nobody is signed in" is a normal state. Server failures still
+  return error statuses and the frontend shows them as failures.
 
 Verification: PHPUnit tests replay the real session cookie between requests;
 `scripts/deploy/verify-deployment.mjs` runs the whole flow against a running
-site (32 checks, passing against the local production stack). What remains is
+site (44 checks, passing against the local production stack). What remains is
 the same run against the public address: Vercel's documentation does not say
 how a rewrite treats cookies. If it fails there, the cause is diagnosed first
 (see DEPLOYMENT.md); option C is the fallback, option A a last resort.

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ClientAddress;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
@@ -29,12 +30,20 @@ class DiagnosticsController extends Controller
                 'treated_as_frontend_request' => EnsureFrontendRequestsAreStateful::fromFrontend($request),
                 'session_started' => $request->hasSession(),
                 'signed_in' => $request->user('sanctum') !== null,
+                // Root of the links the app generates (always APP_URL in production).
+                'generated_url' => url('/api'),
+                'rate_limit_addresses' => [
+                    'claimed' => ClientAddress::claimed($request),
+                    'edge' => ClientAddress::edge($request),
+                ],
             ],
             'what_arrived' => [
                 'host_header' => $request->headers->get('host'),
                 'x_forwarded_host' => $request->headers->get('x-forwarded-host'),
                 'x_forwarded_proto' => $request->headers->get('x-forwarded-proto'),
                 'x_forwarded_for' => $request->headers->get('x-forwarded-for'),
+                'cf_connecting_ip' => $request->headers->get('cf-connecting-ip'),
+                'remote_addr' => $request->server('REMOTE_ADDR'),
                 'origin' => $request->headers->get('origin'),
                 'referer' => $request->headers->get('referer'),
                 'sec_fetch_site' => $request->headers->get('sec-fetch-site'),
@@ -45,6 +54,7 @@ class DiagnosticsController extends Controller
             'configuration' => [
                 'environment' => config('app.env'),
                 'debug' => (bool) config('app.debug'),
+                'app_url' => config('app.url'),
                 'frontend_url' => config('app.frontend_url'),
                 'stateful_domains' => config('sanctum.stateful'),
                 'session_cookie_name' => config('session.cookie'),

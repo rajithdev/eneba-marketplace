@@ -17,6 +17,12 @@
 //      tool call summarised on one line. It is always regenerated from the raw
 //      copy, never edited by hand.
 //
+// Private text unrelated to the project (for example the name of a personal
+// folder that appears in a file path) can be listed in
+// docs/ai-log/redactions.local.json. That file is never committed. Each listed
+// string is replaced in the readable copies only, the header of each copy says
+// how many replacements were made, and the raw copy is left untouched.
+//
 // Which sessions are included: every session Claude Code recorded for this
 // project folder, plus any ids listed in docs/ai-log/sessions.json (used for
 // sessions that began in another folder before this project existed).
@@ -138,6 +144,25 @@ function snapshotRaw(id, sourceFile) {
   return result
 }
 
+// ------------------------------------------------------------- redaction ---
+
+/** [{ text, replacement }] from the untracked local file, or none. */
+function loadRedactions() {
+  const file = join(logDir, 'redactions.local.json')
+  if (!existsSync(file)) return []
+  return JSON.parse(readFileSync(file, 'utf8')).redactions.filter((entry) => entry.text)
+}
+
+function redact(markdown, redactions) {
+  let count = 0
+  for (const { text, replacement = '[redacted]' } of redactions) {
+    const parts = markdown.split(text)
+    count += parts.length - 1
+    markdown = parts.join(replacement)
+  }
+  return { markdown, count }
+}
+
 // ------------------------------------------------------------- read jsonl ---
 
 function readJsonl(path) {
@@ -195,7 +220,7 @@ function textOf(content) {
 
 // ---------------------------------------------------------------- render ---
 
-function renderSession(id, sessionRawDir) {
+function renderSession(id, sessionRawDir, redactions) {
   const records = readJsonl(join(sessionRawDir, `${id}.jsonl`))
   const seen = new Set()
   const out = []
@@ -281,7 +306,17 @@ function renderSession(id, sessionRawDir) {
     '',
   ]
 
-  return { markdown: [...header, ...out, ...subagents].join('\n'), firstTime, lastTime, promptCount, title }
+  const body = redact([...out, ...subagents].join('\n'), redactions)
+  if (body.count) {
+    header.splice(
+      header.length - 3,
+      0,
+      `${body.count} occurrence(s) of private text unrelated to this project (such as a personal folder`,
+      'name in a file path) were replaced with a "[redacted…]" marker. Nothing else was changed.',
+    )
+  }
+
+  return { markdown: [...header, body.markdown].join('\n'), firstTime, lastTime, promptCount, title }
 }
 
 /** Subagents are other AI runs the assistant delegated work to. */
@@ -330,11 +365,12 @@ function renderSubagents(dir, delegated) {
 mkdirSync(rawDir, { recursive: true })
 
 const sessions = findSessions()
+const redactions = loadRedactions()
 const index = []
 
 for (const [id, sourceFile] of sessions) {
   const status = sourceFile ? snapshotRaw(id, sourceFile) : 'original gone, using preserved copy'
-  const rendered = renderSession(id, join(rawDir, id))
+  const rendered = renderSession(id, join(rawDir, id), redactions)
   const fileName = `${(rendered.firstTime ?? 'undated').slice(0, 10)}-${id.slice(0, 8)}.md`
   writeFileSync(join(logDir, fileName), rendered.markdown)
 

@@ -22,11 +22,15 @@ services:
         value: "false"
       - key: APP_KEY
         sync: false
-      # Public address of the frontend, e.g. https://<project>.vercel.app
-      # (no trailing slash). Decides who may use the login session and CORS.
+      # FRONTEND_URL: the one origin allowed to use the login session and the
+      # one origin allowed by CORS.
+      # APP_URL: the root of every link the API generates.
+      # Both are the address visitors use, i.e. the Vercel address
+      # (https://<project>.vercel.app, no trailing slash). NOT this service's
+      # own onrender.com address: visitors never see that one, because the
+      # frontend forwards /api to it.
       - key: FRONTEND_URL
         sync: false
-      # Same value as FRONTEND_URL: it is the address visitors see.
       - key: APP_URL
         sync: false
 
@@ -66,8 +70,8 @@ services:
       - key: QUEUE_CONNECTION
         value: sync
 
-      # The app is behind the frontend host's proxy and Render's load
-      # balancer; their forwarded headers say the visitor used HTTPS.
+      # Believe the load balancer's X-Forwarded-Proto ("the visitor used
+      # https") and nothing else. See api/bootstrap/app.php.
       - key: TRUSTED_PROXIES
         value: "*"
 

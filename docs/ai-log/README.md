@@ -34,6 +34,15 @@ They show what was said. They do not show full tool inputs and outputs, the
 model's private reasoning, or the context the app adds automatically. All of
 that remains in `raw/`.
 
+## Redactions
+
+A readable copy can contain private text that has nothing to do with the
+project, for example the name of a personal folder inside a file path. Such
+strings are listed in a local, uncommitted file and replaced with a
+`[redacted…]` marker when the copies are generated. Each copy's header states
+how many replacements were made. Prompts and responses are otherwise
+verbatim, and the original transcript is never altered.
+
 ## Why `raw/` is not in the public repository
 
 The original transcripts contain details about the machine they were recorded

@@ -4,6 +4,8 @@
 # contain machine and account details unrelated to this project.
 # See docs/ai-log/README.md.
 docs/ai-log/raw/
+# Private strings removed from the readable AI logs (see scripts/ai-log/snapshot.mjs).
+docs/ai-log/redactions.local.json
 
 # Local environment files and host tooling state. Never committed.
 .env

@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 // End-to-end check of a running deployment, through its public address.
 //
-//   node scripts/deploy/verify-deployment.mjs https://<project>.vercel.app
-//   node scripts/deploy/verify-deployment.mjs http://localhost:4173 --behind-https-proxy
+//   node scripts/deploy/verify-deployment.mjs https://<project>.vercel.app --api-origin=https://<service>.onrender.com
+//   node scripts/deploy/verify-deployment.mjs http://localhost:4780 --behind-https-proxy --api-origin=http://localhost:8100
+//
+// --api-origin is the API host's own address. With it, the script also calls
+// the API directly, bypassing the frontend, to check that doing so gains an
+// attacker nothing.
 //
 // It behaves like a browser on the frontend's origin, but keeps its own cookie
 // jar so every cookie the server sets can be inspected. It checks, in order:
@@ -21,7 +25,7 @@ import https from 'node:https'
 
 const [baseArg, ...flags] = process.argv.slice(2)
 if (!baseArg) {
-  console.error('Usage: verify-deployment.mjs <base-url> [--behind-https-proxy]')
+  console.error('Usage: verify-deployment.mjs <base-url> [--behind-https-proxy] [--api-origin=<url>]')
   process.exit(2)
 }
 const base = new URL(baseArg)
@@ -29,12 +33,14 @@ const origin = base.origin
 // Cookies must be marked Secure whenever visitors use https. Locally the
 // stand-in proxy claims https while we talk to it over http.
 const expectSecure = base.protocol === 'https:' || flags.includes('--behind-https-proxy')
+const apiOriginFlag = flags.find((flag) => flag.startsWith('--api-origin='))
+const apiOrigin = apiOriginFlag ? new URL(apiOriginFlag.slice('--api-origin='.length)) : null
 
 // ------------------------------------------------------------ http client ---
 
 const jar = new Map() // cookie name -> value
 
-function request(method, path, { body, headers = {}, cookies = jar, asFrontend = true } = {}) {
+function request(method, path, { body, headers = {}, cookies = jar, asFrontend = true, target = base } = {}) {
   const payload = body === undefined ? undefined : JSON.stringify(body)
   const cookieHeader = [...cookies].map(([name, value]) => `${name}=${value}`).join('; ')
 
@@ -49,8 +55,8 @@ function request(method, path, { body, headers = {}, cookies = jar, asFrontend =
   }
 
   return new Promise((resolve, reject) => {
-    const client = base.protocol === 'https:' ? https : http
-    const req = client.request(new URL(path, base), { method, headers: allHeaders, timeout: 150_000 }, (res) => {
+    const client = target.protocol === 'https:' ? https : http
+    const req = client.request(new URL(path, target), { method, headers: allHeaders, timeout: 150_000 }, (res) => {
       let text = ''
       res.setEncoding('utf8')
       res.on('data', (chunk) => (text += chunk))
@@ -134,6 +140,9 @@ heading('2. API through the same origin')
 
   const missing = await request('GET', '/api/no-such-route', { cookies: new Map() })
   check('An unknown /api path reaches the API (JSON 404), not the app', missing.status === 404 && missing.json !== null, `HTTP ${missing.status}`)
+
+  const slash = await request('GET', '/api/health/', { cookies: new Map() })
+  check('A trailing slash is served, not redirected to an internal address', slash.status === 200 && !slash.headers.location, `HTTP ${slash.status}${slash.headers.location ? ` -> ${slash.headers.location}` : ''}`)
 }
 
 heading('3. Session cookie')
@@ -177,6 +186,8 @@ heading('4. What the server sees through the proxies')
     check('A session was started for it', seen.session_started === true)
     check('The session cookie sent by the client reached the server', (arrived.cookie_names ?? []).includes(sessionCookieName), `cookies seen: ${(arrived.cookie_names ?? []).join(', ') || 'none'}`)
     if (expectSecure) check('The server knows the visitor used HTTPS', seen.is_secure === true, `scheme ${seen.scheme}`)
+    check('Links the API generates start with the public address', String(seen.generated_url).startsWith(`${origin}/`), String(seen.generated_url))
+    check('APP_URL and FRONTEND_URL are both the public address', diagnostics.json?.configuration?.app_url === origin && diagnostics.json?.configuration?.frontend_url === origin, `APP_URL ${diagnostics.json?.configuration?.app_url}, FRONTEND_URL ${diagnostics.json?.configuration?.frontend_url}`)
     check('Debug mode is off', diagnostics.json?.configuration?.debug === false)
   }
 }
@@ -184,7 +195,10 @@ heading('4. What the server sees through the proxies')
 heading('5. CSRF protection')
 {
   const visitor = await request('GET', '/api/auth/me')
-  check('A visitor is not signed in', visitor.status === 401, `HTTP ${visitor.status}`)
+  check('A visitor is told "nobody is signed in" without an error', visitor.status === 200 && visitor.json?.data === null, `HTTP ${visitor.status}`)
+
+  const protectedAsHtml = await request('POST', '/api/auth/logout', { headers: { accept: 'text/html', ...xsrfHeader() } })
+  check('A protected route answers 401 to a visitor, with no redirect', protectedAsHtml.status === 401 && !protectedAsHtml.headers.location, `HTTP ${protectedAsHtml.status}`)
 
   const forged = await request('POST', '/api/auth/register', {
     body: { name: 'Forged', email: `forged-${email}`, password },
@@ -208,7 +222,7 @@ heading('6. Sign up, sign in, sign out')
   check('The session cookie alone identifies the user on the next request', me.status === 200 && me.json?.data?.email === email, `HTTP ${me.status}`)
 
   const noOrigin = await request('GET', '/api/auth/me', { asFrontend: false })
-  check('The same cookie sent without the frontend origin is not accepted', noOrigin.status === 401, `HTTP ${noOrigin.status}`)
+  check('The same cookie sent without the frontend origin is not accepted', noOrigin.status === 200 && noOrigin.json?.data === null, `HTTP ${noOrigin.status}`)
 
   const forgedLogout = await request('POST', '/api/auth/logout', { headers: { 'sec-fetch-site': 'cross-site' } })
   const stillSignedIn = await request('GET', '/api/auth/me')
@@ -219,20 +233,73 @@ heading('6. Sign up, sign in, sign out')
   check('Sign-out succeeds', logout.status === 204, `HTTP ${logout.status}`)
 
   const afterLogout = await request('GET', '/api/auth/me')
-  check('After sign-out the user is a visitor again', afterLogout.status === 401, `HTTP ${afterLogout.status}`)
+  check('After sign-out the user is a visitor again', afterLogout.status === 200 && afterLogout.json?.data === null, `HTTP ${afterLogout.status}`)
 
   const replay = await request('GET', '/api/auth/me', { cookies: stolen })
-  check('The old session cookie no longer works (destroyed on the server)', replay.status === 401, `HTTP ${replay.status}`)
+  check('The old session cookie no longer works (destroyed on the server)', replay.status === 200 && replay.json?.data === null, `HTTP ${replay.status}`)
 
   const wrong = await request('POST', '/api/auth/login', { body: { email, password: `${password}x` }, headers: xsrfHeader() })
   check('A wrong password is rejected', wrong.status === 422, `HTTP ${wrong.status}`)
 
   const login = await request('POST', '/api/auth/login', { body: { email, password }, headers: xsrfHeader() })
   const meAgain = await request('GET', '/api/auth/me')
-  check('Sign-in with the right password works', login.status === 200 && meAgain.status === 200, `HTTP ${login.status}, then ${meAgain.status}`)
-
-  await request('POST', '/api/auth/logout', { headers: xsrfHeader() })
+  check('Sign-in with the right password works', login.status === 200 && meAgain.json?.data?.email === email, `HTTP ${login.status}, then ${meAgain.status}`)
 }
+
+if (apiOrigin) {
+  heading('7. Calling the API host directly, bypassing the frontend')
+  const direct = (method, path, options = {}) => request(method, path, { target: apiOrigin, ...options })
+
+  // The signed-in cookie from section 6, replayed straight at the API host
+  // with the frontend's Origin: this is what an attacker holding a stolen
+  // cookie would do. It is the same credential, so it is expected to work;
+  // what matters is that nothing ELSE works better here than via the frontend.
+  const health = await direct('GET', '/api/health', { cookies: new Map(), asFrontend: false })
+  check('The API host answers directly', health.status === 200, `HTTP ${health.status}`)
+
+  const noOriginLogin = await direct('POST', '/api/auth/login', { body: { email, password }, cookies: new Map(), asFrontend: false })
+  check('Sign-in without the frontend origin is refused', noOriginLogin.status === 400, `HTTP ${noOriginLogin.status}`)
+
+  const otherOrigin = await direct('POST', '/api/auth/login', {
+    body: { email, password },
+    cookies: new Map(),
+    asFrontend: false,
+    headers: { origin: 'https://evil.example', referer: 'https://evil.example/' },
+  })
+  check('Sign-in from another website\'s origin is refused', otherOrigin.status === 400, `HTTP ${otherOrigin.status}`)
+
+  const directJar = new Map()
+  await direct('GET', '/api/sanctum/csrf-cookie', { cookies: directJar })
+  const noToken = await direct('POST', '/api/auth/login', { body: { email, password }, cookies: directJar })
+  check('A direct request that changes data still needs the CSRF token', noToken.status === 419, `HTTP ${noToken.status}`)
+
+  const slash = await direct('GET', '/api/health/', { cookies: new Map(), asFrontend: false })
+  check('No redirect to an internal address', slash.status === 200 && !slash.headers.location, `HTTP ${slash.status}`)
+  check('The PHP version is not advertised', !health.headers['x-powered-by'], health.headers['x-powered-by'] ?? '')
+
+  const forged = await direct('GET', '/api/_diagnostics', {
+    cookies: new Map(),
+    headers: {
+      'x-forwarded-for': '203.0.113.7',
+      'x-forwarded-host': 'evil.example',
+      'cf-connecting-ip': '203.0.113.9',
+    },
+  })
+  if (forged.status === 404) {
+    console.log('  (diagnostics are switched off; forged-header checks skipped)')
+  } else {
+    const seen = forged.json?.what_laravel_concluded ?? {}
+    console.log(`  with forged headers the server concluded: ${JSON.stringify(seen)}`)
+    check('A forged host header does not change generated links', !String(seen.generated_url).includes('evil.example') && seen.host !== 'evil.example', String(seen.generated_url))
+    check('A forged forwarded address is not taken as the client address', seen.client_ip !== '203.0.113.7', `client_ip ${seen.client_ip}`)
+    if (apiOrigin.protocol === 'https:') {
+      // Only meaningful on the real host: its edge network must overwrite this header.
+      check('The edge address used for rate limiting cannot be forged', seen.rate_limit_addresses?.edge !== '203.0.113.9', `edge ${seen.rate_limit_addresses?.edge}`)
+    }
+  }
+}
+
+await request('POST', '/api/auth/logout', { headers: xsrfHeader() })
 
 // --------------------------------------------------------------- summary ---
 

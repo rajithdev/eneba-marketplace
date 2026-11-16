@@ -23,7 +23,7 @@ return [
     // so there is a single setting to get right per environment.
     'stateful' => explode(',', env(
         'SANCTUM_STATEFUL_DOMAINS',
-        preg_replace('#^https?://#', '', rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/')),
+        preg_replace('#^https?://#', '', strtolower(rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/'))),
     )),
 
     /*

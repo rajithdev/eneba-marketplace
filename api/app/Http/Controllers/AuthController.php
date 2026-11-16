@@ -51,9 +51,18 @@ class AuthController extends Controller
         return UserResource::make($request->user());
     }
 
-    public function me(Request $request): UserResource
+    /**
+     * Who is signed in. For a visitor this is a normal answer, {"data": null},
+     * not an error: "nobody" is a valid state. Real failures (the server or
+     * database being down) still surface as error responses.
+     */
+    public function me(Request $request): JsonResponse
     {
-        return UserResource::make($request->user());
+        $user = $request->user('sanctum');
+
+        return response()->json([
+            'data' => $user ? UserResource::make($user)->resolve($request) : null,
+        ]);
     }
 
     public function logout(Request $request): Response

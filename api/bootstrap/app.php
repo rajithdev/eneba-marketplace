@@ -18,14 +18,20 @@ return Application::configure(basePath: dirname(__DIR__))
         // anywhere else stay stateless. See docs/ARCHITECTURE.md, "Authentication".
         $middleware->statefulApi();
 
-        // In production the app sits behind the frontend host's proxy and the
-        // API host's load balancer. Trusting their X-Forwarded-* headers is
-        // what tells Laravel the visitor used HTTPS and what their IP address
-        // is. Unset locally (nothing is trusted); "*" in production, because
-        // the load balancer's addresses are not published or stable.
-        if ($proxies = env('TRUSTED_PROXIES')) {
-            $middleware->trustProxies(at: $proxies === '*' ? '*' : explode(',', $proxies));
+        // In production the app sits behind the API host's load balancer, which
+        // ends the HTTPS connection and talks plain HTTP to the container. The
+        // only forwarded header we believe is X-Forwarded-Proto ("the visitor
+        // used https"). The forwarded host and client address are NOT believed:
+        // anyone who calls the API host directly can set them to anything.
+        // Public URLs come from APP_URL instead (AppServiceProvider), and rate
+        // limiting reads addresses explicitly (App\Support\ClientAddress).
+        if (env('TRUSTED_PROXIES') === '*') {
+            $middleware->trustProxies(at: '*', headers: Request::HEADER_X_FORWARDED_PROTO);
         }
+
+        // This is an API: a signed-out caller gets a 401 response, never a
+        // redirect to a login page (there is none to redirect to).
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

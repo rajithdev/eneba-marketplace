@@ -38,7 +38,9 @@ Run on 2026-11-16. Commands: `make test`, `make prod-check`, `make audit`.
 | Sanctum session | Only requests whose Origin/Referer is the frontend may use the session. Derived from one variable, `FRONTEND_URL`. | `ProductionConfigTest`, `AuthenticationTest`, production check |
 | Session cookie | HttpOnly, Secure, SameSite=Lax, path `/`, no Domain attribute (bound to one host), stored server-side in the database | production check reads the real `Set-Cookie` headers |
 | CSRF | A request that changes data needs either the browser's same-origin marker or the token header. Forged cross-site requests get HTTP 419. | production check |
-| Trusted proxies | `TRUSTED_PROXIES=*` in production, nothing trusted locally. With it, Laravel correctly sees HTTPS and the public host. | production check, via the diagnostics route |
+| Trusted proxies | Only `X-Forwarded-Proto` is believed (so Laravel knows the visitor used HTTPS). The forwarded host and client address are not: a direct caller can forge them. | `ProductionConfigTest`; production check sends forged headers |
+| `APP_URL`, `FRONTEND_URL` | Both are the Vercel address (see below). The container refuses to start if either is missing, not https, or has a path. | `entrypoint.sh`; production check |
+| Redirects | The API never redirects: no login-page redirect for signed-out callers, no trailing-slash redirect | `AuthenticationTest`, `ProductionConfigTest`, production check |
 | Database TLS | `DB_SSLMODE=verify-full` with the system certificate bundle: encrypted, and the server's certificate must be valid for its host name | tested from the production image against a TLS-enabled Postgres (below) |
 | Debug mode | The container refuses to start in production with `APP_DEBUG=true` or without `APP_KEY` | `entrypoint.sh`; production check asserts debug is off |
 | Caching | API responses carry `Cache-Control: no-cache, private`; the rewrite also opts out of proxy caching | `ProductionConfigTest`, production check |
@@ -64,9 +66,10 @@ builds the production API image, runs it with production settings on a
 separate database, puts a stand-in for Vercel's proxy in front, and runs
 `scripts/deploy/verify-deployment.mjs` against it.
 
-Result: **32 of 32 checks passed** (frontend served, deep links, API through
+Result: **44 of 44 checks passed** (frontend served, deep links, API through
 the same origin, cookie attributes, CSRF rejection, sign-up, sign-in, sign-out,
-server-side session destruction). The same flow was also done by hand in a
+server-side session destruction, and direct calls to the API host with forged
+headers). The same flow was also done by hand in a
 real browser against that stack: sign up, reload (still signed in), sign out;
 the session cookie was not visible to page scripts.
 
@@ -78,6 +81,50 @@ no personal email address; ignore rules cover `.env*`, `docs/ai-log/raw/` and
 `.vercel/`; the Docker image excludes `.env` files. Git history (4 commits at
 the time of the check) was scanned for keys and database URLs: none. Commits
 use GitHub's private no-reply address.
+
+## `APP_URL` and `FRONTEND_URL`
+
+Both are set to the **Vercel address** (`https://<project>.vercel.app`), not
+to the API's own `onrender.com` address.
+
+| Variable | What it decides | Why the Vercel address |
+|---|---|---|
+| `FRONTEND_URL` | Which origin may use the login session (compared with the browser's `Origin`/`Referer` header), and the one origin CORS allows | The browser is on the Vercel address, so that is what those headers say |
+| `APP_URL` | The root of every link the API generates | Visitors reach the API at `https://<project>.vercel.app/api`; they never see the Render address |
+
+Three problems this setup could have had, found by probing the production
+image directly, and how each is closed:
+
+| Problem found | Fix |
+|---|---|
+| A request with a trailing slash was redirected to `http://<api-host>:10000/…`, an unreachable internal address, because Apache only knows its internal port | The redirect rule is removed; Laravel's router serves the path either way |
+| A signed-out request to a protected route with a browser's `Accept: text/html` crashed with HTTP 500, because Laravel tried to redirect to a login page that does not exist | Signed-out callers always get 401; nothing redirects |
+| With all proxy headers trusted, a forged `X-Forwarded-Host` changed the links the API generated | Only `X-Forwarded-Proto` is believed; links are built from `APP_URL` |
+
+Cookies are unaffected by which host Laravel thinks it is on: the session
+cookie has no Domain attribute, so the browser binds it to the host it talked
+to (the Vercel address), and its Secure flag is an explicit setting rather
+than derived from the request. CSRF validation does not use either variable.
+
+## Calling the API host directly
+
+The Render address is public, so anyone can call the API without going
+through the frontend. What that gains them:
+
+| Concern | Result |
+|---|---|
+| Using someone else's session | Not possible. A visitor's cookie is bound to the Vercel host and is never sent to the Render host. |
+| CSRF | Unchanged. A request that changes data still needs the token or the browser's same-origin marker (HTTP 419 otherwise). |
+| Signing in without the frontend | Refused (HTTP 400) unless the request claims the frontend's origin. A script can claim it, but then it is simply a client signing in with valid credentials. |
+| Forging the host | No effect; links come from `APP_URL`. |
+| Forging the client address to dodge rate limits | Sign-in and sign-up are limited three ways per minute: 10 per claimed visitor address, 60 per edge address, 10 per email address. The claimed address is accurate through the frontend (Vercel overwrites it) and forgeable directly; the edge address is written by Render's edge network on every request and is the real caller on a direct call. A direct caller inventing addresses is therefore held by the edge limit, and guessing one account by the email limit. |
+
+No shared secret between Vercel and the API is needed for this, which keeps
+the first deployment simple. One assumption is checked on the live site
+rather than taken on trust: that Render's edge really overwrites
+`CF-Connecting-IP`. `make verify` sends a forged value directly and fails if
+the server accepts it. If it does, the fallback is the documented secret
+header from Vercel.
 
 ## What only the real deployment can prove
 
@@ -91,6 +138,7 @@ and `verify-deployment.mjs` checks each of them:
    Render's load balancer.
 4. The `verify-full` connection to Neon succeeds.
 5. What the app receives while the Render service is waking up.
+6. Render's edge overwrites `CF-Connecting-IP` (see above).
 
 ## Step by step
 
@@ -147,8 +195,8 @@ the migrations when the API first starts.
    | `APP_KEY` | the line from `make app-key` |
    | `DB_HOST` | the Neon host |
    | `DB_PASSWORD` | the Neon password |
-   | `FRONTEND_URL` | `https://eneba-marketplace.vercel.app` for now |
-   | `APP_URL` | the same |
+   | `FRONTEND_URL` | `https://eneba-marketplace.vercel.app` for now (the Vercel address, not Render's) |
+   | `APP_URL` | the same value |
 
 5. **Stop if Render asks for a payment method or shows any price above $0**,
    and tell me. Otherwise apply.
@@ -184,11 +232,12 @@ are deliberately not allowed to use the session.
 Tell me the Vercel address. Then:
 
 ```bash
-make verify URL=https://<project>.vercel.app
+make verify URL=https://<project>.vercel.app API_URL=https://eneba-marketplace-api.onrender.com
 ```
 
-runs the same 32 checks against the live site and prints what the server
-received through the proxies. After that, by hand, in **Safari** and in a
+runs the same checks against the live site, including direct calls to the
+Render address with forged headers, and prints what the server received
+through the proxies. After that, by hand, in **Safari** and in a
 **Chrome Incognito** window (the two that block third-party cookies): open
 `/account`, create an account, reload the page, sign out.
 
@@ -207,6 +256,8 @@ it down in this order:
 | "recognised as coming from the frontend" fails | `Origin`/`Referer` did not arrive, or `FRONTEND_URL` does not match the real address | Diagnostics output: `origin`, `referer`, `stateful_domains` |
 | "session cookie reached the server" fails | The `Cookie` header was not forwarded | Diagnostics output: `cookie_names` |
 | "knows the visitor used HTTPS" fails | Forwarded headers lost or not trusted | Diagnostics output: `x_forwarded_proto`, `TRUSTED_PROXIES` |
+| "APP_URL and FRONTEND_URL are both the public address" fails | One of them was set to the Render address or has a typo | Render > Environment |
+| "edge address … cannot be forged" fails | Render's edge does not overwrite `CF-Connecting-IP` | Switch to the secret-header approach |
 | Script passes, a browser fails | Browser-specific cookie policy | The browser's cookie panel shows why a cookie was rejected |
 
 Only if the cause turns out to be something Vercel does and cannot be
@@ -215,13 +266,6 @@ one address (option C in ARCHITECTURE.md).
 
 ## Known limitations
 
-- **Forged client IP on the API's own address.** Render appends to
-  `X-Forwarded-For` rather than replacing it, and all proxies are trusted, so
-  a client calling the Render address directly can claim any IP. The effect
-  is limited to per-IP rate limits; sign-in is also limited per email address,
-  which a forged IP does not bypass. The complete fix is a secret header added
-  by Vercel and required by the API (documented by Vercel); proposed as a
-  follow-up once the plain rewrite is proven.
 - **Cold start.** After 15 idle minutes the first API request takes about a
   minute. The proxy waits up to 120 seconds.
 - **Throwaway accounts.** Each `make verify` run creates one

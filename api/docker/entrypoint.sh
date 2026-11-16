@@ -13,6 +13,24 @@ sed -i "s/<VirtualHost \*:[0-9]*>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-a
 if [ "${APP_ENV}" = "production" ]; then
     [ -n "${APP_KEY}" ] || { echo "APP_KEY is not set"; exit 1; }
     [ "${APP_DEBUG}" != "true" ] || { echo "APP_DEBUG must not be true in production"; exit 1; }
+
+    # FRONTEND_URL decides which origin may use the login session; APP_URL is
+    # the root of every generated link. Both must be a bare https origin
+    # ("https://shop.example.com"): no path, no trailing slash. A typo here
+    # otherwise shows up later as "login silently does not work".
+    for name in FRONTEND_URL APP_URL; do
+        eval "value=\${$name}"
+        case "$value" in
+            https://*/*|http://localhost*/*) echo "$name must be an origin without a path or trailing slash: $value"; exit 1 ;;
+            https://*|http://localhost*) ;;
+            *) echo "$name must be set to an https:// origin (got: '$value')"; exit 1 ;;
+        esac
+    done
+
+    [ "${SESSION_SECURE_COOKIE}" = "true" ] || { echo "SESSION_SECURE_COOKIE must be true in production"; exit 1; }
+    # A cookie domain would have to name a host; ours must stay bound to
+    # whatever host the visitor used (the frontend's), so it must be unset.
+    [ -z "${SESSION_DOMAIN}" ] || [ "${SESSION_DOMAIN}" = "null" ] || { echo "SESSION_DOMAIN must not be set"; exit 1; }
 fi
 
 # 3. Read the environment once and cache it, so requests do not re-read it.
