@@ -486,9 +486,24 @@ heading('9. Search')
   const wildcard = await suggest('%%')
   check('One letter, or only wildcard characters, suggests nothing', short.status === 200 && names(short).length === 0 && wildcard.status === 200 && names(wildcard).length === 0)
 
+  // Quotes and SQL comment markers reach the application, which must treat
+  // them as plain text.
+  const quotes = await searchStore("'; --")
+  check('Quotes and SQL comment markers are searched for as text', quotes.status === 200 && quotes.json?.meta?.total === 0, `HTTP ${quotes.status}`)
+
+  // An unmistakable injection attempt. Locally it reaches the application
+  // (200, nothing found). In production the API host's firewall refuses it
+  // first with its own 403 page, which is not JSON. Either is safe; anything
+  // else, or a catalog that changed afterwards, is a failure.
   const hostile = await searchStore("'; DROP TABLE products; --")
+  const handledAsText = hostile.status === 200 && hostile.json?.meta?.total === 0
+  const stoppedByFirewall = hostile.status === 403 && !hostile.json
   const afterwards = await request('GET', '/api/products?per_page=1', anonymous)
-  check('Hostile input is treated as text and changes nothing', hostile.status === 200 && hostile.json?.meta?.total === 0 && afterwards.json?.meta?.total > 0, `HTTP ${hostile.status}`)
+  check(
+    'An injection attempt finds nothing and changes nothing',
+    (handledAsText || stoppedByFirewall) && afterwards.json?.meta?.total > 0,
+    handledAsText ? 'searched for as text, no matches' : stoppedByFirewall ? "refused by the host's firewall before reaching the application" : `HTTP ${hostile.status}`,
+  )
 
   const tooLong = await searchStore('a'.repeat(81))
   check('Overlong search text is rejected', tooLong.status === 422, `HTTP ${tooLong.status}`)

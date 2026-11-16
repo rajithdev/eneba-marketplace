@@ -139,6 +139,20 @@ describe('store page', () => {
     expect(productRequests(requested)).toHaveLength(1)
   })
 
+  it('says a refused search cannot be retried and offers the whole store instead', async () => {
+    const requested = mockApi((path) => {
+      if (path === '/api/filters') return { body: filtersExample.response }
+      // What the API host's firewall answers for text that looks like an attack.
+      if (path === '/api/products') return { status: 403, body: 'Blocked' }
+    })
+    renderAt('/store?q=1+OR+1%3D1')
+
+    expect(await screen.findByRole('heading', { name: 'This search could not be run' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Show all products' })).toHaveAttribute('href', '/store')
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    expect(productRequests(requested)).toHaveLength(1)
+  })
+
   it('shows a real failure as a failure and lets the visitor try again', async () => {
     let healthy = false
     mockApi((path) => {

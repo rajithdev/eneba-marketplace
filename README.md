@@ -126,6 +126,12 @@ Things a reviewer should know are deliberate, approximate or not done yet.
 - Accents are not folded: "pokemon" would not find "Pokémon".
 - A one- or two-letter search only matches the start of a word, and the
   header suggests nothing below two characters.
+- The API host's firewall refuses text that looks like an attack (for
+  example `1 OR 1=1`) before it reaches the application, so such a search
+  shows "This search could not be run" instead of "no results". It also reads
+  the page address sent with every request, so the filter panel does not
+  load on that page either. Ordinary punctuation, quotes included, is
+  searched for as text.
 
 **Store and product pages**
 

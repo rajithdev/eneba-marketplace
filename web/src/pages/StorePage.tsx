@@ -43,6 +43,9 @@ export function StorePage() {
   const sort = params.get('sort') ?? defaultSort
   // The API rejected the address itself (for example a mistyped filter).
   const invalidAddress = products.error instanceof ApiError && products.error.status === 422
+  // The API host's firewall answers 403 by itself when text looks like an
+  // attack ("1 OR 1=1"). Trying again cannot help, so say what would.
+  const refused = products.error instanceof ApiError && products.error.status === 403
 
   return (
     <>
@@ -127,7 +130,16 @@ export function StorePage() {
             </Notice>
           )}
 
-          {products.isError && !invalidAddress && (
+          {refused && (
+            <Notice title="This search could not be run" tone="error">
+              <p>The request was refused before it reached the store. Try different words.</p>
+              <Link to="/store" className={primaryButton}>
+                Show all products
+              </Link>
+            </Notice>
+          )}
+
+          {products.isError && !invalidAddress && !refused && (
             <Notice title="The products could not be loaded" tone="error">
               <p>The server may be starting up. This can take up to a minute.</p>
               <button type="button" className={primaryButton} onClick={() => products.refetch()}>

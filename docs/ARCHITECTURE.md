@@ -362,7 +362,10 @@ filters, so refresh, back and shared links work as for everything else.
 missing from a very short word ("rng" for "ring") score too low to match.
 Abbreviations ("gta", "rdr2") and synonyms are not understood. Only product
 names are searched, not descriptions. Matching is on letters as typed:
-accents are not folded.
+accents are not folded. In production the API host's firewall refuses text
+that looks like an attack (`1 OR 1=1`) with its own 403 page before the
+application sees it; the store says the search could not be run rather than
+suggesting the server is starting up.
 
 ## Homepage (Planned; tables Built)
 
