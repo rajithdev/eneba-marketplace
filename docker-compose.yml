@@ -2,7 +2,8 @@
 # database that is reachable only from this machine; production uses its own.
 services:
   db:
-    image: postgres:17-alpine
+    # Same major version as the production database (Neon, PostgreSQL 18).
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: eneba
       POSTGRES_PASSWORD: eneba
@@ -12,7 +13,8 @@ services:
       # Postgres on this machine and is not reachable from the network.
       - "127.0.0.1:5434:5432"
     volumes:
-      - db-data:/var/lib/postgresql/data
+      # PostgreSQL 18 images keep their data under /var/lib/postgresql/<version>.
+      - db-data-pg18:/var/lib/postgresql
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U eneba -d eneba"]
@@ -33,4 +35,4 @@ services:
         condition: service_healthy
 
 volumes:
-  db-data:
+  db-data-pg18:

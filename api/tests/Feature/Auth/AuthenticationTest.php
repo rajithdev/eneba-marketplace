@@ -224,15 +224,20 @@ class AuthenticationTest extends TestCase
     public function test_a_direct_caller_cannot_escape_rate_limiting_by_inventing_forwarded_addresses(): void
     {
         // One real caller (same connecting address) claiming a different
-        // forwarded address and trying a different email on every request.
+        // forwarded address and a different email on every request.
+        //
+        // The password is left out so each request fails validation at once:
+        // the limiter counts requests before validation, and a real failed
+        // sign-in deliberately takes 200 ms (Laravel pads it so response time
+        // reveals nothing), which would make 60 of them slow to test.
         foreach (range(1, 60) as $attempt) {
             $this->withHeader('X-Forwarded-For', '198.51.100.'.$attempt)
-                ->postJson('/api/auth/login', ['email' => "user{$attempt}@example.com", 'password' => 'guess'])
+                ->postJson('/api/auth/login', ['email' => "user{$attempt}@example.com"])
                 ->assertUnprocessable();
         }
 
         $this->withHeader('X-Forwarded-For', '198.51.100.200')
-            ->postJson('/api/auth/login', ['email' => 'user61@example.com', 'password' => 'guess'])
+            ->postJson('/api/auth/login', ['email' => 'user61@example.com'])
             ->assertTooManyRequests();
     }
 

@@ -20,7 +20,7 @@ Marketplace features are added one at a time after the first deployment.
 
 - **Frontend** (`web/`): React, TypeScript, Vite, React Router, TanStack Query, Tailwind
 - **Backend** (`api/`): Laravel 13 on PHP 8.4, REST
-- **Database**: PostgreSQL 17
+- **Database**: PostgreSQL 18
 
 ## Repository layout
 

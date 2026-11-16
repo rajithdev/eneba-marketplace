@@ -59,6 +59,23 @@ The one case that cannot be tested locally is the successful `verify-full`
 connection to Neon's publicly trusted certificate; the first deployment shows
 it (migrations run at start-up and fail loudly if the connection is refused).
 
+### PostgreSQL 18
+
+The Neon project runs PostgreSQL 18. Verified on 18.7:
+
+- All migrations apply; the whole backend suite (60 tests) passes, including
+  the trigram search test and the two-connection key-locking test.
+- The migrations were run on 17 and on 18 and every column, constraint, index
+  and extension compared: 122 columns, 43 indexes and `pg_trgm` 1.6 are
+  identical. The only difference is cosmetic: PostgreSQL 18 records each
+  NOT NULL rule as a named constraint in its catalog (77 of them); the rules
+  themselves are the same.
+- The production image (PostgreSQL client library 17) passes all 44
+  end-to-end checks against a PostgreSQL 18 server.
+
+No migration, index or constraint needed changing. The local database
+container was moved from 17 to 18 so development and tests match production.
+
 ### Production build, run locally
 
 `make prod-check` builds the frontend as Vercel will (`npm ci && npm run build`),
@@ -162,9 +179,11 @@ readable AI log. Not the raw transcripts.
 
 1. Sign up at console.neon.tech (GitHub sign-in works). No card.
 2. **New Project**. Project name `eneba-marketplace`. Region **AWS Europe
-   (Frankfurt)**. Expand **Postgres database** and set the version to **17**
-   (the default is 18; 17 is what development and the tests use).
-   **Create project**.
+   (Frankfurt)**. Leave the Postgres version at the default, **18**; local
+   development and the tests run on 18 as well. **Create project**.
+   Neon's console also offers its own command-line workflow (`neon init`,
+   `neon deploy`) and object storage. Neither is used: the API is an ordinary
+   Laravel application that connects to Neon as a plain PostgreSQL server.
 3. Click **Connect**. Turn **Connection pooling off** (the app uses the direct
    connection, which migrations need). Keep this window open. You need:
    - the host: `ep-…​.eu-central-1.aws.neon.tech`, with no `-pooler` in it
@@ -195,8 +214,13 @@ the migrations when the API first starts.
    | `APP_KEY` | the line from `make app-key` |
    | `DB_HOST` | the Neon host |
    | `DB_PASSWORD` | the Neon password |
-   | `FRONTEND_URL` | `https://eneba-marketplace.vercel.app` for now (the Vercel address, not Render's) |
+   | `FRONTEND_URL` | `https://not-set-yet.invalid` for now |
    | `APP_URL` | the same value |
+
+   The last two will be the Vercel address, which does not exist yet. The
+   placeholder is an address that can never belong to anyone (`.invalid` is
+   reserved), so until step 5 no website at all is allowed to use the login
+   session. Do not put the Render address here.
 
 5. **Stop if Render asks for a payment method or shows any price above $0**,
    and tell me. Otherwise apply.
@@ -220,9 +244,9 @@ host name and no password) rather than changing settings.
 
 ### 5. Connect the two
 
-If the Vercel address is not exactly `https://eneba-marketplace.vercel.app`:
-in Render, open the service, **Environment**, set `FRONTEND_URL` and `APP_URL`
-to the real address (https, no trailing slash), **Save and deploy**.
+In Render, open the service, **Environment**, set `FRONTEND_URL` and `APP_URL`
+to the real Vercel address (https, no trailing slash), **Save and deploy**.
+No rebuild is needed.
 
 Login works only on that one production address. Vercel's preview addresses
 are deliberately not allowed to use the session.
@@ -300,7 +324,7 @@ The 30-day database expiry is why the database is not on Render.
 | Projects are not paused or deleted for inactivity | https://neon.com/faqs/does-neon-pause-inactive-projects |
 | `pg_trgm` is supported | https://neon.com/docs/extensions/pg-extensions |
 | TLS is mandatory; `verify-full` is recommended; certificates are issued by a public authority (ISRG Root X1) | https://neon.com/docs/connect/connect-securely |
-| New projects default to Postgres 18; 14 to 18 are available | https://neon.com/docs/postgresql/postgres-version-policy |
+| New projects default to Postgres 18; 14 to 18 are available. This project uses 18. | https://neon.com/docs/postgresql/postgres-version-policy |
 
 ### Vercel
 
