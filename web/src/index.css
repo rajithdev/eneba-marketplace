@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens (colours, fonts, spacing) taken from eneba.com are added here
+ * in the styling increment. Components use the tokens, never raw values.
+ */
