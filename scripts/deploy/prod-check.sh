@@ -14,12 +14,14 @@ COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prodcheck.yml"
 # Local ports for this check. Change them here if something else uses them.
 FRONTEND_PORT=4780
 API_PORT=8100
-export PRODCHECK_FRONTEND_URL="http://localhost:${FRONTEND_PORT}"
+FRONTEND_URL="http://localhost:${FRONTEND_PORT}"
 export PRODCHECK_API_PORT="${API_PORT}"
+ENV_FILE=.env.prodcheck
 
 cleanup() {
     [ -n "$PROXY_PID" ] && kill "$PROXY_PID" 2>/dev/null || true
     $COMPOSE rm -sf api-prod >/dev/null 2>&1 || true
+    rm -f "$ENV_FILE"
 }
 trap cleanup EXIT
 
@@ -28,9 +30,23 @@ echo "== Building the frontend (npm ci && npm run build)"
 
 echo "== Building the production API image"
 docker compose up -d db >/dev/null
-# A throwaway application key for this run only. Never printed, never saved.
-PRODCHECK_APP_KEY="$(docker compose run --rm -T api php artisan key:generate --show)"
-export PRODCHECK_APP_KEY
+# The container's environment: everything render.yaml sets, exactly as written
+# there, followed by local stand-ins. Later lines win.
+{
+    node scripts/deploy/render-env.mjs 2>/dev/null
+    echo "# --- stand-ins for the five values typed into Render's dashboard"
+    # A throwaway application key for this run only. Never printed.
+    echo "APP_KEY=$(docker compose run --rm -T api php artisan key:generate --show)"
+    echo "FRONTEND_URL=${FRONTEND_URL}"
+    echo "APP_URL=${FRONTEND_URL}"
+    echo "DB_HOST=db"
+    echo "DB_PASSWORD=eneba"
+    echo "# --- the local database is not Neon: its own names, and no TLS"
+    echo "DB_DATABASE=eneba_prodcheck"
+    echo "DB_USERNAME=eneba"
+    echo "DB_SSLMODE=disable"
+    echo "DB_SSLROOTCERT="
+} > "$ENV_FILE"
 $COMPOSE build -q api-prod
 
 echo "== Starting it with production settings on a separate database"
@@ -53,4 +69,4 @@ sleep 1
 kill -0 "$PROXY_PID" 2>/dev/null || { echo "The stand-in did not start."; exit 1; }
 
 echo "== Verifying"
-node scripts/deploy/verify-deployment.mjs "${PRODCHECK_FRONTEND_URL}" --behind-https-proxy --api-origin="http://localhost:${API_PORT}"
+node scripts/deploy/verify-deployment.mjs "${FRONTEND_URL}" --behind-https-proxy --api-origin="http://localhost:${API_PORT}"

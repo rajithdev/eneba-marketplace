@@ -79,9 +79,28 @@ container was moved from 17 to 18 so development and tests match production.
 ### Production build, run locally
 
 `make prod-check` builds the frontend as Vercel will (`npm ci && npm run build`),
-builds the production API image, runs it with production settings on a
-separate database, puts a stand-in for Vercel's proxy in front, and runs
+builds the production API image, runs it on a separate database, puts a
+stand-in for Vercel's proxy in front, and runs
 `scripts/deploy/verify-deployment.mjs` against it.
+
+The container's environment is read from `render.yaml` itself
+(`scripts/deploy/render-env.mjs`), with local stand-ins only for the five
+values typed into Render's dashboard and for the database's name, user and
+TLS mode. So if `render.yaml` ever lacks a variable the code needs, this check
+fails locally, before a deployment does.
+
+`render.yaml` provides 23 variables: 18 with fixed values and 5 typed into the
+dashboard (`APP_KEY`, `FRONTEND_URL`, `APP_URL`, `DB_HOST`, `DB_PASSWORD`).
+Render sets `PORT` itself. Every variable in the file is read by the code, and
+every variable the start script insists on is in the file.
+
+Start-up behaviour, observed with the production image:
+
+| Situation | What happens |
+|---|---|
+| Normal start | Log shows "Configuration cached", "Routes cached", "Running migrations", then Apache starting |
+| Wrong database password or host at start | The container exits with the database's error message in the log, so the deploy fails visibly. The password is not printed. |
+| Database unreachable while running | Affected requests get a JSON 500 with only "Server Error"; the cause is in the log; `/api/health` keeps answering |
 
 Result: **44 of 44 checks passed** (frontend served, deep links, API through
 the same origin, cookie attributes, CSRF rejection, sign-up, sign-in, sign-out,
