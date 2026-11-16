@@ -29,9 +29,10 @@ use Illuminate\Support\Str;
  *
  *   - the same files always produce exactly the same catalog, on any machine;
  *   - adding a game does not change the offers of the existing ones;
- *   - it is safe to run on every deploy. Running it again changes nothing,
- *     and it never brings back a key that has been sold or resets a product's
- *     sales count.
+ *   - it is safe to run on every deploy. Running it again changes nothing.
+ *     It never touches a key that already exists (available, reserved or
+ *     sold), never resets a product's or seller's sales count, and never
+ *     switches an offer back on.
  */
 class CatalogSeeder extends Seeder
 {
@@ -39,6 +40,22 @@ class CatalogSeeder extends Seeder
     private const PRICE_ENDINGS = [29, 49, 79, 99];
 
     private const DISCOUNT_PERCENTS = [10, 15, 20, 25, 30, 40, 50];
+
+    /**
+     * How prices are generated for each kind of title, so the examples stay
+     * believable. A gift card is worth its face value: sellers differ by a few
+     * percent and nobody strikes through a higher "was" price. A subscription
+     * can be on offer, but not at half price.
+     *
+     * spread: how far (in percent) a seller's price may be from the base price.
+     * discounts: the "was" discounts that may be shown; empty means never.
+     */
+    private const PRICING = [
+        'game' => ['spread' => 12, 'discounts' => self::DISCOUNT_PERCENTS],
+        'dlc' => ['spread' => 12, 'discounts' => self::DISCOUNT_PERCENTS],
+        'subscription' => ['spread' => 8, 'discounts' => [10, 15, 20]],
+        'gift_card' => ['spread' => 4, 'discounts' => []],
+    ];
 
     public function run(): void
     {
@@ -48,7 +65,9 @@ class CatalogSeeder extends Seeder
         DB::transaction(function () use ($reference, $games) {
             Platform::upsert($this->only($reference['platforms'], ['slug', 'name']), ['slug'], ['name']);
             Region::upsert($this->only($reference['regions'], ['slug', 'name']), ['slug'], ['name']);
-            Seller::upsert($reference['sellers'], ['slug'], ['name', 'rating_percent', 'sales_count']);
+            // A seller's sales count is a starting figure, like a product's:
+            // written when the seller is first created, never overwritten.
+            Seller::upsert($reference['sellers'], ['slug'], ['name', 'rating_percent']);
 
             $platforms = Platform::all()->keyBy('slug');
             $regions = Region::all()->keyBy('slug');
@@ -90,14 +109,18 @@ class CatalogSeeder extends Seeder
                         $sellers,
                         basePriceCents: intdiv($entry['base_price_cents'] * $regionPricePercent[$variant['region']], 100),
                         soldOut: ($variant['stock'] ?? null) === 'none',
+                        pricing: self::PRICING[$entry['type']],
                     );
                 }
             }
         });
     }
 
-    /** @param  Collection<int, Seller>  $sellers */
-    private function seedOffers(Product $product, Collection $sellers, int $basePriceCents, bool $soldOut): void
+    /**
+     * @param  Collection<int, Seller>  $sellers
+     * @param  array{spread: int, discounts: list<int>}  $pricing
+     */
+    private function seedOffers(Product $product, Collection $sellers, int $basePriceCents, bool $soldOut, array $pricing): void
     {
         // Between two and six sellers per product, chosen by hash.
         $chosen = $sellers
@@ -111,13 +134,16 @@ class CatalogSeeder extends Seeder
         foreach ($chosen as $seller) {
             $key = "{$product->slug}|{$seller->slug}";
 
-            // Each seller prices within 12% of the base, ending in .29/.49/.79/.99.
-            $price = $this->shopPrice(intdiv($basePriceCents * $this->number("price|{$key}", 88, 112), 100), "ending|{$key}");
+            // Each seller prices within the spread around the base price,
+            // ending in .29/.49/.79/.99.
+            $percentOfBase = $this->number("price|{$key}", 100 - $pricing['spread'], 100 + $pricing['spread']);
+            $price = $this->shopPrice(intdiv($basePriceCents * $percentOfBase, 100), "ending|{$key}");
 
-            // About a third of the offers show a struck-through "was" price.
+            // About a third of the offers show a struck-through "was" price,
+            // for the kinds of title where that is believable.
             $original = null;
-            if ($this->number("discounted|{$key}", 0, 99) < 35) {
-                $percent = self::DISCOUNT_PERCENTS[$this->number("discount|{$key}", 0, count(self::DISCOUNT_PERCENTS) - 1)];
+            if ($pricing['discounts'] !== [] && $this->number("discounted|{$key}", 0, 99) < 35) {
+                $percent = $pricing['discounts'][$this->number("discount|{$key}", 0, count($pricing['discounts']) - 1)];
                 $original = max($price + 100, $this->shopPrice(intdiv($price * 100, 100 - $percent), "was|{$key}"));
             }
 
@@ -141,7 +167,9 @@ class CatalogSeeder extends Seeder
             $stock[$chosen->first()->id] = 3;
         }
 
-        Offer::upsert($offers, ['product_id', 'seller_id'], ['price_cents', 'original_price_cents', 'currency', 'is_active']);
+        // Prices follow the data files. Whether an existing offer is switched
+        // on is not touched: an offer that was switched off stays off.
+        Offer::upsert($offers, ['product_id', 'seller_id'], ['price_cents', 'original_price_cents', 'currency']);
 
         $offerIds = Offer::where('product_id', $product->id)->pluck('id', 'seller_id');
         $now = now();

@@ -125,24 +125,87 @@ class CatalogSeederTest extends TestCase
         $this->assertSame($before, $this->fingerprint());
     }
 
-    public function test_seeding_again_never_brings_back_a_sold_key_or_resets_a_sales_count(): void
+    public function test_seeding_again_keeps_everything_that_happened_since_the_first_deploy(): void
     {
         $this->seed(CatalogSeeder::class);
 
-        // Simulate a purchase since the first deploy.
-        $key = LicenseKey::where('status', LicenseKeyStatus::Available)->firstOrFail();
-        $item = OrderItem::factory()->create(['offer_id' => $key->offer_id]);
-        $key->update(['status' => LicenseKeyStatus::Sold, 'order_item_id' => $item->id, 'sold_at' => now()]);
-        $product = $key->offer->product;
-        $product->increment('sales_count', 7);
-        $salesAfterPurchase = $product->fresh()->sales_count;
-        $keysBefore = LicenseKey::count();
+        // What a running shop accumulates between two deployments:
+        [$soldKey, $reservedKey, $untouchedKey] = LicenseKey::where('status', LicenseKeyStatus::Available)->orderBy('id')->take(3)->get();
 
+        // ...a key that was bought,
+        $soldItem = OrderItem::factory()->create(['offer_id' => $soldKey->offer_id]);
+        $soldKey->update(['status' => LicenseKeyStatus::Sold, 'order_item_id' => $soldItem->id, 'sold_at' => now()]);
+
+        // ...a key held for a checkout that is still in progress,
+        $reservedItem = OrderItem::factory()->create(['offer_id' => $reservedKey->offer_id]);
+        $reservedUntil = now()->addMinutes(15)->startOfSecond();
+        $reservedKey->update(['status' => LicenseKeyStatus::Reserved, 'order_item_id' => $reservedItem->id, 'reserved_until' => $reservedUntil]);
+
+        // ...sales counted on a product and on a seller,
+        $product = $soldKey->offer->product;
+        $product->increment('sales_count', 7);
+        $seller = $soldKey->offer->seller;
+        $seller->increment('sales_count', 7);
+
+        // ...and an offer its seller switched off.
+        $switchedOff = Offer::where('id', '!=', $soldKey->offer_id)->firstOrFail();
+        $switchedOff->update(['is_active' => false]);
+
+        $expected = [
+            'product sales' => $product->fresh()->sales_count,
+            'seller sales' => $seller->fresh()->sales_count,
+            'keys' => LicenseKey::count(),
+            'available keys' => LicenseKey::where('status', LicenseKeyStatus::Available)->count(),
+        ];
+
+        // Two more deployments.
+        $this->seed(CatalogSeeder::class);
         $this->seed(CatalogSeeder::class);
 
-        $this->assertSame(LicenseKeyStatus::Sold, $key->fresh()->status);
-        $this->assertSame($item->id, $key->fresh()->order_item_id);
-        $this->assertSame($salesAfterPurchase, $product->fresh()->sales_count);
-        $this->assertSame($keysBefore, LicenseKey::count(), 'no replacement key may be created for a sold one');
+        $soldKey->refresh();
+        $this->assertSame(LicenseKeyStatus::Sold, $soldKey->status);
+        $this->assertSame($soldItem->id, $soldKey->order_item_id);
+        $this->assertNotNull($soldKey->sold_at);
+
+        $reservedKey->refresh();
+        $this->assertSame(LicenseKeyStatus::Reserved, $reservedKey->status);
+        $this->assertSame($reservedItem->id, $reservedKey->order_item_id);
+        $this->assertTrue($reservedUntil->equalTo($reservedKey->reserved_until));
+
+        $this->assertSame(LicenseKeyStatus::Available, $untouchedKey->fresh()->status);
+        $this->assertFalse($switchedOff->fresh()->is_active, 'an offer that was switched off must stay off');
+
+        $this->assertSame($expected, [
+            'product sales' => $product->fresh()->sales_count,
+            'seller sales' => $seller->fresh()->sales_count,
+            // No replacement key is created for a sold or reserved one.
+            'keys' => LicenseKey::count(),
+            'available keys' => LicenseKey::where('status', LicenseKeyStatus::Available)->count(),
+        ]);
+    }
+
+    public function test_gift_cards_are_priced_near_face_value_and_never_shown_as_discounted(): void
+    {
+        $this->seed(CatalogSeeder::class);
+
+        $giftCardOffers = Offer::whereHas('product.game', fn ($game) => $game->where('type', 'gift_card'))->with('product')->get();
+        $this->assertNotEmpty($giftCardOffers);
+
+        foreach ($giftCardOffers as $offer) {
+            $this->assertNull($offer->original_price_cents, "{$offer->product->name} shows a 'was' price");
+        }
+
+        // A 20 EUR Steam card: every seller within about a euro and a half of it.
+        $steamCard = $giftCardOffers->filter(fn ($offer) => str_starts_with($offer->product->name, 'Steam Wallet Gift Card 20 EUR'));
+        $this->assertGreaterThanOrEqual(1850, $steamCard->min('price_cents'));
+        $this->assertLessThanOrEqual(2150, $steamCard->max('price_cents'));
+
+        // Subscriptions may be on offer, but never at more than a fifth off.
+        $subscriptionOffers = Offer::whereNotNull('original_price_cents')
+            ->whereHas('product.game', fn ($game) => $game->where('type', 'subscription'))->get();
+        foreach ($subscriptionOffers as $offer) {
+            $percent = ($offer->original_price_cents - $offer->price_cents) / $offer->original_price_cents * 100;
+            $this->assertLessThanOrEqual(26, $percent);
+        }
     }
 }
