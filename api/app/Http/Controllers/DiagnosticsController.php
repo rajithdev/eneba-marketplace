@@ -21,6 +21,8 @@ class DiagnosticsController extends Controller
         abort_unless(config('app.deploy_diagnostics'), 404);
 
         return response()->json([
+            // Which code is running: repository and commit, as set by the host.
+            'deployment' => config('app.deployment'),
             'what_laravel_concluded' => [
                 'scheme' => $request->getScheme(),
                 'is_secure' => $request->isSecure(),

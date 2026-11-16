@@ -25,7 +25,7 @@ import https from 'node:https'
 
 const [baseArg, ...flags] = process.argv.slice(2)
 if (!baseArg) {
-  console.error('Usage: verify-deployment.mjs <base-url> [--behind-https-proxy] [--api-origin=<url>]')
+  console.error('Usage: verify-deployment.mjs <base-url> [--behind-https-proxy] [--api-origin=<url>] [--expect-commit=<sha>] [--identity-only]')
   process.exit(2)
 }
 const base = new URL(baseArg)
@@ -35,6 +35,14 @@ const origin = base.origin
 const expectSecure = base.protocol === 'https:' || flags.includes('--behind-https-proxy')
 const apiOriginFlag = flags.find((flag) => flag.startsWith('--api-origin='))
 const apiOrigin = apiOriginFlag ? new URL(apiOriginFlag.slice('--api-origin='.length)) : null
+// Before anything else the script checks that the backend is OURS: that it
+// answers the way this repository's code does and, with --expect-commit=<sha>,
+// that it was built from that commit. If not, it stops: no account is created
+// and no password is sent to a server that has not been proven to be ours.
+// Host names on shared platforms are first come, first served, so an address
+// that looks right can belong to someone else. --identity-only runs just this.
+const expectCommit = flags.find((flag) => flag.startsWith('--expect-commit='))?.slice('--expect-commit='.length)
+const identityOnly = flags.includes('--identity-only')
 
 // ------------------------------------------------------------ http client ---
 
@@ -117,6 +125,55 @@ const email = `deploy-check-${Date.now()}@example.com`
 const password = randomBytes(18).toString('base64url')
 
 console.log(`Verifying ${origin}`)
+
+heading('0. Is this backend built from this repository?')
+{
+  // Read-only requests, no cookies, nothing private. Checked on the API host
+  // itself when its address is given, otherwise through the frontend.
+  const target = apiOrigin ?? base
+  const ask = (path) => request('GET', path, { cookies: new Map(), target })
+
+  const health = await ask('/api/health')
+  check(
+    'The health route answers exactly as this code does',
+    health.status === 200 && JSON.stringify(health.json) === '{"status":"ok"}',
+    `HTTP ${health.status} ${health.text.slice(0, 90)}`,
+  )
+
+  const me = await ask('/api/auth/me')
+  check(
+    'The current-user route answers a visitor with {"data":null}',
+    me.status === 200 && me.json?.data === null && Object.keys(me.json).length === 1,
+    `HTTP ${me.status} ${me.text.slice(0, 60)}`,
+  )
+
+  const csrf = await ask('/api/sanctum/csrf-cookie')
+  check('The CSRF cookie route exists under /api', csrf.status === 204, `HTTP ${csrf.status}`)
+
+  const diagnostics = await ask('/api/_diagnostics')
+  const deployment = diagnostics.json?.deployment
+  if (diagnostics.status === 200 && deployment?.git_commit) {
+    const running = String(deployment.git_commit)
+    console.log(`  running: ${deployment.git_repository} at ${running.slice(0, 7)} (service "${deployment.service}")`)
+    if (expectCommit) {
+      check('It runs the expected commit', running === expectCommit, `expected ${expectCommit.slice(0, 7)}, running ${running.slice(0, 7)}`)
+    }
+  } else if (expectCommit && target.protocol === 'https:') {
+    const why = diagnostics.status === 404 ? 'the diagnostics route does not exist there' : 'no commit reported'
+    check('It reports which commit it runs', false, why)
+  }
+
+  if (results.some((result) => !result.passed)) {
+    console.log(`\nSTOPPED. ${target.origin} is not serving this repository's code.`)
+    console.log('Nothing else was sent to it: no account was created and no password was transmitted.')
+    console.log('Check the service address and the deployed commit in the hosting dashboard.')
+    process.exit(3)
+  }
+  if (identityOnly) {
+    console.log(`\n${results.length} of ${results.length} checks passed. This backend is ours.`)
+    process.exit(0)
+  }
+}
 
 heading('1. Frontend')
 {

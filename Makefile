@@ -3,7 +3,7 @@
 
 API = docker compose run --rm api
 
-.PHONY: setup dev down migrate fresh test test-api test-web ai-log prod-check audit app-key verify
+.PHONY: setup dev down migrate fresh test test-api test-web ai-log prod-check audit app-key verify verify-backend vercel-ready
 
 setup: ## First-time setup
 	docker compose build api
@@ -33,6 +33,7 @@ test-api:
 
 test-web:
 	cd web && npm run lint && npm run typecheck && npm test
+	node scripts/deploy/check-vercel-config.mjs
 
 ai-log: ## Save the AI conversation history into docs/ai-log
 	node scripts/ai-log/snapshot.mjs
@@ -47,4 +48,10 @@ app-key: ## Print a new application key. Run in your own terminal; never paste i
 	@$(API) php artisan key:generate --show
 
 verify: ## Verify a deployment: make verify URL=https://x.vercel.app API_URL=https://y.onrender.com
-	node scripts/deploy/verify-deployment.mjs $(URL) $(if $(API_URL),--api-origin=$(API_URL))
+	node scripts/deploy/verify-deployment.mjs $(URL) $(if $(API_URL),--api-origin=$(API_URL)) --expect-commit=$(shell git rev-parse origin/main)
+
+verify-backend: ## Prove a backend address serves this repository's code: make verify-backend API_URL=https://y.onrender.com
+	node scripts/deploy/verify-deployment.mjs $(API_URL) --api-origin=$(API_URL) --expect-commit=$(shell git rev-parse origin/main) --identity-only
+
+vercel-ready: verify-backend ## Is it safe to deploy the frontend? make vercel-ready API_URL=https://y.onrender.com
+	node scripts/deploy/check-vercel-config.mjs --expect-origin=$(API_URL)

@@ -24,7 +24,8 @@ class DiagnosticsEndpointTest extends TestCase
             ->assertJsonPath('what_laravel_concluded.treated_as_frontend_request', true)
             ->assertJsonPath('what_laravel_concluded.session_started', true)
             ->assertJsonPath('what_laravel_concluded.signed_in', false)
-            ->assertJsonPath('configuration.stateful_domains', ['localhost:5173']);
+            ->assertJsonPath('configuration.stateful_domains', ['localhost:5173'])
+            ->assertJsonStructure(['deployment' => ['git_commit', 'git_repository', 'service']]);
 
         $this->assertContains('some-cookie', $response->json('what_arrived.cookie_names'));
         $this->assertStringNotContainsString('super-secret-cookie-value', $response->getContent());

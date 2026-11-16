@@ -24,7 +24,7 @@ login cookie a first-party cookie (see Authentication in ARCHITECTURE.md).
 | `render.yaml` | The API service: Docker build, free plan, region, health check, every environment variable. Secrets are marked `sync: false` and typed into Render's dashboard. |
 | `api/Dockerfile` (stage `prod`) | The production image: Apache, PHP 8.4, no dev packages |
 | `api/docker/entrypoint.sh` | Start-up: listen on Render's port, refuse unsafe settings, cache config, run migrations |
-| `web/vercel.json` | Forwards `/api/*` to Render; serves the app for every other path; switches off proxy caching for `/api` |
+| `web/vercel.json` | Forwards `/api/*` to the confirmed Render address (a placeholder until one is confirmed); serves the app for every other path; switches off proxy caching for `/api`. Checked by `scripts/deploy/check-vercel-config.mjs`. |
 
 ## Readiness checks
 
@@ -244,16 +244,37 @@ the migrations when the API first starts.
 5. **Stop if Render asks for a payment method or shows any price above $0**,
    and tell me. Otherwise apply.
 6. Watch the service's **Logs**. A good start shows the migrations running,
-   then Apache starting. Then open
-   `https://eneba-marketplace-api.onrender.com/api/health`; it should show
-   `{"status":"ok"}`.
-7. Tell me the service's address. If the name was taken Render adds a suffix,
-   and `web/vercel.json` must be updated before step 4.
+   then Apache starting.
+7. Copy the service's address **from the top of its page in Render's
+   dashboard**. Do not assume it: service names on Render are first come,
+   first served across all customers, so if `eneba-marketplace-api` was
+   already taken by someone else, Render gives this service a different
+   address (usually the name plus a suffix), while
+   `https://eneba-marketplace-api.onrender.com` keeps pointing at the other
+   person's server.
+8. Prove the address serves this repository's code:
+
+   ```bash
+   make verify-backend API_URL=https://<address from the dashboard>
+   ```
+
+   It sends only read-only requests, compares the answers with what this
+   code returns, and compares the commit the service reports with GitHub's.
 
 If the log shows a database error, send me the error text (it contains the
 host name and no password) rather than changing settings.
 
 ### 4. Vercel (frontend)
+
+`web/vercel.json` forwards `/api` to a placeholder address until a backend
+has passed step 3.8, so a frontend deployed too early fails safely instead
+of sending sign-up data to an unverified server. Once the backend is
+confirmed, the real address is written into `web/vercel.json` and this must
+pass before deploying:
+
+```bash
+make vercel-ready API_URL=https://<address from the dashboard>
+```
 
 1. Sign up at vercel.com with GitHub, Hobby plan.
 2. **Add New > Project**, import `eneba-marketplace`.

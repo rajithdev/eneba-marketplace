@@ -82,6 +82,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Deployed version
+    |--------------------------------------------------------------------------
+    |
+    | Render sets these on every service it runs. The diagnostics route reports
+    | them so a deployment can be proven to be built from this repository, at
+    | a known commit, before anything is sent to it. Empty outside Render.
+    |
+    */
+
+    'deployment' => [
+        'git_commit' => env('RENDER_GIT_COMMIT'),
+        'git_repository' => env('RENDER_GIT_REPO_SLUG'),
+        'service' => env('RENDER_SERVICE_NAME'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
