@@ -35,6 +35,8 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            // "api" itself as well as everything under it: errors from this
+            // application are always JSON, never an HTML error page.
+            fn (Request $request) => $request->is('api', 'api/*') || $request->expectsJson(),
         );
     })->create();

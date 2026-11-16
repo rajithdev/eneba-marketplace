@@ -169,9 +169,13 @@ heading('0. Is this backend built from this repository?')
     if (expectCommit) {
       check('It runs the expected commit', running === expectCommit, `expected ${expectCommit.slice(0, 7)}, running ${running.slice(0, 7)}`)
     }
+  } else if (diagnostics.status === 404) {
+    // Diagnostics are switched off (the normal state once a deployment has
+    // been verified). The three answers above still identify the code; only
+    // the exact commit cannot be confirmed.
+    console.log('  (diagnostics are switched off: the deployed commit was not checked)')
   } else if (expectCommit && target.protocol === 'https:') {
-    const why = diagnostics.status === 404 ? 'the diagnostics route does not exist there' : 'no commit reported'
-    check('It reports which commit it runs', false, why)
+    check('It reports which commit it runs', false, 'no commit reported')
   }
 
   if (results.some((result) => !result.passed)) {
@@ -209,8 +213,17 @@ heading('2. API through the same origin')
   const missing = await request('GET', '/api/no-such-route', { cookies: new Map() })
   check('An unknown /api path reaches the API (JSON 404), not the app', missing.status === 404 && missing.json !== null, `HTTP ${missing.status}`)
 
+  // What must never happen is a redirect to the API's internal address. Two
+  // outcomes are fine: the path is served (the local stand-in, and the API
+  // host itself), or the frontend host refuses it with its own 404 without
+  // forwarding it (Vercel: its "/api/:path*" rule does not match a path that
+  // ends in a slash; observed on the live site). The app never calls such URLs.
   const slash = await request('GET', '/api/health/', { cookies: new Map() })
-  check('A trailing slash is served, not redirected to an internal address', slash.status === 200 && !slash.headers.location, `HTTP ${slash.status}${slash.headers.location ? ` -> ${slash.headers.location}` : ''}`)
+  check(
+    'A trailing slash never causes a redirect (it is served, or refused by the frontend host)',
+    !slash.headers.location && [200, 404].includes(slash.status),
+    `HTTP ${slash.status}${slash.headers.location ? ` -> ${slash.headers.location}` : ''}`,
+  )
 }
 
 heading('3. Session cookie')

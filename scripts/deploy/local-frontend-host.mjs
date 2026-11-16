@@ -74,6 +74,14 @@ http
   .createServer((request, response) => {
     const { pathname } = new URL(request.url, 'http://localhost')
 
+    // Observed on the live site: Vercel's "/api/:path*" rule does not match a
+    // path ending in a slash, and the app fallback excludes /api/, so Vercel
+    // answers such a request with its own 404 and never forwards it.
+    if (pathname.startsWith('/api/') && pathname.endsWith('/')) {
+      response.writeHead(404, { 'content-type': 'text/plain', 'x-vercel-error': 'NOT_FOUND' })
+      return response.end('The page could not be found\n\nNOT_FOUND\n')
+    }
+
     if (pathname.startsWith('/api/')) return proxyToApi(request, response)
 
     const file = join(dist, normalize(pathname))

@@ -1,12 +1,13 @@
 # Deployment
 
-**Status: the database (Neon) and the API (Render) are live and verified. The
-frontend (Vercel) is the remaining step.**
+**Status: live. Database (Neon), API (Render) and frontend (Vercel) are
+deployed, and authentication is verified end to end through the public
+address.**
 
 | | |
 |---|---|
-| API | https://eneba-marketplace-api-pylw.onrender.com |
-| Frontend | not deployed yet |
+| Site | https://eneba-marketplace-ten.vercel.app |
+| API (reached by visitors only through the site's `/api`) | https://eneba-marketplace-api-pylw.onrender.com |
 
 | Part | Host | Why |
 |---|---|---|
@@ -169,22 +170,69 @@ reaches the API (HTTP 403), and on ordinary requests the header holds the
 real connecting address whatever `X-Forwarded-For` claims. `make verify`
 repeats this check on every run.
 
-## What only the real deployment can prove
+## Live verification
 
-Vercel's documentation does not state how a rewrite treats cookies or ordinary
-request headers. The local stand-in proves our side; these need the live site,
-and `verify-deployment.mjs` checks each of them:
+Run on 2026-11-16 against the public site, with the API at commit `5fb73b7`:
 
-1. Both `Set-Cookie` headers reach the browser separately and unmodified.
-2. The browser's `Cookie`, `Origin`, `Referer` and token headers reach Laravel.
-3. Laravel sees HTTPS and the Vercel host after Vercel, Cloudflare and
-   Render's load balancer.
-4. What the app receives while the Render service is waking up.
+```bash
+make verify URL=https://eneba-marketplace-ten.vercel.app API_URL=https://eneba-marketplace-api-pylw.onrender.com
+```
 
-Already proven on the live API, before the frontend exists: the
-certificate-verified connection to Neon, cookie attributes (Secure, HttpOnly,
-SameSite=Lax, no Domain), HTTPS detection behind Render's load balancer,
-generated links ignoring a forged host, and the unforgeable edge address.
+**51 of 51 checks passed.**
+
+| Area | What was checked on the live site | Result |
+|---|---|---|
+| Identity | The API answers as this repository's code does and reports this repository at the expected commit | pass |
+| Frontend | Home page and a client-side route (`/account`) return the app | pass |
+| Rewrite | `/api/*` reaches the API through the site's own address; unknown API paths get the API's JSON 404, not the app; responses are not cached by the proxy (`x-vercel-cache: MISS`) | pass |
+| Session cookie through Vercel | Session and `XSRF-TOKEN` arrive as two separate `Set-Cookie` headers, unmodified: HttpOnly (session), Secure, SameSite=Lax, path `/`, no Domain | pass |
+| Request headers through Vercel | `Cookie`, `Origin`/`Referer` and the token header reach Laravel; Laravel sees HTTPS | pass |
+| Registration | Creates the account, signs in, issues a new session id, returns no password field | pass |
+| Session persistence | The cookie alone identifies the user on the next request | pass |
+| Sign-in | Right password accepted, wrong password rejected (422) | pass |
+| Logout | Signs out; the old cookie no longer works (session destroyed on the server) | pass |
+| CSRF protection | A cross-site request without the token is rejected (419), including a forged sign-out, which changes nothing | pass |
+| Protected endpoints | A visitor gets 401 from a protected route, with no redirect; `/api/auth/me` answers a visitor with `{"data": null}` | pass |
+| Direct calls to the API host | Sign-in refused without the frontend's origin or from another origin (400); CSRF still enforced; forged host ignored; forged client address not believed; forged `CF-Connecting-IP` refused by Render's edge (403) | pass |
+
+In a real browser on the live site (read-only, signed out): no console errors;
+the page's scripts can see `XSRF-TOKEN` but not the session cookie; the
+browser's request arrives at Laravel with `Sec-Fetch-Site: same-origin`, the
+`Referer`, and both cookies. Registration and sign-in were also done by hand
+on the live site by the author.
+
+What Laravel receives through Vercel, for the record: the `Host` header is
+the Render address and `X-Forwarded-Host` is the site's address. Neither is
+used for anything; links are built from `APP_URL`.
+
+### One finding from the live run
+
+The first run passed 50 of 51. A request for `/api/health/` (with a trailing
+slash) returned 404 through the site but 200 on the API host directly.
+
+Cause: Vercel's own router answered it (`x-vercel-error: NOT_FOUND`). Its
+`/api/:path*` rule does not match a path ending in a slash, and the app
+fallback deliberately excludes `/api/`, so no rule applies and the request
+is never forwarded. Nothing is redirected and nothing leaks; the app never
+requests such URLs. No configuration was changed. The check, which exists to
+catch a redirect to the API's internal address, now states that property
+directly, and the local stand-in and routing model were updated to behave as
+Vercel does.
+
+A second, cosmetic finding: the bare path `/api` returned Laravel's HTML
+error page. Errors under `/api` are now always JSON.
+
+Each run creates one throwaway `deploy-check-…@example.com` account; two
+exist from these runs.
+
+### Still open
+
+- What a visitor sees while the Render service is waking from sleep. The
+  service was awake during every run.
+- `DEPLOY_DIAGNOSTICS` is still `true` on Render. It exposes no secrets, but
+  it was meant to be temporary: set it to `false` in Render once no more
+  deployment debugging is expected. `make verify` keeps working without it,
+  minus the checks that need the server's view of a request.
 
 ## Step by step
 
@@ -403,5 +451,5 @@ examples of commercial use, but Vercel does not address this case explicitly.
 
 - Whether Render asks for a card at sign-up or for a Blueprint.
 - How a Vercel rewrite treats `Set-Cookie`, `Cookie` and ordinary request
-  headers (community reports say they pass through; the documentation is
-  silent). Settled by step 6.
+  headers: the documentation is silent, but the live verification above
+  shows they pass through unchanged.

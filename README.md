@@ -5,13 +5,13 @@ assignment: a store with filters and search, a homepage assembled from
 backend-defined blocks, product pages comparing offers from several sellers,
 and a checkout that delivers a digital key.
 
-**Status: foundation and deployment preparation.** The data model,
-authentication and the production build are in place and verified locally.
-Marketplace features are added one at a time after the first deployment.
+**Status: deployed, with authentication working end to end.** The data model,
+sign-up and sign-in are live. Marketplace features (catalog, offers, product
+pages, search, checkout) are being added one at a time.
 
 | | |
 |---|---|
-| Live URL | not deployed yet |
+| Live URL | https://eneba-marketplace-ten.vercel.app |
 | Design and decisions | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | Hosting plan and verified free-tier limits | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | AI conversation history | [docs/ai-log/](docs/ai-log/README.md) |

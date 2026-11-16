@@ -21,9 +21,13 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const config = JSON.parse(readFileSync(join(root, 'web', 'vercel.json'), 'utf8'))
 const expectOrigin = process.argv.find((arg) => arg.startsWith('--expect-origin='))?.slice('--expect-origin='.length)
 
-/** "/api/:path*" -> a pattern matching /api, /api/x and /api/x/y, capturing the rest. */
+/**
+ * "/api/:path*" -> a pattern matching /api, /api/x and /api/x/y, capturing
+ * the rest. A path ending in a slash does NOT match: that is how Vercel
+ * behaves on the live site ("/api/health/" is answered by Vercel's own 404).
+ */
 function toPattern(source) {
-  return new RegExp(`^${source.replace(/\/:[a-zA-Z]+\*/g, '(?:/(.*))?')}$`)
+  return new RegExp(`^${source.replace(/\/:[a-zA-Z]+\*/g, '(?:/((?:[^/]+/)*[^/]+))?')}$`)
 }
 
 /** Where a request path ends up once no static file matched it. */
@@ -64,6 +68,14 @@ console.log('\nPages of the app are answered with index.html, never sent to the 
 for (const path of ['/', '/account', '/store', '/product/elden-ring', '/orders/123', '/apiary', '/api-docs']) {
   check(path, route(path) === '/index.html', `-> ${route(path)}`)
 }
+
+console.log('\nAn API path ending in a slash matches no rule: Vercel answers 404 itself')
+// Observed on the live site. It is neither forwarded nor redirected, and it
+// is not given the app's page either. The app never requests such URLs.
+for (const path of ['/api/health/', '/api/auth/me/', '/api/']) {
+  check(path, route(path) === null, `-> ${route(path) ?? "no rule (Vercel's own 404)"}`)
+}
+check('/account/ (an app page with a slash) still gets the app', route('/account/') === '/index.html')
 
 console.log('\nThe two rules cannot overlap')
 const fallback = config.rewrites.find((rule) => rule.destination === '/index.html')

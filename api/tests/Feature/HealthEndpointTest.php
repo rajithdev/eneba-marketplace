@@ -19,4 +19,13 @@ class HealthEndpointTest extends TestCase
             ->assertNotFound()
             ->assertHeader('content-type', 'application/json');
     }
+
+    public function test_the_bare_api_path_also_answers_with_json(): void
+    {
+        // Found on the live site: "/api" with nothing after it returned
+        // Laravel's HTML error page, because only "api/*" was treated as API.
+        $this->get('/api')
+            ->assertNotFound()
+            ->assertHeader('content-type', 'application/json');
+    }
 }
