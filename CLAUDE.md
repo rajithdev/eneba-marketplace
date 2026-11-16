@@ -9,6 +9,8 @@ scope and the reasons behind them.
 - **The whole conversation is published.** The assignment requires the full AI
   chat history. Never ask for, repeat or write secrets (API keys, passwords,
   database URLs) in chat. Secrets go in `.env` files, which are not committed.
+- **Nothing is pushed or deployed, and no account or paid resource is created,
+  without the author's explicit approval.**
 - **Save the conversation at the end of every working session:** `make ai-log`.
   Never write or edit files in `docs/ai-log/` by hand, and never delete
   anything under `docs/ai-log/raw/`.
@@ -33,3 +35,5 @@ scope and the reasons behind them.
 - `make test`: backend tests, style check, frontend lint, type check and tests
 - `make dev`: database, API on :8000, frontend on :5173
 - `make fresh`: rebuild the schema
+- `make prod-check`: run the production build locally and verify auth end to end
+- `make audit`: must pass before every push (no secrets or private files tracked)

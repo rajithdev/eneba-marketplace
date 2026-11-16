@@ -96,7 +96,11 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
+            // Production sets DB_SSLMODE=verify-full and DB_SSLROOTCERT=system:
+            // the connection is encrypted and the server's certificate is
+            // checked against the operating system's trusted authorities.
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'sslrootcert' => env('DB_SSLROOTCERT'),
         ],
 
         'sqlsrv' => [

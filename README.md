@@ -5,8 +5,9 @@ assignment: a store with filters and search, a homepage assembled from
 backend-defined blocks, product pages comparing offers from several sellers,
 and a checkout that delivers a digital key.
 
-**Status: foundation.** The project structure, development environment, data
-model and its tests are in place. Features are being added one at a time.
+**Status: foundation and deployment preparation.** The data model,
+authentication and the production build are in place and verified locally.
+Marketplace features are added one at a time after the first deployment.
 
 | | |
 |---|---|
@@ -62,8 +63,16 @@ Runs the backend tests (PHPUnit against a separate `eneba_test` PostgreSQL
 database), the backend code-style check, and the frontend lint, type check
 and tests.
 
-Other commands: `make migrate`, `make fresh` (drop and recreate all tables),
-`make ai-log` (save the AI conversation history), `make down`.
+Other commands:
+
+| Command | What it does |
+|---|---|
+| `make prod-check` | Builds the production image and frontend, runs them locally with production settings, and verifies sign-up, sign-in and sign-out end to end |
+| `make audit` | Fails if a secret or private file is tracked by Git |
+| `make verify URL=…` | Runs the end-to-end checks against a deployed address |
+| `make migrate`, `make fresh` | Apply migrations; drop and recreate all tables |
+| `make ai-log` | Save the AI conversation history |
+| `make down` | Stop the containers |
 
 ## Scope
 

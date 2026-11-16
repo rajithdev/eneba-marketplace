@@ -4,3 +4,9 @@
 # contain machine and account details unrelated to this project.
 # See docs/ai-log/README.md.
 docs/ai-log/raw/
+
+# Local environment files and host tooling state. Never committed.
+.env
+.env.*
+!.env.example
+.vercel/

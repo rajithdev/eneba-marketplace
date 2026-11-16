@@ -1,20 +1,233 @@
-# Deployment plan and free-tier limits
+# Deployment
 
-**Status: nothing is deployed and no accounts or services have been created.**
-This file records the limits checked before choosing hosts, and the plan.
-
-## Plan
+**Status: prepared and verified locally. Nothing is pushed or deployed, and no
+accounts or services have been created.**
 
 | Part | Host | Why |
 |---|---|---|
 | React app | Vercel (Hobby) | Static hosting that does not sleep; documented reverse-proxy rewrites with a stated timeout |
-| Laravel API | Render (free web service, Docker) | The only host checked that runs a Docker container free with no documented card requirement |
-| PostgreSQL | Neon (Free) | No expiry; `pg_trgm` available |
+| Laravel API | Render (free web service, Docker, Frankfurt) | The only host checked that runs a Docker container free with no documented card requirement |
+| PostgreSQL | Neon (Free, AWS Frankfurt) | No expiry; `pg_trgm` available |
 
-The frontend forwards `/api/*` to the API with a rewrite rule, so the browser
-sees a single origin (see Authentication in ARCHITECTURE.md).
+```
+Browser ── https://<project>.vercel.app ──┬─ static files (the React app)
+                                          └─ /api/*  ── rewrite ──> https://eneba-marketplace-api.onrender.com ──> Neon
+```
 
-## Limits verified on 2026-11-16
+The browser only ever talks to the Vercel address. That is what makes the
+login cookie a first-party cookie (see Authentication in ARCHITECTURE.md).
+
+## Configuration files
+
+| File | What it controls |
+|---|---|
+| `render.yaml` | The API service: Docker build, free plan, region, health check, every environment variable. Secrets are marked `sync: false` and typed into Render's dashboard. |
+| `api/Dockerfile` (stage `prod`) | The production image: Apache, PHP 8.4, no dev packages |
+| `api/docker/entrypoint.sh` | Start-up: listen on Render's port, refuse unsafe settings, cache config, run migrations |
+| `web/vercel.json` | Forwards `/api/*` to Render; serves the app for every other path; switches off proxy caching for `/api` |
+
+## Readiness checks
+
+Run on 2026-11-16. Commands: `make test`, `make prod-check`, `make audit`.
+
+### Production-safety of the configuration
+
+| Area | Setting | How it was checked |
+|---|---|---|
+| CORS | Only the frontend's address is allowed; credentials are never allowed cross-origin. (Same-origin requests through the proxy do not use CORS at all.) | `ProductionConfigTest` |
+| Sanctum session | Only requests whose Origin/Referer is the frontend may use the session. Derived from one variable, `FRONTEND_URL`. | `ProductionConfigTest`, `AuthenticationTest`, production check |
+| Session cookie | HttpOnly, Secure, SameSite=Lax, path `/`, no Domain attribute (bound to one host), stored server-side in the database | production check reads the real `Set-Cookie` headers |
+| CSRF | A request that changes data needs either the browser's same-origin marker or the token header. Forged cross-site requests get HTTP 419. | production check |
+| Trusted proxies | `TRUSTED_PROXIES=*` in production, nothing trusted locally. With it, Laravel correctly sees HTTPS and the public host. | production check, via the diagnostics route |
+| Database TLS | `DB_SSLMODE=verify-full` with the system certificate bundle: encrypted, and the server's certificate must be valid for its host name | tested from the production image against a TLS-enabled Postgres (below) |
+| Debug mode | The container refuses to start in production with `APP_DEBUG=true` or without `APP_KEY` | `entrypoint.sh`; production check asserts debug is off |
+| Caching | API responses carry `Cache-Control: no-cache, private`; the rewrite also opts out of proxy caching | `ProductionConfigTest`, production check |
+| Health check | `/api/health` starts no session and runs no database query | `ProductionConfigTest` |
+
+Database TLS, measured from the production image:
+
+| Server | Setting | Result |
+|---|---|---|
+| TLS enabled | `sslmode=require` | connected, TLS 1.3 |
+| TLS enabled, untrusted certificate | `verify-full` + system bundle | refused: certificate verify failed |
+| No TLS | `require` or `verify-full` | refused: server does not support SSL |
+
+So an unencrypted or impersonated database connection cannot happen silently.
+The one case that cannot be tested locally is the successful `verify-full`
+connection to Neon's publicly trusted certificate; the first deployment shows
+it (migrations run at start-up and fail loudly if the connection is refused).
+
+### Production build, run locally
+
+`make prod-check` builds the frontend as Vercel will (`npm ci && npm run build`),
+builds the production API image, runs it with production settings on a
+separate database, puts a stand-in for Vercel's proxy in front, and runs
+`scripts/deploy/verify-deployment.mjs` against it.
+
+Result: **32 of 32 checks passed** (frontend served, deep links, API through
+the same origin, cookie attributes, CSRF rejection, sign-up, sign-in, sign-out,
+server-side session destruction). The same flow was also done by hand in a
+real browser against that stack: sign up, reload (still signed in), sign out;
+the session cookie was not visible to page scripts.
+
+### Secrets and private data
+
+`make audit` passes: no environment files, keys or raw transcripts are
+tracked; no tracked file contains a key, token, database URL or database host;
+no personal email address; ignore rules cover `.env*`, `docs/ai-log/raw/` and
+`.vercel/`; the Docker image excludes `.env` files. Git history (4 commits at
+the time of the check) was scanned for keys and database URLs: none. Commits
+use GitHub's private no-reply address.
+
+## What only the real deployment can prove
+
+Vercel's documentation does not state how a rewrite treats cookies or ordinary
+request headers. The local stand-in proves our side; these need the live site,
+and `verify-deployment.mjs` checks each of them:
+
+1. Both `Set-Cookie` headers reach the browser separately and unmodified.
+2. The browser's `Cookie`, `Origin`, `Referer` and token headers reach Laravel.
+3. Laravel sees HTTPS and the Vercel host after Vercel, Cloudflare and
+   Render's load balancer.
+4. The `verify-full` connection to Neon succeeds.
+5. What the app receives while the Render service is waking up.
+
+## Step by step
+
+Secrets are typed into the providers' dashboards only. Never paste a
+password, key or connection string into the AI chat: the chat is published.
+
+### 1. GitHub
+
+The repository must be public: reviewers read it, and Render and Vercel
+deploy from it. The `gh` tool on this machine is already signed in, so once
+approved this is one command, run from the project folder:
+
+```bash
+gh repo create eneba-marketplace --public --source=. --remote=origin --push
+```
+
+`make audit` is run first. What becomes public: the code, the docs, and the
+readable AI log. Not the raw transcripts.
+
+### 2. Neon (database)
+
+1. Sign up at console.neon.tech (GitHub sign-in works). No card.
+2. **New Project**. Project name `eneba-marketplace`. Region **AWS Europe
+   (Frankfurt)**. Expand **Postgres database** and set the version to **17**
+   (the default is 18; 17 is what development and the tests use).
+   **Create project**.
+3. Click **Connect**. Turn **Connection pooling off** (the app uses the direct
+   connection, which migrations need). Keep this window open. You need:
+   - the host: `ep-…​.eu-central-1.aws.neon.tech`, with no `-pooler` in it
+   - the password
+   The database (`neondb`) and role (`neondb_owner`) are the defaults already
+   written in `render.yaml`. If Neon shows different names, tell me.
+
+Nothing else to do in Neon. Tables and the `pg_trgm` extension are created by
+the migrations when the API first starts.
+
+### 3. Render (API)
+
+1. In your own Terminal (not in the chat), from the project folder:
+
+   ```bash
+   make app-key
+   ```
+
+   It prints one line starting with `base64:`. That is the application key.
+2. Sign up at dashboard.render.com with GitHub and allow access to the
+   `eneba-marketplace` repository.
+3. **New > Blueprint**, pick the repository. Render reads `render.yaml` and
+   shows one service, `eneba-marketplace-api`: Docker, **Free**, Frankfurt.
+4. It asks for five values:
+
+   | Variable | Value |
+   |---|---|
+   | `APP_KEY` | the line from `make app-key` |
+   | `DB_HOST` | the Neon host |
+   | `DB_PASSWORD` | the Neon password |
+   | `FRONTEND_URL` | `https://eneba-marketplace.vercel.app` for now |
+   | `APP_URL` | the same |
+
+5. **Stop if Render asks for a payment method or shows any price above $0**,
+   and tell me. Otherwise apply.
+6. Watch the service's **Logs**. A good start shows the migrations running,
+   then Apache starting. Then open
+   `https://eneba-marketplace-api.onrender.com/api/health`; it should show
+   `{"status":"ok"}`.
+7. Tell me the service's address. If the name was taken Render adds a suffix,
+   and `web/vercel.json` must be updated before step 4.
+
+If the log shows a database error, send me the error text (it contains the
+host name and no password) rather than changing settings.
+
+### 4. Vercel (frontend)
+
+1. Sign up at vercel.com with GitHub, Hobby plan.
+2. **Add New > Project**, import `eneba-marketplace`.
+3. **Root Directory: `web`**. Framework preset: Vite (detected). Leave build
+   command and output directory at their defaults. No environment variables.
+4. **Deploy**. Note the production address.
+
+### 5. Connect the two
+
+If the Vercel address is not exactly `https://eneba-marketplace.vercel.app`:
+in Render, open the service, **Environment**, set `FRONTEND_URL` and `APP_URL`
+to the real address (https, no trailing slash), **Save and deploy**.
+
+Login works only on that one production address. Vercel's preview addresses
+are deliberately not allowed to use the session.
+
+### 6. Verify through the public address
+
+Tell me the Vercel address. Then:
+
+```bash
+make verify URL=https://<project>.vercel.app
+```
+
+runs the same 32 checks against the live site and prints what the server
+received through the proxies. After that, by hand, in **Safari** and in a
+**Chrome Incognito** window (the two that block third-party cookies): open
+`/account`, create an account, reload the page, sign out.
+
+When everything passes, set `DEPLOY_DIAGNOSTICS` to `false` in Render.
+
+## If the login cookie does not work
+
+The architecture is not changed until the cause is known. The checks narrow
+it down in this order:
+
+| Symptom in `make verify` | Meaning | Where to look |
+|---|---|---|
+| Section 2 fails | The rewrite is not reaching the API | `web/vercel.json` destination; Root Directory setting |
+| "two separate Set-Cookie headers" fails | The proxy merged or dropped cookies | Compare with the same request sent straight to the Render address |
+| Cookie attributes differ | Something rewrote the cookie | Same comparison |
+| "recognised as coming from the frontend" fails | `Origin`/`Referer` did not arrive, or `FRONTEND_URL` does not match the real address | Diagnostics output: `origin`, `referer`, `stateful_domains` |
+| "session cookie reached the server" fails | The `Cookie` header was not forwarded | Diagnostics output: `cookie_names` |
+| "knows the visitor used HTTPS" fails | Forwarded headers lost or not trusted | Diagnostics output: `x_forwarded_proto`, `TRUSTED_PROXIES` |
+| Script passes, a browser fails | Browser-specific cookie policy | The browser's cookie panel shows why a cookie was rejected |
+
+Only if the cause turns out to be something Vercel does and cannot be
+configured does the fallback apply: serve the built frontend from Laravel on
+one address (option C in ARCHITECTURE.md).
+
+## Known limitations
+
+- **Forged client IP on the API's own address.** Render appends to
+  `X-Forwarded-For` rather than replacing it, and all proxies are trusted, so
+  a client calling the Render address directly can claim any IP. The effect
+  is limited to per-IP rate limits; sign-in is also limited per email address,
+  which a forged IP does not bypass. The complete fix is a secret header added
+  by Vercel and required by the API (documented by Vercel); proposed as a
+  follow-up once the plain rewrite is proven.
+- **Cold start.** After 15 idle minutes the first API request takes about a
+  minute. The proxy waits up to 120 seconds.
+- **Throwaway accounts.** Each `make verify` run creates one
+  `deploy-check-…@example.com` user.
+
+## Free-tier limits verified on 2026-11-16
 
 Read from each provider's own documentation on that date. Providers change
 these; re-check before relying on a figure.
@@ -25,12 +238,13 @@ these; re-check before relying on a figure.
 |---|---|
 | Free web services sleep after 15 minutes without traffic; waking takes about one minute | https://render.com/docs/free |
 | 750 free instance hours per workspace per month, enough for one service running continuously | https://render.com/docs/free |
-| 0.1 CPU, 512 MB, no persistent disk, no shell | https://render.com/docs/free |
+| 0.1 CPU, 512 MB, no persistent disk, no shell, no pre-deploy command | https://render.com/docs/free, https://render.com/docs/deploys |
+| The container must listen on `0.0.0.0:$PORT` (10000 by default) | https://render.com/docs/web-services |
+| The last stage of the Dockerfile is what runs; a stage cannot be chosen | https://render.com/docs/docker |
 | Hobby workspace: 5 GB bandwidth and 500 build minutes per month; with no card on file, exceeding bandwidth suspends free services until the next month | https://render.com/docs/outbound-bandwidth, https://render.com/docs/build-pipeline |
 | **Free Postgres expires 30 days after creation**, then a 14-day grace period, then deletion | https://render.com/docs/free |
 
-The 30-day database expiry is why the database is not on Render: it could
-fall inside the review period.
+The 30-day database expiry is why the database is not on Render.
 
 ### Neon
 
@@ -41,11 +255,8 @@ fall inside the review period.
 | Compute suspends after 5 minutes idle; waking typically takes a few hundred milliseconds | https://neon.com/docs/connect/connection-latency |
 | Projects are not paused or deleted for inactivity | https://neon.com/faqs/does-neon-pause-inactive-projects |
 | `pg_trgm` is supported | https://neon.com/docs/extensions/pg-extensions |
-| Run migrations over the direct connection, not the pooled one | https://neon.com/docs/guides/laravel-migrations |
-
-One page mentions deletion of free projects inactive for 90 days, in the
-context of Azure regions being retired. To stay clear of it, the database
-goes in an AWS region.
+| TLS is mandatory; `verify-full` is recommended; certificates are issued by a public authority (ISRG Root X1) | https://neon.com/docs/connect/connect-securely |
+| New projects default to Postgres 18; 14 to 18 are available | https://neon.com/docs/postgresql/postgres-version-policy |
 
 ### Vercel
 
@@ -54,7 +265,8 @@ goes in an AWS region.
 | Hobby includes 100 GB data transfer and 1,000,000 requests per month | https://vercel.com/docs/plans/hobby |
 | Rewrites to an external address are a documented reverse proxy | https://vercel.com/docs/rewrites |
 | A proxied request may take up to 120 seconds before failing with HTTP 502 | https://vercel.com/docs/limits |
-| Projects created after 6 April 2026 cache proxied responses that allow it; the API must send `Cache-Control: no-store` or the rewrite must opt out | https://vercel.com/docs/rewrites |
+| Projects created after 6 April 2026 cache proxied responses that allow it; a `headers` rule opts a path out | https://vercel.com/docs/routing/rewrites |
+| The file system is checked before rewrites, so built assets are never replaced by the app's fallback page | https://vercel.com/docs/project-configuration/vercel-json |
 | Hobby is for personal, non-commercial use, and projects may be removed without notice | https://vercel.com/legal/terms |
 
 An unpaid assignment with simulated payments matches none of Vercel's listed
@@ -69,17 +281,9 @@ examples of commercial use, but Vercel does not address this case explicitly.
 | Google Cloud Run | Free at this scale, but needs a billing account with a payment method | https://docs.cloud.google.com/free/docs/free-cloud-features |
 | Koyeb | Free instance exists but a card appears to be required; status unclear | https://www.koyeb.com/docs/faqs/pricing |
 
-## Risks and how they are handled
+## Not confirmed from documentation
 
-| Risk | Handling |
-|---|---|
-| A reviewer's first request hits a sleeping API and waits about a minute | The frontend shows a "waking the server" state and retries. The 120-second proxy limit is above the wake time. |
-| Keeping the API awake with a pinger also keeps the database awake and uses up Neon's monthly compute around day 17 | `/api/health` does not query the database. Any uptime ping uses only that route. |
-| The proxy does not pass the login cookie through | Tested on the first deployment, before features depend on it. Fallback: serve the built frontend from Laravel on one address. |
-| Free-tier terms change before submission | Re-check this file's figures when deploying. |
-
-## Not yet confirmed
-
-- Whether Render asks for a card at sign-up (its documentation does not say).
-- That `Set-Cookie` passes through a Vercel rewrite (community reports say
-  yes; Vercel's documentation does not state it).
+- Whether Render asks for a card at sign-up or for a Blueprint.
+- How a Vercel rewrite treats `Set-Cookie`, `Cookie` and ordinary request
+  headers (community reports say they pass through; the documentation is
+  silent). Settled by step 6.

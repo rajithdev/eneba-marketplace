@@ -169,7 +169,7 @@ keys; expired reservation is reclaimed; crash between charge and finalise
 recovers on retry; price change is rejected; a buyer cannot read another
 buyer's order or keys.
 
-## Authentication (Decided; wiring started)
+## Authentication (Built; awaiting proof on the deployed site)
 
 Laravel's guidance is cookie-based sessions for a first-party SPA, and it
 states that the SPA and API must share the same top-level domain. Our hosts
@@ -186,17 +186,32 @@ Pointing the SPA directly at the API with cookies therefore does not work.
 
 **Decision: B.** It is the approach Laravel recommends, it works in every
 browser, and it keeps the frontend loading instantly while the API wakes.
-All routes the browser needs, including Sanctum's CSRF route, live under
-`/api`, so a single rewrite rule covers everything.
 
-One thing is not yet proven: the frontend host's documentation does not state
-explicitly that `Set-Cookie` passes through its rewrite. This is checked on
-the first deployment, in Safari and in a private window, before any feature
-depends on it. **Fallback: C**, which needs no proxy at all. Option A stays a
-last resort.
+How it works:
 
-Built so far: Sanctum installed; `statefulApi()` enabled; the Vite dev proxy
-gives development the same single-origin shape as production.
+- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`,
+  `GET /api/auth/me`. Everything the browser calls is under `/api`, including
+  Sanctum's CSRF route, so one rewrite rule covers it.
+- Signing in creates a server-side session (stored in the database) and sends
+  its id in an HttpOnly, Secure, SameSite=Lax cookie with no Domain attribute.
+  JavaScript never holds a credential.
+- The session id is replaced on sign-in (against session fixation) and the
+  session is destroyed on the server on sign-out, so a copied cookie stops
+  working.
+- Only requests whose Origin or Referer is the frontend's address may use the
+  session. That address comes from one setting, `FRONTEND_URL`.
+- CSRF: Laravel 13 accepts a request that changes data if the browser marks it
+  same-origin (`Sec-Fetch-Site`) or if it carries the token from the readable
+  `XSRF-TOKEN` cookie. The frontend always sends the token, so both paths work.
+- Sign-in and sign-up are limited to 10 attempts per minute per IP address and
+  per email address.
+
+Verification: PHPUnit tests replay the real session cookie between requests;
+`scripts/deploy/verify-deployment.mjs` runs the whole flow against a running
+site (32 checks, passing against the local production stack). What remains is
+the same run against the public address: Vercel's documentation does not say
+how a rewrite treats cookies. If it fails there, the cause is diagnosed first
+(see DEPLOYMENT.md); option C is the fallback, option A a last resort.
 
 ## Search (Planned; extension and index Built)
 

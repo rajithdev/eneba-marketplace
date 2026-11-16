@@ -3,7 +3,7 @@
 
 API = docker compose run --rm api
 
-.PHONY: setup dev down migrate fresh test test-api test-web ai-log
+.PHONY: setup dev down migrate fresh test test-api test-web ai-log prod-check audit app-key verify
 
 setup: ## First-time setup
 	docker compose build api
@@ -36,3 +36,15 @@ test-web:
 
 ai-log: ## Save the AI conversation history into docs/ai-log
 	node scripts/ai-log/snapshot.mjs
+
+prod-check: ## Build and run the production stack locally and verify it end to end
+	sh scripts/deploy/prod-check.sh
+
+audit: ## Fail if a secret or private file is tracked by Git
+	sh scripts/check-no-secrets.sh
+
+app-key: ## Print a new application key. Run in your own terminal; never paste it into a chat.
+	@$(API) php artisan key:generate --show
+
+verify: ## Verify a deployment end to end: make verify URL=https://example.vercel.app
+	node scripts/deploy/verify-deployment.mjs $(URL)
