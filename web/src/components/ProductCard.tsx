@@ -20,7 +20,8 @@ export function ProductCard({ product, headingLevel: Heading = 'h2' }: { product
             src={product.cover_image_url}
             // Decorative: the product name is in the text right below.
             alt=""
-            loading="lazy"
+            // Not lazy-loaded: each cover is about 1 KB, and lazy loading left
+            // visible cards blank for a moment on the live site.
             width={600}
             height={800}
             className={`h-full w-full object-cover ${product.in_stock ? '' : 'opacity-40 grayscale'}`}
