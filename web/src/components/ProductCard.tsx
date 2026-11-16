@@ -27,7 +27,8 @@ export function ProductCard({ product, headingLevel: Heading = 'h2' }: { product
             className={`h-full w-full object-cover ${product.in_stock ? '' : 'opacity-40 grayscale'}`}
           />
         )}
-        <span className="absolute left-0 top-3 bg-black/60 px-2 py-1 text-[11px] font-extrabold">
+        {/* Top right: the cover itself carries a type label (DLC, gift card) top left. */}
+        <span className="absolute right-0 top-3 bg-black/60 px-2 py-1 text-[11px] font-extrabold">
           {product.platform.name}
         </span>
         {!product.in_stock && (
