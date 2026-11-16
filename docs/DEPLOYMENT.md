@@ -1,7 +1,12 @@
 # Deployment
 
-**Status: prepared and verified locally. Nothing is pushed or deployed, and no
-accounts or services have been created.**
+**Status: the database (Neon) and the API (Render) are live and verified. The
+frontend (Vercel) is the remaining step.**
+
+| | |
+|---|---|
+| API | https://eneba-marketplace-api-pylw.onrender.com |
+| Frontend | not deployed yet |
 
 | Part | Host | Why |
 |---|---|---|
@@ -11,7 +16,7 @@ accounts or services have been created.**
 
 ```
 Browser ── https://<project>.vercel.app ──┬─ static files (the React app)
-                                          └─ /api/*  ── rewrite ──> https://eneba-marketplace-api.onrender.com ──> Neon
+                                          └─ /api/*  ── rewrite ──> https://eneba-marketplace-api-pylw.onrender.com ──> Neon
 ```
 
 The browser only ever talks to the Vercel address. That is what makes the
@@ -55,9 +60,10 @@ Database TLS, measured from the production image:
 | No TLS | `require` or `verify-full` | refused: server does not support SSL |
 
 So an unencrypted or impersonated database connection cannot happen silently.
-The one case that cannot be tested locally is the successful `verify-full`
-connection to Neon's publicly trusted certificate; the first deployment shows
-it (migrations run at start-up and fail loudly if the connection is refused).
+The successful `verify-full` connection to Neon's publicly trusted certificate
+could not be tested locally. It is now proven on the live service: it runs
+with `DB_SSLMODE=verify-full`, its migrations ran at start-up, and it serves
+database-backed sessions.
 
 ### PostgreSQL 18
 
@@ -156,11 +162,12 @@ through the frontend. What that gains them:
 | Forging the client address to dodge rate limits | Sign-in and sign-up are limited three ways per minute: 10 per claimed visitor address, 60 per edge address, 10 per email address. The claimed address is accurate through the frontend (Vercel overwrites it) and forgeable directly; the edge address is written by Render's edge network on every request and is the real caller on a direct call. A direct caller inventing addresses is therefore held by the edge limit, and guessing one account by the email limit. |
 
 No shared secret between Vercel and the API is needed for this, which keeps
-the first deployment simple. One assumption is checked on the live site
-rather than taken on trust: that Render's edge really overwrites
-`CF-Connecting-IP`. `make verify` sends a forged value directly and fails if
-the server accepts it. If it does, the fallback is the documented secret
-header from Vercel.
+the first deployment simple. The one assumption behind it was checked on the
+live service rather than taken on trust: a request carrying a forged
+`CF-Connecting-IP` header is refused by Render's edge network before it
+reaches the API (HTTP 403), and on ordinary requests the header holds the
+real connecting address whatever `X-Forwarded-For` claims. `make verify`
+repeats this check on every run.
 
 ## What only the real deployment can prove
 
@@ -172,9 +179,12 @@ and `verify-deployment.mjs` checks each of them:
 2. The browser's `Cookie`, `Origin`, `Referer` and token headers reach Laravel.
 3. Laravel sees HTTPS and the Vercel host after Vercel, Cloudflare and
    Render's load balancer.
-4. The `verify-full` connection to Neon succeeds.
-5. What the app receives while the Render service is waking up.
-6. Render's edge overwrites `CF-Connecting-IP` (see above).
+4. What the app receives while the Render service is waking up.
+
+Already proven on the live API, before the frontend exists: the
+certificate-verified connection to Neon, cookie attributes (Secure, HttpOnly,
+SameSite=Lax, no Domain), HTTPS detection behind Render's load balancer,
+generated links ignoring a forged host, and the unforgeable edge address.
 
 ## Step by step
 
@@ -296,7 +306,7 @@ are deliberately not allowed to use the session.
 Tell me the Vercel address. Then:
 
 ```bash
-make verify URL=https://<project>.vercel.app API_URL=https://eneba-marketplace-api.onrender.com
+make verify URL=https://<project>.vercel.app API_URL=https://eneba-marketplace-api-pylw.onrender.com
 ```
 
 runs the same checks against the live site, including direct calls to the

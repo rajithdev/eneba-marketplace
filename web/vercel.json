@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://backend-address-not-confirmed.invalid/api/:path*"
+      "destination": "https://eneba-marketplace-api-pylw.onrender.com/api/:path*"
     },
     {
       "source": "/((?!api/).*)",

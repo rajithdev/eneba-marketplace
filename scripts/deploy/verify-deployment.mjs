@@ -96,6 +96,17 @@ function request(method, path, { body, headers = {}, cookies = jar, asFrontend =
 /** The header our frontend sends on requests that change data. */
 const xsrfHeader = () => ({ 'x-xsrf-token': decodeURIComponent(jar.get('XSRF-TOKEN') ?? '') })
 
+/**
+ * JSON for printing, with IP addresses replaced. The output of this script is
+ * often pasted into chats and issue trackers; a visitor's address has no
+ * business there. Checks always compare the real values.
+ */
+function withoutAddresses(value) {
+  return JSON.stringify(value)
+    .replace(/\b\d{1,3}(\.\d{1,3}){3}\b/g, '<address>')
+    .replace(/\b(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{0,4}\b/gi, '<address>')
+}
+
 function attributesOf(setCookieLine) {
   const [, ...parts] = setCookieLine.split(';').map((part) => part.trim())
   return Object.fromEntries(
@@ -237,8 +248,8 @@ heading('4. What the server sees through the proxies')
   } else {
     const seen = diagnostics.json?.what_laravel_concluded ?? {}
     const arrived = diagnostics.json?.what_arrived ?? {}
-    console.log(`  arrived:   ${JSON.stringify(arrived)}`)
-    console.log(`  concluded: ${JSON.stringify(seen)}`)
+    console.log(`  arrived:   ${withoutAddresses(arrived)}`)
+    console.log(`  concluded: ${withoutAddresses(seen)}`)
     check('The request is recognised as coming from the frontend', seen.treated_as_frontend_request === true, `Origin ${arrived.origin}`)
     check('A session was started for it', seen.session_started === true)
     check('The session cookie sent by the client reached the server', (arrived.cookie_names ?? []).includes(sessionCookieName), `cookies seen: ${(arrived.cookie_names ?? []).join(', ') || 'none'}`)
@@ -334,24 +345,36 @@ if (apiOrigin) {
   check('No redirect to an internal address', slash.status === 200 && !slash.headers.location, `HTTP ${slash.status}`)
   check('The PHP version is not advertised', !health.headers['x-powered-by'], health.headers['x-powered-by'] ?? '')
 
+  // Forged forwarding headers, as a caller bypassing the frontend could send.
   const forged = await direct('GET', '/api/_diagnostics', {
     cookies: new Map(),
-    headers: {
-      'x-forwarded-for': '203.0.113.7',
-      'x-forwarded-host': 'evil.example',
-      'cf-connecting-ip': '203.0.113.9',
-    },
+    headers: { 'x-forwarded-for': '203.0.113.7', 'x-forwarded-host': 'evil.example' },
   })
   if (forged.status === 404) {
     console.log('  (diagnostics are switched off; forged-header checks skipped)')
   } else {
-    const seen = forged.json?.what_laravel_concluded ?? {}
-    console.log(`  with forged headers the server concluded: ${JSON.stringify(seen)}`)
-    check('A forged host header does not change generated links', !String(seen.generated_url).includes('evil.example') && seen.host !== 'evil.example', String(seen.generated_url))
-    check('A forged forwarded address is not taken as the client address', seen.client_ip !== '203.0.113.7', `client_ip ${seen.client_ip}`)
+    // A missing or unreadable answer must fail these checks, not pass them.
+    const seen = forged.json?.what_laravel_concluded
+    check('The diagnostics route answered the forged request', forged.status === 200 && Boolean(seen), `HTTP ${forged.status}`)
+    if (seen) {
+      console.log(`  with forged headers the server concluded: ${withoutAddresses(seen)}`)
+      check('A forged host header does not change generated links', !String(seen.generated_url).includes('evil.example') && seen.host !== 'evil.example', String(seen.generated_url))
+      check('A forged forwarded address is not taken as the client address', seen.client_ip !== '203.0.113.7')
+      check('The edge address used for rate limiting is not the forged one', seen.rate_limit_addresses?.edge !== '203.0.113.7')
+    }
+
     if (apiOrigin.protocol === 'https:') {
-      // Only meaningful on the real host: its edge network must overwrite this header.
-      check('The edge address used for rate limiting cannot be forged', seen.rate_limit_addresses?.edge !== '203.0.113.9', `edge ${seen.rate_limit_addresses?.edge}`)
+      // Only meaningful on the real host. Its edge network sets CF-Connecting-IP
+      // itself; a caller-supplied one must either be refused outright or
+      // replaced. Either outcome means the edge address cannot be forged.
+      const forgedEdge = await direct('GET', '/api/_diagnostics', { cookies: new Map(), headers: { 'cf-connecting-ip': '203.0.113.9' } })
+      const edge = forgedEdge.json?.what_laravel_concluded?.rate_limit_addresses?.edge
+      const refused = forgedEdge.status !== 200
+      check(
+        'A forged CF-Connecting-IP header is refused or replaced by the edge',
+        refused || (Boolean(edge) && edge !== '203.0.113.9'),
+        refused ? `request refused with HTTP ${forgedEdge.status}` : 'replaced',
+      )
     }
   }
 }
