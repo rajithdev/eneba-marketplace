@@ -103,6 +103,6 @@ class ProductionConfigTest extends TestCase
 
     public function test_a_path_with_a_trailing_slash_is_served_without_a_redirect(): void
     {
-        $this->getJson('/api/health/')->assertOk()->assertExactJson(['status' => 'ok']);
+        $this->getJson('/api/health/')->assertOk()->assertJsonPath('status', 'ok');
     }
 }

@@ -145,9 +145,10 @@ heading('0. Is this backend built from this repository?')
   const ask = (path) => request('GET', path, { cookies: new Map(), target })
 
   const health = await ask('/api/health')
+  const healthKeys = Object.keys(health.json ?? {}).sort().join(',')
   check(
     'The health route answers exactly as this code does',
-    health.status === 200 && JSON.stringify(health.json) === '{"status":"ok"}',
+    health.status === 200 && health.json?.status === 'ok' && healthKeys === 'commit,status',
     `HTTP ${health.status} ${health.text.slice(0, 90)}`,
   )
 
@@ -161,19 +162,14 @@ heading('0. Is this backend built from this repository?')
   const csrf = await ask('/api/sanctum/csrf-cookie')
   check('The CSRF cookie route exists under /api', csrf.status === 204, `HTTP ${csrf.status}`)
 
-  const diagnostics = await ask('/api/_diagnostics')
-  const deployment = diagnostics.json?.deployment
-  if (diagnostics.status === 200 && deployment?.git_commit) {
-    const running = String(deployment.git_commit)
-    console.log(`  running: ${deployment.git_repository} at ${running.slice(0, 7)} (service "${deployment.service}")`)
+  // Which commit is running. The health route reports it; on a host that
+  // does not provide one (local runs) there is nothing to compare.
+  const running = health.json?.commit ? String(health.json.commit) : null
+  if (running) {
+    console.log(`  running commit ${running.slice(0, 7)}`)
     if (expectCommit) {
       check('It runs the expected commit', running === expectCommit, `expected ${expectCommit.slice(0, 7)}, running ${running.slice(0, 7)}`)
     }
-  } else if (diagnostics.status === 404) {
-    // Diagnostics are switched off (the normal state once a deployment has
-    // been verified). The three answers above still identify the code; only
-    // the exact commit cannot be confirmed.
-    console.log('  (diagnostics are switched off: the deployed commit was not checked)')
   } else if (expectCommit && target.protocol === 'https:') {
     check('It reports which commit it runs', false, 'no commit reported')
   }

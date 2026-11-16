@@ -14,7 +14,13 @@ use Illuminate\Support\Facades\Route;
 // Liveness check for the frontend and for uptime pings. It deliberately does
 // not query the database: on the free tier a ping that touches the database
 // would keep it awake and burn the monthly compute allowance.
-Route::get('/health', fn () => response()->json(['status' => 'ok']));
+//
+// "commit" is the version of this (public) repository that is running, as set
+// by the host; null outside it. It lets a deployment be confirmed from outside.
+Route::get('/health', fn () => response()->json([
+    'status' => 'ok',
+    'commit' => config('app.deployment.git_commit'),
+]));
 
 // Catalog: public, read-only.
 Route::get('/filters', CatalogFilterController::class);
