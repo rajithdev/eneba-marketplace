@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Xbox Game Pass Ultimate 1 Month">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(166 70% 32%)"/>
+      <stop offset="1" stop-color="hsl(199 75% 14%)"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.35" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.72"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#bg)"/>
+  <circle cx="113" cy="335" r="211" fill="hsl(191 80% 65%)" opacity="0.33"/>
+  <circle cx="185" cy="424" r="224" fill="hsl(346 85% 60%)" opacity="0.21"/>
+  <circle cx="218" cy="432" r="168" fill="hsl(241 80% 65%)" opacity="0.28"/>
+  <rect x="-38" y="-100" width="120" height="1100" fill="#fff" opacity="0.07" transform="rotate(24 300 400)"/>
+  <rect width="600" height="800" fill="url(#shade)"/>
+  <g font-size="22" font-weight="700" letter-spacing="3">
+    <rect x="40" y="44" width="234" height="40" rx="20" fill="hsl(346 90% 62%)"/>
+    <text x="55" y="72" fill="#12081f">SUBSCRIPTION</text>
+  </g>
+  <g fill="#fff" font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="63">
+    <text x="40" y="526">XBOX GAME</text>
+    <text x="40" y="594">PASS</text>
+    <text x="40" y="662">ULTIMATE 1</text>
+    <text x="40" y="730">MONTH</text>
+  </g>
+</svg>

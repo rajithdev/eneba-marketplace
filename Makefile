@@ -3,7 +3,7 @@
 
 API = docker compose run --rm api
 
-.PHONY: setup dev down migrate fresh test test-api test-web ai-log prod-check audit app-key verify verify-backend vercel-ready
+.PHONY: setup dev down migrate fresh test test-api test-web contracts covers ai-log prod-check audit app-key verify verify-backend vercel-ready
 
 setup: ## First-time setup
 	docker compose build api
@@ -34,6 +34,14 @@ test-api:
 test-web:
 	cd web && npm run lint && npm run typecheck && npm test
 	node scripts/deploy/check-vercel-config.mjs
+	node scripts/catalog/generate-covers.mjs --check
+
+contracts: ## Regenerate the example API responses in web/src/contracts, then review the diff
+	docker compose run --rm -e UPDATE_CONTRACTS=1 api php artisan test --filter=CatalogContractTest
+	git status --short web/src/contracts
+
+covers: ## Regenerate the cover images in web/public/covers from the catalog data
+	node scripts/catalog/generate-covers.mjs
 
 ai-log: ## Save the AI conversation history into docs/ai-log
 	node scripts/ai-log/snapshot.mjs

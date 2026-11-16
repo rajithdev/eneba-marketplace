@@ -1,0 +1,186 @@
+{
+    "request": "GET /api/products/elden-ring-steam-key-global",
+    "response": {
+        "data": {
+            "slug": "elden-ring-steam-key-global",
+            "name": "Elden Ring Steam Key GLOBAL",
+            "type": "game",
+            "cover_image_url": "/covers/elden-ring.svg",
+            "release_date": "2022-02-25",
+            "platform": {
+                "slug": "steam",
+                "name": "Steam"
+            },
+            "region": {
+                "slug": "global",
+                "name": "Global"
+            },
+            "in_stock": true,
+            "price": {
+                "amount_cents": 3149,
+                "currency": "EUR",
+                "original_amount_cents": null,
+                "discount_percent": null
+            },
+            "offers_count": 5,
+            "game": {
+                "slug": "elden-ring",
+                "title": "Elden Ring",
+                "description": "An open-world action RPG set in the Lands Between. Explore freely on foot or horseback, build a character your own way, and take on demanding bosses alone or with summoned help."
+            },
+            "offers": [
+                {
+                    "id": 1,
+                    "seller": {
+                        "slug": "arcade-harbor",
+                        "name": "Arcade Harbor",
+                        "rating_percent": 97.93,
+                        "sales_count": 12406
+                    },
+                    "price": {
+                        "amount_cents": 3149,
+                        "currency": "EUR",
+                        "original_amount_cents": null,
+                        "discount_percent": null
+                    },
+                    "in_stock": true
+                },
+                {
+                    "id": 2,
+                    "seller": {
+                        "slug": "copper-fox-codes",
+                        "name": "Copper Fox Codes",
+                        "rating_percent": 99.85,
+                        "sales_count": 61027
+                    },
+                    "price": {
+                        "amount_cents": 3149,
+                        "currency": "EUR",
+                        "original_amount_cents": null,
+                        "discount_percent": null
+                    },
+                    "in_stock": true
+                },
+                {
+                    "id": 3,
+                    "seller": {
+                        "slug": "northwind-keys",
+                        "name": "Northwind Keys",
+                        "rating_percent": 99.1,
+                        "sales_count": 31544
+                    },
+                    "price": {
+                        "amount_cents": 3249,
+                        "currency": "EUR",
+                        "original_amount_cents": 4329,
+                        "discount_percent": 25
+                    },
+                    "in_stock": true
+                },
+                {
+                    "id": 4,
+                    "seller": {
+                        "slug": "brightkey-games",
+                        "name": "Brightkey Games",
+                        "rating_percent": 99.62,
+                        "sales_count": 48210
+                    },
+                    "price": {
+                        "amount_cents": 3449,
+                        "currency": "EUR",
+                        "original_amount_cents": 3829,
+                        "discount_percent": 10
+                    },
+                    "in_stock": true
+                },
+                {
+                    "id": 5,
+                    "seller": {
+                        "slug": "tidewater-keys",
+                        "name": "Tidewater Keys",
+                        "rating_percent": 96.88,
+                        "sales_count": 5320
+                    },
+                    "price": {
+                        "amount_cents": 3829,
+                        "currency": "EUR",
+                        "original_amount_cents": 5199,
+                        "discount_percent": 26
+                    },
+                    "in_stock": true
+                }
+            ],
+            "variants": [
+                {
+                    "slug": "elden-ring-xbox-live-key-europe",
+                    "name": "Elden Ring Xbox Live Key EUROPE",
+                    "type": "game",
+                    "cover_image_url": "/covers/elden-ring.svg",
+                    "release_date": "2022-02-25",
+                    "platform": {
+                        "slug": "xbox-live",
+                        "name": "Xbox Live"
+                    },
+                    "region": {
+                        "slug": "europe",
+                        "name": "Europe"
+                    },
+                    "in_stock": true,
+                    "price": {
+                        "amount_cents": 3049,
+                        "currency": "EUR",
+                        "original_amount_cents": null,
+                        "discount_percent": null
+                    },
+                    "offers_count": 3
+                },
+                {
+                    "slug": "elden-ring-steam-key-europe",
+                    "name": "Elden Ring Steam Key EUROPE",
+                    "type": "game",
+                    "cover_image_url": "/covers/elden-ring.svg",
+                    "release_date": "2022-02-25",
+                    "platform": {
+                        "slug": "steam",
+                        "name": "Steam"
+                    },
+                    "region": {
+                        "slug": "europe",
+                        "name": "Europe"
+                    },
+                    "in_stock": true,
+                    "price": {
+                        "amount_cents": 3129,
+                        "currency": "EUR",
+                        "original_amount_cents": null,
+                        "discount_percent": null
+                    },
+                    "offers_count": 4
+                },
+                {
+                    "slug": "elden-ring-playstation-network-key-europe",
+                    "name": "Elden Ring PlayStation Network Key EUROPE",
+                    "type": "game",
+                    "cover_image_url": "/covers/elden-ring.svg",
+                    "release_date": "2022-02-25",
+                    "platform": {
+                        "slug": "psn",
+                        "name": "PlayStation Network"
+                    },
+                    "region": {
+                        "slug": "europe",
+                        "name": "Europe"
+                    },
+                    "in_stock": true,
+                    "price": {
+                        "amount_cents": 3649,
+                        "currency": "EUR",
+                        "original_amount_cents": null,
+                        "discount_percent": null
+                    },
+                    "offers_count": 2
+                }
+            ]
+        }
+    }
+}

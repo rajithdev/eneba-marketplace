@@ -28,6 +28,9 @@ services:
       target: dev
     volumes:
       - ./api:/var/www/html
+      # Example API responses shared with the frontend. The backend tests
+      # check the API against them (see CatalogContractTest).
+      - ./web/src/contracts:/var/www/contracts
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

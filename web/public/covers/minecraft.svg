@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Minecraft">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(285 70% 32%)"/>
+      <stop offset="1" stop-color="hsl(350 75% 14%)"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.35" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.72"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#bg)"/>
+  <circle cx="223" cy="264" r="103" fill="hsl(310 80% 65%)" opacity="0.24"/>
+  <circle cx="217" cy="115" r="128" fill="hsl(105 85% 60%)" opacity="0.31"/>
+  <circle cx="130" cy="72" r="136" fill="hsl(0 80% 65%)" opacity="0.24"/>
+  <rect x="126" y="-100" width="120" height="1100" fill="#fff" opacity="0.07" transform="rotate(24 300 400)"/>
+  <rect width="600" height="800" fill="url(#shade)"/>
+  
+  <g fill="#fff" font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="70">
+    <text x="40" y="730">MINECRAFT</text>
+  </g>
+</svg>

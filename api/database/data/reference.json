@@ -1,0 +1,24 @@
+{
+  "platforms": [
+    { "slug": "steam", "name": "Steam" },
+    { "slug": "xbox-live", "name": "Xbox Live" },
+    { "slug": "psn", "name": "PlayStation Network" },
+    { "slug": "nintendo", "name": "Nintendo eShop" },
+    { "slug": "ea-app", "name": "EA App" }
+  ],
+  "regions": [
+    { "slug": "global", "name": "Global", "price_percent": 100 },
+    { "slug": "europe", "name": "Europe", "price_percent": 95 },
+    { "slug": "united-states", "name": "United States", "price_percent": 103 }
+  ],
+  "sellers": [
+    { "slug": "brightkey-games", "name": "Brightkey Games", "rating_percent": 99.62, "sales_count": 48210 },
+    { "slug": "northwind-keys", "name": "Northwind Keys", "rating_percent": 99.10, "sales_count": 31544 },
+    { "slug": "pixel-lantern", "name": "Pixel Lantern", "rating_percent": 98.74, "sales_count": 22890 },
+    { "slug": "copper-fox-codes", "name": "Copper Fox Codes", "rating_percent": 99.85, "sales_count": 61027 },
+    { "slug": "arcade-harbor", "name": "Arcade Harbor", "rating_percent": 97.93, "sales_count": 12406 },
+    { "slug": "lumen-loot", "name": "Lumen Loot", "rating_percent": 98.31, "sales_count": 8755 },
+    { "slug": "quartz-gaming", "name": "Quartz Gaming", "rating_percent": 99.47, "sales_count": 40112 },
+    { "slug": "tidewater-keys", "name": "Tidewater Keys", "rating_percent": 96.88, "sales_count": 5320 }
+  ]
+}

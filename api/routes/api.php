@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CatalogFilterController;
 use App\Http\Controllers\DiagnosticsController;
+use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -13,6 +15,11 @@ use Illuminate\Support\Facades\Route;
 // not query the database: on the free tier a ping that touches the database
 // would keep it awake and burn the monthly compute allowance.
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
+
+// Catalog: public, read-only.
+Route::get('/filters', CatalogFilterController::class);
+Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/{slug}', [ProductController::class, 'show']);
 
 Route::prefix('auth')->group(function () {
     // Limited per IP address and per email (see AppServiceProvider).

@@ -1,0 +1,311 @@
+[
+  {
+    "slug": "elden-ring", "title": "Elden Ring", "type": "game", "release_date": "2022-02-25",
+    "description": "An open-world action RPG set in the Lands Between. Explore freely on foot or horseback, build a character your own way, and take on demanding bosses alone or with summoned help.",
+    "base_price_cents": 3499, "popularity": 96,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "steam", "region": "europe" },
+      { "platform": "xbox-live", "region": "europe" },
+      { "platform": "psn", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "cyberpunk-2077", "title": "Cyberpunk 2077", "type": "game", "release_date": "2020-12-10",
+    "description": "A first-person open-world RPG set in Night City. Play as a mercenary chasing a one-of-a-kind implant, and shape the story through the skills, cyberware and choices you pick.",
+    "base_price_cents": 2499, "popularity": 90,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "xbox-live", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "the-witcher-3-wild-hunt", "title": "The Witcher 3: Wild Hunt", "type": "game", "release_date": "2015-05-19",
+    "description": "A story-driven open-world RPG. As the monster hunter Geralt of Rivia, track down a child of prophecy across a war-torn continent full of contracts, side stories and hard choices.",
+    "base_price_cents": 999, "popularity": 88,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "xbox-live", "region": "united-states" }
+    ]
+  },
+  {
+    "slug": "red-dead-redemption-2", "title": "Red Dead Redemption 2", "type": "game", "release_date": "2018-10-26",
+    "description": "A western epic about outlaw Arthur Morgan and the Van der Linde gang at the end of the frontier era, set in a detailed open world of towns, wilderness and wildlife.",
+    "base_price_cents": 1999, "popularity": 92,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "xbox-live", "region": "europe" },
+      { "platform": "psn", "region": "united-states" }
+    ]
+  },
+  {
+    "slug": "grand-theft-auto-v", "title": "Grand Theft Auto V", "type": "game", "release_date": "2013-09-17",
+    "description": "Three criminals plan a series of heists across the city of Los Santos and the surrounding countryside in this open-world action game, which also includes Grand Theft Auto Online.",
+    "base_price_cents": 1499, "popularity": 94,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "xbox-live", "region": "global" },
+      { "platform": "psn", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "minecraft", "title": "Minecraft", "type": "game", "release_date": "2011-11-18",
+    "description": "A sandbox game about placing blocks and going on adventures. Build anything you can imagine in creative mode, or gather, craft and survive the night in survival mode.",
+    "base_price_cents": 1999, "popularity": 97,
+    "variants": [
+      { "platform": "xbox-live", "region": "global" },
+      { "platform": "nintendo", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "hogwarts-legacy", "title": "Hogwarts Legacy", "type": "game", "release_date": "2023-02-10",
+    "description": "An open-world action RPG set in the wizarding world of the 1800s. Attend classes, learn spells, brew potions and uncover a hidden truth as a student at Hogwarts.",
+    "base_price_cents": 2999, "popularity": 89,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "steam", "region": "europe" },
+      { "platform": "psn", "region": "europe" },
+      { "platform": "nintendo", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "baldurs-gate-3", "title": "Baldur's Gate 3", "type": "game", "release_date": "2023-08-03",
+    "description": "A party-based RPG built on tabletop role-playing rules. Gather companions, roll the dice on every decision, and play through a branching story alone or in co-op.",
+    "base_price_cents": 4499, "popularity": 93,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "xbox-live", "region": "europe" },
+      { "platform": "psn", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "stardew-valley", "title": "Stardew Valley", "type": "game", "release_date": "2016-02-26",
+    "description": "Inherit a run-down farm and turn it into a home. Grow crops, raise animals, explore the mines and get to know the people of Pelican Town, solo or with friends.",
+    "base_price_cents": 999, "popularity": 87,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "nintendo", "region": "europe" },
+      { "platform": "xbox-live", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "hades", "title": "Hades", "type": "game", "release_date": "2020-09-17",
+    "description": "A rogue-like dungeon crawler in which the son of the god of the dead fights his way out of the Underworld, growing stronger and learning more of the story with every escape attempt.",
+    "base_price_cents": 1299, "popularity": 84,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "nintendo", "region": "united-states" }
+    ]
+  },
+  {
+    "slug": "hollow-knight", "title": "Hollow Knight", "type": "game", "release_date": "2017-02-24",
+    "description": "A hand-drawn 2D action adventure through a vast, ruined kingdom of insects. Explore winding caverns, learn new abilities and face challenging bosses.",
+    "base_price_cents": 899, "popularity": 82,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "nintendo", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "terraria", "title": "Terraria", "type": "game", "release_date": "2011-05-16",
+    "description": "A 2D sandbox adventure of digging, fighting, exploring and building, with hundreds of items to craft and bosses to defeat, alone or in multiplayer.",
+    "base_price_cents": 499, "popularity": 80,
+    "variants": [
+      { "platform": "steam", "region": "global" }
+    ]
+  },
+  {
+    "slug": "doom-eternal", "title": "DOOM Eternal", "type": "game", "release_date": "2020-03-20",
+    "description": "A fast first-person shooter. As the Slayer, tear through demon armies across Earth and beyond with an arsenal built for constant movement and aggression.",
+    "base_price_cents": 1299, "popularity": 79,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "xbox-live", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "resident-evil-4", "title": "Resident Evil 4", "type": "game", "release_date": "2023-03-24",
+    "description": "A modern remake of the survival horror classic. Agent Leon S. Kennedy is sent to a remote European village to rescue the president's daughter and finds something far worse.",
+    "base_price_cents": 2499, "popularity": 83,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "steam", "region": "europe" },
+      { "platform": "psn", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "god-of-war", "title": "God of War", "type": "game", "release_date": "2018-04-20",
+    "description": "Kratos, now living in the realm of the Norse gods, travels with his son Atreus to scatter his wife's ashes in this third-person action adventure about fatherhood and fury.",
+    "base_price_cents": 2499, "popularity": 86,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "psn", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "forza-horizon-5", "title": "Forza Horizon 5", "type": "game", "release_date": "2021-11-09",
+    "description": "An open-world racing game set across the varied landscapes of Mexico, with hundreds of cars, changing seasons and events to play alone or online.",
+    "base_price_cents": 2999, "popularity": 85,
+    "variants": [
+      { "platform": "xbox-live", "region": "global" },
+      { "platform": "steam", "region": "global" }
+    ]
+  },
+  {
+    "slug": "halo-infinite", "title": "Halo Infinite (Campaign)", "type": "game", "release_date": "2021-12-08",
+    "description": "The Master Chief returns in a first-person shooter campaign set on the open ring world of Zeta Halo, with a grappling hook and freedom to approach fights your own way.",
+    "base_price_cents": 1999, "popularity": 74,
+    "variants": [
+      { "platform": "xbox-live", "region": "global" },
+      { "platform": "steam", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "sea-of-thieves", "title": "Sea of Thieves", "type": "game", "release_date": "2018-03-20",
+    "description": "A shared-world pirate adventure. Crew a ship with friends, hunt for treasure, battle skeletons and rival crews, and write your own legend on the open sea.",
+    "base_price_cents": 1799, "popularity": 77,
+    "variants": [
+      { "platform": "xbox-live", "region": "global" },
+      { "platform": "steam", "region": "global" }
+    ]
+  },
+  {
+    "slug": "ea-sports-fc-25", "title": "EA Sports FC 25", "type": "game", "release_date": "2024-09-27",
+    "description": "A football simulation with licensed clubs and leagues, career and club modes, Ultimate Team, and small-sided Rush matches.",
+    "base_price_cents": 3499, "popularity": 91,
+    "variants": [
+      { "platform": "ea-app", "region": "global" },
+      { "platform": "xbox-live", "region": "europe" },
+      { "platform": "psn", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "it-takes-two", "title": "It Takes Two", "type": "game", "release_date": "2021-03-26",
+    "description": "A co-op-only platform adventure for two players. A couple turned into dolls must work together through inventive levels that change the rules at every turn.",
+    "base_price_cents": 1499, "popularity": 81,
+    "variants": [
+      { "platform": "ea-app", "region": "global" },
+      { "platform": "steam", "region": "global" },
+      { "platform": "nintendo", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "sekiro-shadows-die-twice", "title": "Sekiro: Shadows Die Twice", "type": "game", "release_date": "2019-03-22",
+    "description": "A third-person action game set in a reimagined late-1500s Japan. As a one-armed shinobi, master posture-breaking swordplay, stealth and a grappling hook to rescue your lord.",
+    "base_price_cents": 2999, "popularity": 78,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "steam", "region": "europe", "stock": "none" }
+    ]
+  },
+  {
+    "slug": "sid-meiers-civilization-vi", "title": "Sid Meier's Civilization VI", "type": "game", "release_date": "2016-10-21",
+    "description": "A turn-based strategy game about building an empire to stand the test of time: found cities, research technologies, conduct diplomacy and wage war from the Stone Age onward.",
+    "base_price_cents": 599, "popularity": 76,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "nintendo", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "cities-skylines", "title": "Cities: Skylines", "type": "game", "release_date": "2015-03-10",
+    "description": "A modern city builder. Lay out roads and districts, manage services, traffic and budgets, and grow a small town into a metropolis.",
+    "base_price_cents": 799, "popularity": 72,
+    "variants": [
+      { "platform": "steam", "region": "global" }
+    ]
+  },
+  {
+    "slug": "helldivers-2", "title": "Helldivers 2", "type": "game", "release_date": "2024-02-08",
+    "description": "A co-op third-person shooter for up to four players. Drop onto hostile planets as elite soldiers, call in stratagems and try not to hit your own squad.",
+    "base_price_cents": 3299, "popularity": 88,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "psn", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "mario-kart-8-deluxe", "title": "Mario Kart 8 Deluxe", "type": "game", "release_date": "2017-04-28",
+    "description": "A kart racing game with anti-gravity tracks, a large roster of characters and local or online multiplayer for the whole room.",
+    "base_price_cents": 4499, "popularity": 90,
+    "variants": [
+      { "platform": "nintendo", "region": "europe" },
+      { "platform": "nintendo", "region": "united-states", "stock": "none" }
+    ]
+  },
+  {
+    "slug": "the-legend-of-zelda-tears-of-the-kingdom", "title": "The Legend of Zelda: Tears of the Kingdom", "type": "game", "release_date": "2023-05-12",
+    "description": "An open-world adventure across the land and skies of Hyrule. Use new abilities to fuse items and build vehicles as Link searches for Princess Zelda.",
+    "base_price_cents": 5299, "popularity": 92,
+    "variants": [
+      { "platform": "nintendo", "region": "europe" },
+      { "platform": "nintendo", "region": "united-states" }
+    ]
+  },
+  {
+    "slug": "elden-ring-shadow-of-the-erdtree", "title": "Elden Ring: Shadow of the Erdtree", "type": "dlc", "release_date": "2024-06-21",
+    "description": "An expansion for Elden Ring set in the Land of Shadow, with a new map, weapons and bosses. Requires the base game.",
+    "base_price_cents": 3299, "popularity": 85,
+    "variants": [
+      { "platform": "steam", "region": "global" },
+      { "platform": "xbox-live", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "cyberpunk-2077-phantom-liberty", "title": "Cyberpunk 2077: Phantom Liberty", "type": "dlc", "release_date": "2023-09-26",
+    "description": "A spy-thriller expansion for Cyberpunk 2077 set in the new district of Dogtown. Requires the base game.",
+    "base_price_cents": 2499, "popularity": 80,
+    "variants": [
+      { "platform": "steam", "region": "global" }
+    ]
+  },
+  {
+    "slug": "steam-wallet-gift-card-20-eur", "title": "Steam Wallet Gift Card 20 EUR", "type": "gift_card", "release_date": null,
+    "description": "Adds 20 EUR to a Steam Wallet, to spend on games, software and in-game items on Steam.",
+    "base_price_cents": 2099, "popularity": 83,
+    "variants": [
+      { "platform": "steam", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "nintendo-eshop-card-25-eur", "title": "Nintendo eShop Card 25 EUR", "type": "gift_card", "release_date": null,
+    "description": "Adds 25 EUR of credit to a Nintendo Account, to spend on games and add-on content in Nintendo eShop.",
+    "base_price_cents": 2499, "popularity": 75,
+    "variants": [
+      { "platform": "nintendo", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "playstation-store-gift-card-50-usd", "title": "PlayStation Store Gift Card 50 USD", "type": "gift_card", "release_date": null,
+    "description": "Adds 50 USD to a PlayStation Network wallet, to spend on games, add-ons and subscriptions in PlayStation Store.",
+    "base_price_cents": 4799, "popularity": 78,
+    "variants": [
+      { "platform": "psn", "region": "united-states" }
+    ]
+  },
+  {
+    "slug": "xbox-game-pass-ultimate-1-month", "title": "Xbox Game Pass Ultimate 1 Month", "type": "subscription", "release_date": null,
+    "description": "One month of Xbox Game Pass Ultimate: a library of games to download and play on console and PC, plus online multiplayer.",
+    "base_price_cents": 1299, "popularity": 89,
+    "variants": [
+      { "platform": "xbox-live", "region": "global" },
+      { "platform": "xbox-live", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "playstation-plus-essential-12-months", "title": "PlayStation Plus Essential 12 Months", "type": "subscription", "release_date": null,
+    "description": "Twelve months of PlayStation Plus Essential: online multiplayer, monthly games and cloud saves.",
+    "base_price_cents": 5999, "popularity": 82,
+    "variants": [
+      { "platform": "psn", "region": "europe" }
+    ]
+  },
+  {
+    "slug": "ea-play-12-months", "title": "EA Play 12 Months", "type": "subscription", "release_date": null,
+    "description": "Twelve months of EA Play: a library of Electronic Arts games, trials of new releases and member discounts.",
+    "base_price_cents": 2999, "popularity": 70,
+    "variants": [
+      { "platform": "ea-app", "region": "global", "stock": "none" }
+    ]
+  }
+]

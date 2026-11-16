@@ -47,8 +47,8 @@ Migrations are in `api/database/migrations`, one file per area.
 ```
 platforms        id, name, slug
 regions          id, name, slug
-products         id, slug, name, description, cover_image_url, platform_id,
-                 region_id, type, release_date, sales_count
+games            id, slug, title, description, cover_image_url, type, release_date
+products         id, slug, name, game_id, platform_id, region_id, sales_count
 sellers          id, name, slug, rating_percent, sales_count
 offers           id, product_id, seller_id, price_cents, original_price_cents,
                  currency, is_active
@@ -64,10 +64,14 @@ homepage_blocks  id, type, title, position, config, is_active
 banners          id, title, subtitle, image_url, link_url, cta_label, position, is_active
 ```
 
-### Products, sellers and offers
+### Games, products, sellers and offers
 
-- A **product** is one sellable variant, as on Eneba: a title on one platform
-  for one region ("Elden Ring Steam Key GLOBAL"). It has no price.
+- A **game** is the title itself (or a DLC, gift card or subscription): its
+  description, cover, type and release date, stored once.
+- A **product** is one sellable variant of a game, as on Eneba: that game on
+  one platform for one region ("Elden Ring Steam Key GLOBAL"). It has no
+  price and repeats none of the game's details. A game is sold at most once
+  per platform and region (unique constraint).
 - An **offer** is one seller's price for one product. A seller has at most one
   offer per product (unique constraint). The product page lists every offer so
   the buyer can compare; the cart holds offers, because the buyer chose a seller.
@@ -82,8 +86,15 @@ Decisions and their trade-offs:
   Always correct, and fast at this data size. Storing it would be the next step
   at scale, at the cost of keeping it in sync.
 - **Money is whole cents in integer columns**, one currency (EUR). No floats.
-- **No parent "game" table** grouping variants of the same title. It would
-  enable "other editions of this game" links, which are out of scope.
+- **Games and products are separate tables.** The first version kept
+  everything on the product, so the same description and cover were repeated
+  for every platform and region. Splitting them costs one join and removes the
+  duplication; it also gives the product page its list of "the same game on
+  other platforms and regions" for free.
+- **A product still stores its `name`** ("Elden Ring Steam Key GLOBAL")
+  although it is derived from the game, platform and region. It is built in
+  one place (`Product::displayName`), never typed, and kept as a column
+  because the trigram search index needs a single text column to index.
 - **Order lines copy** the product name, seller name and unit price, so order
   history stays correct after later renames or price changes.
 
@@ -100,14 +111,78 @@ test in `api/tests/Feature/Schema`.
 | An order is charged at most once | unique `payments.order_id` |
 | A key is available, reserved or sold, and each state is internally consistent (for example, a sold key always belongs to an order line) | check constraint `license_keys_state_check` |
 | A key code exists once | unique `code` |
-| Statuses and product types are from a known list | check constraints |
+| A game is sold at most once per platform and region | unique `(game_id, platform_id, region_id)` |
+| A game with variants, or a platform or region in use, cannot be deleted | foreign keys |
+| Statuses and game types are from a known list | check constraints |
 
 ### Changes from the model first proposed
 
-Two additions, both made to meet the checkout requirements below:
+Two additions made to meet the checkout requirements below, and one made
+with the catalog:
 
 1. `license_keys` gained a `reserved` state and `reserved_until`.
 2. A `payments` table was added instead of payment columns on `orders`.
+3. `games` was split out of `products` (see above). Done as a new migration,
+   not by editing the first ones, because those had already run in production.
+
+## Catalog API (Built)
+
+Public, read-only, and the single source of everything the store shows.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/filters` | Platforms, regions and types with product counts; the current price range; the sort orders and page sizes the list accepts |
+| `GET /api/products` | A page of products with the best price, stock flag and number of sellers. Filters: `platform`, `region`, `type` (comma-separated), `min_price`, `max_price` (cents). `sort`: `popular`, `price_asc`, `price_desc`, `newest`. `page`, `per_page` (24 by default, 48 at most). |
+| `GET /api/products/{slug}` | The product, its game's details, every active offer with its seller, and the game's other variants |
+
+How it behaves:
+
+- **One definition of "can be bought".** An offer is sellable when the seller
+  has it switched on and it has a key that is neither reserved nor sold
+  (`Offer::scopeSellable`). A product's price is its cheapest sellable offer
+  (`Product::scopeWithBestOffer`). The list, the filters' price range and the
+  product page all use these two, so they cannot disagree.
+- **Sold out** means no sellable offer: `in_stock` is false and `price` is
+  null. Such products stay visible, come after available ones in every sort
+  order, and never match a price filter.
+- **Offers on a product page**: purchasable ones first, cheapest first, so
+  the first row is always the price the list showed.
+- **Validation**: an unknown platform, region, type or sort, a negative or
+  inverted price range, or a page size above the maximum is a 422 with a
+  message per field. An empty value (`platform=`) means "no filter". A page
+  past the end is an empty list.
+- **Money** is `{amount_cents, currency, original_amount_cents,
+  discount_percent}`; the frontend only formats it.
+- **Key codes never leave the checkout.** No catalog response contains one.
+- **Cost**: the list runs five queries whatever the page size (count, page,
+  and one each for games, platforms, regions); the product page runs ten.
+
+**Typed responses.** Each shape is defined by a Laravel resource class.
+`web/src/contracts` holds one example response per endpoint, generated from
+the seeded catalog. `CatalogContractTest` fails if the API stops returning
+exactly those; the frontend's TypeScript types are checked against the same
+files. `make contracts` regenerates them after an intended change.
+
+**Performance.** Measured on the seeded catalog (71 products) and on a
+scratch dataset 170 times larger (12,000 products, 60,000 offers, 249,000
+keys), on a laptop:
+
+| Request | 71 products | 12,000 products |
+|---|---|---|
+| List, default sort | 5 ms | 117 ms |
+| List, platform + region + price range | 5 ms | 25 ms |
+| List, page 400 of 500 | n/a | 335 ms |
+| Filters | 2 ms | 52 ms |
+| Product page | 5 ms | 4 ms |
+
+The query plan uses the two indexes built for this: `(product_id,
+price_cents)` on offers to find the cheapest offer per product, and the
+partial index on available keys, read index-only. The unfiltered list at the
+larger size is slower because the best price of every product is worked out
+before sorting, once for the count and once for the page. That is the known
+limit of computing prices on read; storing the best price on the product
+(and keeping it in sync when offers or keys change) is the step to take if
+the catalog ever grows that large.
 
 ## Checkout and key delivery (Planned; schema and locking proof Built)
 
@@ -249,11 +324,24 @@ title and data. The frontend maps a type to a component and skips types it
 does not know. Reordering, hiding or adding a block is a database row change;
 nothing about the homepage is hardcoded in the frontend.
 
-## Seed data and images (Decided; implemented with the catalog increment)
+## Seed data and images (Built)
 
-**Reproducible data.** The catalog is a curated dataset kept as JSON files in
-the repository and loaded by seeders. Seeding is deterministic: the same
-command produces the same products, offers, prices and keys on any machine.
+**Curated, version-controlled data.** `api/database/data/games.json` lists
+34 titles (26 games, 2 DLCs, 3 gift cards, 3 subscriptions) with their
+descriptions, release dates, a base price, and the platform/region variants
+each is sold as: 71 products in all. `reference.json` holds the platforms,
+regions and eight invented sellers. Titles are real games, used only to say
+what a key is for; descriptions were written for this project.
+
+**Deterministic.** `CatalogSeeder` generates the offers, prices and keys.
+Nothing is random: each number is computed from a hash of what it describes
+(for example product and seller), so the same files give the same catalog on
+any machine, and adding a game does not change the others. Three variants
+are marked sold out in the data so that state is always present.
+
+**Safe on every deploy.** The container runs the seeder at each start. It
+adds what is missing and updates catalog text and seed prices; it never
+brings back a key that was sold or reserved, and never resets a sales count.
 
 **Image rights.** No third-party artwork is used.
 
@@ -262,15 +350,12 @@ command produces the same products, offers, prices and keys on any machine.
   grants access to data, not a licence to republish the art. Those sources are
   therefore ruled out. (This is a cautious reading, not legal advice, and the
   APIs' current terms were not re-read for this decision.)
-- Product covers and banners are **original images generated by a script in
-  this repository** from the seed data (title, platform, a colour derived from
-  the name). We own them outright, they need no attribution, and the site does
-  not depend on anyone else's server.
+- Covers are **original images drawn by `scripts/catalog/generate-covers.mjs`**:
+  a colour gradient, a few shapes and the title set in type, all computed
+  from the game's slug. Nothing is traced or derived from real artwork.
+- **One cover per game**, shared by all of its variants: 34 images for 71
+  products, served by the frontend host from `web/public/covers`.
 - `cover_image_url` is an ordinary column, so properly licensed artwork can
   replace a generated cover later without code changes.
 - Eneba's logo is not copied. The header uses a plain text wordmark; colours,
   typography and spacing follow eneba.com as the assignment asks.
-
-Open point for review: product names are real game titles, used only to say
-what a key is for. If that is not wanted, the dataset can use invented titles
-instead; nothing else changes.

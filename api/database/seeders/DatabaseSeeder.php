@@ -14,9 +14,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Catalog seeders (platforms, regions, products, sellers, offers, keys,
-        // homepage blocks) are added with the catalog increment. They load a
-        // curated, version-controlled dataset so every environment gets the
-        // same data. See docs/ARCHITECTURE.md, "Seed data and images".
+        // Safe to run on every deploy: see CatalogSeeder.
+        $this->call(CatalogSeeder::class);
     }
 }

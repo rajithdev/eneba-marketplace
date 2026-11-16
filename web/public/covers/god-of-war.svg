@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="God of War">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(308 70% 32%)"/>
+      <stop offset="1" stop-color="hsl(4 75% 14%)"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.35" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.72"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#bg)"/>
+  <circle cx="492" cy="340" r="130" fill="hsl(333 80% 65%)" opacity="0.34"/>
+  <circle cx="24" cy="375" r="165" fill="hsl(128 85% 60%)" opacity="0.29"/>
+  <circle cx="91" cy="323" r="187" fill="hsl(23 80% 65%)" opacity="0.37"/>
+  <rect x="-174" y="-100" width="120" height="1100" fill="#fff" opacity="0.07" transform="rotate(24 300 400)"/>
+  <rect width="600" height="800" fill="url(#shade)"/>
+  
+  <g fill="#fff" font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="63">
+    <text x="40" y="730">GOD OF WAR</text>
+  </g>
+</svg>

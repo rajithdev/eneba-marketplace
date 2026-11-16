@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\LicenseKeyStatus;
 use Database\Factories\OfferFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,7 +28,26 @@ class Offer extends Model
             'price_cents' => 'integer',
             'original_price_cents' => 'integer',
             'is_active' => 'boolean',
+            // Present only when loaded with withExists(... as in_stock).
+            'in_stock' => 'boolean',
         ];
+    }
+
+    /**
+     * Offers a buyer can actually purchase right now: switched on by the
+     * seller, and with at least one key that is neither reserved nor sold.
+     * This one definition is used everywhere a price or "in stock" is shown.
+     *
+     * @param  Builder<Offer>  $query
+     */
+    public function scopeSellable(Builder $query): void
+    {
+        $query->where('offers.is_active', true)->whereExists(
+            LicenseKey::query()
+                ->selectRaw('1')
+                ->whereColumn('license_keys.offer_id', 'offers.id')
+                ->where('license_keys.status', LicenseKeyStatus::Available->value),
+        );
     }
 
     /** @return BelongsTo<Product, $this> */

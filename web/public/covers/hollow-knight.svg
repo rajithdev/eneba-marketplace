@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Hollow Knight">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(229 70% 32%)"/>
+      <stop offset="1" stop-color="hsl(307 75% 14%)"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.35" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.72"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#bg)"/>
+  <circle cx="294" cy="485" r="173" fill="hsl(254 80% 65%)" opacity="0.22"/>
+  <circle cx="154" cy="76" r="119" fill="hsl(49 85% 60%)" opacity="0.33"/>
+  <circle cx="84" cy="337" r="176" fill="hsl(304 80% 65%)" opacity="0.19"/>
+  <rect x="-2" y="-100" width="120" height="1100" fill="#fff" opacity="0.07" transform="rotate(24 300 400)"/>
+  <rect width="600" height="800" fill="url(#shade)"/>
+  
+  <g fill="#fff" font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="84">
+    <text x="40" y="639">HOLLOW</text>
+    <text x="40" y="730">KNIGHT</text>
+  </g>
+</svg>

@@ -1,0 +1,77 @@
+{
+    "request": "GET /api/products?platform=ea-app&sort=price_asc",
+    "response": {
+        "data": [
+            {
+                "slug": "it-takes-two-ea-app-key-global",
+                "name": "It Takes Two EA App Key GLOBAL",
+                "type": "game",
+                "cover_image_url": "/covers/it-takes-two.svg",
+                "release_date": "2021-03-26",
+                "platform": {
+                    "slug": "ea-app",
+                    "name": "EA App"
+                },
+                "region": {
+                    "slug": "global",
+                    "name": "Global"
+                },
+                "in_stock": true,
+                "price": {
+                    "amount_cents": 1329,
+                    "currency": "EUR",
+                    "original_amount_cents": 1749,
+                    "discount_percent": 24
+                },
+                "offers_count": 5
+            },
+            {
+                "slug": "ea-sports-fc-25-ea-app-key-global",
+                "name": "EA Sports FC 25 EA App Key GLOBAL",
+                "type": "game",
+                "cover_image_url": "/covers/ea-sports-fc-25.svg",
+                "release_date": "2024-09-27",
+                "platform": {
+                    "slug": "ea-app",
+                    "name": "EA App"
+                },
+                "region": {
+                    "slug": "global",
+                    "name": "Global"
+                },
+                "in_stock": true,
+                "price": {
+                    "amount_cents": 3429,
+                    "currency": "EUR",
+                    "original_amount_cents": null,
+                    "discount_percent": null
+                },
+                "offers_count": 3
+            },
+            {
+                "slug": "ea-play-12-months-global",
+                "name": "EA Play 12 Months GLOBAL",
+                "type": "subscription",
+                "cover_image_url": "/covers/ea-play-12-months.svg",
+                "release_date": null,
+                "platform": {
+                    "slug": "ea-app",
+                    "name": "EA App"
+                },
+                "region": {
+                    "slug": "global",
+                    "name": "Global"
+                },
+                "in_stock": false,
+                "price": null,
+                "offers_count": 0
+            }
+        ],
+        "meta": {
+            "current_page": 1,
+            "per_page": 24,
+            "total": 3,
+            "last_page": 1
+        }
+    }
+}

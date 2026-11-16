@@ -394,6 +394,55 @@ if (apiOrigin) {
 
 await request('POST', '/api/auth/logout', { headers: xsrfHeader() })
 
+heading('8. Catalog')
+{
+  const anonymous = { cookies: new Map() }
+  const keyShaped = /\b[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}\b/
+
+  const filters = await request('GET', '/api/filters', anonymous)
+  const options = filters.json?.data
+  check('The filter options are served', filters.status === 200 && options?.platforms?.length > 0 && options?.sorts?.length > 0, `HTTP ${filters.status}, ${options?.platforms?.length ?? 0} platforms`)
+
+  const list = await request('GET', '/api/products?per_page=48', anonymous)
+  const products = list.json?.data ?? []
+  check('The product list is seeded', list.status === 200 && products.length > 0 && list.json?.meta?.total >= products.length, `HTTP ${list.status}, ${list.json?.meta?.total ?? 0} products`)
+
+  const firstSoldOut = products.findIndex((product) => !product.in_stock)
+  check(
+    'Sold-out products have no price and come after every available one',
+    products.every((product) => (product.in_stock ? product.price?.amount_cents > 0 : product.price === null)) &&
+      (firstSoldOut === -1 || products.slice(firstSoldOut).every((product) => !product.in_stock)),
+  )
+
+  const cheapestFirst = await request('GET', '/api/products?sort=price_asc&per_page=48', anonymous)
+  const prices = (cheapestFirst.json?.data ?? []).filter((product) => product.in_stock).map((product) => product.price.amount_cents)
+  check('Sorting by price returns non-decreasing prices', prices.length > 0 && prices.every((price, i) => i === 0 || price >= prices[i - 1]))
+
+  const invalid = await request('GET', '/api/products?platform=no-such-platform&sort=sideways', anonymous)
+  check('An unknown filter or sort is rejected, not ignored', invalid.status === 422 && Boolean(invalid.json?.errors), `HTTP ${invalid.status}`)
+
+  const sample = products.find((product) => product.in_stock)
+  if (sample) {
+    const page = await request('GET', `/api/products/${sample.slug}`, anonymous)
+    const detail = page.json?.data
+    check('A product page lists its sellers\' offers', page.status === 200 && detail?.offers?.length > 0, `HTTP ${page.status}, ${detail?.offers?.length ?? 0} offers`)
+    check(
+      'The list price is the first offer on the product page, and that offer is in stock',
+      detail?.offers?.[0]?.in_stock === true && detail.offers[0].price.amount_cents === sample.price.amount_cents,
+      `list ${sample.price.amount_cents}, page ${detail?.offers?.[0]?.price?.amount_cents}`,
+    )
+    check('No license key appears in the list or on the product page', !keyShaped.test(list.text) && !keyShaped.test(page.text))
+
+    const cover = await request('GET', sample.cover_image_url, { ...anonymous, headers: { accept: 'image/svg+xml' } })
+    check('The cover image is served by the site', cover.status === 200 && String(cover.headers['content-type']).includes('svg'), `HTTP ${cover.status} ${cover.headers['content-type'] ?? ''}`)
+  } else {
+    check('At least one product is in stock', false)
+  }
+
+  const missing = await request('GET', '/api/products/no-such-product', anonymous)
+  check('An unknown product is a JSON 404', missing.status === 404 && missing.json?.message === 'Product not found.', `HTTP ${missing.status}`)
+}
+
 // --------------------------------------------------------------- summary ---
 
 const failed = results.filter((result) => !result.passed)

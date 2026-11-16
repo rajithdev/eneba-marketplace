@@ -42,6 +42,10 @@ php artisan route:cache
 #    is unreachable the container stops here and the deploy fails visibly.
 php artisan migrate --force
 
+# 5. Load the catalog. Safe on every start: it adds what is missing and never
+#    touches keys that were sold or sales counts (see CatalogSeeder).
+php artisan db:seed --force
+
 # The commands above ran as root; the web server runs as www-data.
 chown -R www-data:www-data storage bootstrap/cache
 

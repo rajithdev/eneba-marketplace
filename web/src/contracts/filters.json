@@ -1,0 +1,101 @@
+{
+    "request": "GET /api/filters",
+    "response": {
+        "data": {
+            "platforms": [
+                {
+                    "slug": "ea-app",
+                    "name": "EA App",
+                    "products_count": 3
+                },
+                {
+                    "slug": "nintendo",
+                    "name": "Nintendo eShop",
+                    "products_count": 12
+                },
+                {
+                    "slug": "psn",
+                    "name": "PlayStation Network",
+                    "products_count": 11
+                },
+                {
+                    "slug": "steam",
+                    "name": "Steam",
+                    "products_count": 29
+                },
+                {
+                    "slug": "xbox-live",
+                    "name": "Xbox Live",
+                    "products_count": 16
+                }
+            ],
+            "regions": [
+                {
+                    "slug": "europe",
+                    "name": "Europe",
+                    "products_count": 33
+                },
+                {
+                    "slug": "global",
+                    "name": "Global",
+                    "products_count": 32
+                },
+                {
+                    "slug": "united-states",
+                    "name": "United States",
+                    "products_count": 6
+                }
+            ],
+            "types": [
+                {
+                    "value": "game",
+                    "label": "Games",
+                    "products_count": 61
+                },
+                {
+                    "value": "dlc",
+                    "label": "DLC",
+                    "products_count": 3
+                },
+                {
+                    "value": "gift_card",
+                    "label": "Gift cards",
+                    "products_count": 3
+                },
+                {
+                    "value": "subscription",
+                    "label": "Subscriptions",
+                    "products_count": 4
+                }
+            ],
+            "price": {
+                "min_cents": 479,
+                "max_cents": 5349,
+                "currency": "EUR"
+            },
+            "sorts": [
+                {
+                    "value": "popular",
+                    "label": "Most popular"
+                },
+                {
+                    "value": "price_asc",
+                    "label": "Price: low to high"
+                },
+                {
+                    "value": "price_desc",
+                    "label": "Price: high to low"
+                },
+                {
+                    "value": "newest",
+                    "label": "Newest releases"
+                }
+            ],
+            "default_sort": "popular",
+            "per_page": {
+                "default": 24,
+                "max": 48
+            }
+        }
+    }
+}
