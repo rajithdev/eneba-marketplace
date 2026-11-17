@@ -18,6 +18,45 @@ checkout with a simulated payment, key delivery, order history).
 | Hosting plan and verified free-tier limits | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | AI conversation history | [docs/ai-log/](docs/ai-log/README.md) |
 
+## Trying it
+
+Open https://eneba-marketplace-ten.vercel.app. The API runs on a free plan
+that sleeps after 15 idle minutes, so the first page may take up to a
+minute to fill in (about 25 seconds when measured); the site says so while
+it waits. After that it is fast.
+
+1. **Browse.** The homepage is built from blocks the API returns. "Store"
+   and the category links under the header list every product; filter by
+   type, platform, region or price, and change the order.
+2. **Search.** Type in the header from any page. Misspellings work: try
+   `mincraft` or `eldn ring`. Enter opens the full results.
+3. **Compare offers.** Open a product. Each row under "Offers from sellers"
+   is a different seller's price for the same key; "Add to cart" on a row
+   picks that seller.
+4. **Register.** Open the cart and choose "Sign in to check out", then
+   "New here? Create an account". Any name, any email address in a valid
+   format (nothing is sent to it) and a password of 8 characters or more.
+   You return to the cart signed in.
+5. **Pay.** "Proceed to checkout" holds your keys for 10 minutes and shows
+   three test cards. No card details are asked for and no money moves.
+
+   | Test card | What happens |
+   |---|---|
+   | ending 4242 | Payment approved; the order page shows your key |
+   | ending 0002 | Declined by the bank; nothing is charged, the keys go back on sale |
+   | ending 9995 | Declined for insufficient funds; same outcome |
+
+   Letting the timer run out, or "Cancel and return to cart", also releases
+   the keys.
+6. **See your keys again.** "Orders" in the header (or Account, "Your
+   orders and keys") lists every order; a paid one opens to its keys. Sign
+   out and press Back: the orders are gone from the screen.
+
+The keys are made-up codes that unlock nothing.
+
+Screenshots of the store and product pages are in
+[docs/screenshots](docs/screenshots).
+
 ## Stack
 
 - **Frontend** (`web/`): React, TypeScript, Vite, React Router, TanStack Query, Tailwind
@@ -75,9 +114,10 @@ Other commands:
 
 | Command | What it does |
 |---|---|
-| `make prod-check` | Builds the production image and frontend, runs them locally with production settings, and verifies sign-up, sign-in and sign-out end to end |
+| `make prod-check` | Builds the production image and frontend, runs them locally with production settings, and runs every deployment check against them, including buying a key |
 | `make audit` | Fails if a secret or private file is tracked by Git |
-| `make verify URL=…` | Runs the end-to-end checks against a deployed address |
+| `make verify URL=… API_URL=…` | Runs the end-to-end checks against a deployed address (add `PURCHASE=1` to also buy one key) |
+| `make contracts` | Regenerates the example API responses in `web/src/contracts` from the backend tests |
 | `make migrate`, `make fresh` | Apply migrations; drop and recreate all tables |
 | `make ai-log` | Save the AI conversation history |
 | `make down` | Stop the containers |
@@ -138,9 +178,11 @@ Things a reviewer should know are deliberate, approximate or not done yet.
   that looks at stock or orders (`php artisan orders:expire` exists for a
   host with cron). Search suggestions and the filter counts skip that step,
   so they can show an expired hold as "sold out" until the next page load.
-- A buyer has one checkout in progress at a time: starting another cancels
-  the earlier unpaid order. One order holds at most 10 of an offer and 20
-  different offers.
+- A buyer has one checkout in progress at a time, enforced by the database:
+  starting another cancels the earlier unpaid order. One order holds at
+  most 10 of an offer and 20 different offers. Several accounts could still
+  hold stock between them for 10 minutes at a time; nothing limits how many
+  accounts one person creates.
 - One payment attempt per order. After a decline the buyer checks out again,
   which creates a new order.
 - There are no refunds, invoices, taxes, emails or seller payouts, and a
@@ -170,36 +212,53 @@ Things a reviewer should know are deliberate, approximate or not done yet.
   load on that page either. Ordinary punctuation, quotes included, is
   searched for as text.
 
-**Store and product pages**
+**Look and feel**
 
-- Nothing can be bought yet. Offers are shown for comparison; the cart and
-  checkout are a later phase, so there is no "add to cart" button.
 - The look follows Eneba's design language (colours, heavy type, square
   corners, card and offer layout, read from eneba.com's own pages) without
   copying its assets. The wordmark is a placeholder, and Eneba's typeface is
   not bundled: the system sans-serif is used unless the visitor has it.
+- The header has a search box, category links and the cart, but no category
+  mega-menu, language or currency switcher, wishlist or cashback, which
+  eneba.com has. Product pages have no screenshots, reviews or activation
+  guide.
 - The store's address uses the API's own parameters, so a price filter
   appears in cents (`min_price=1000` is 10.00).
-- The landing page is a placeholder until the block-based homepage is built.
-- Accessibility was checked by hand (keyboard, headings, labels, contrast),
-  not with an automated audit tool or a screen reader.
+- Accessibility was checked by hand (keyboard order, focus ring, headings,
+  labels, measured contrast), not with an automated audit tool or a screen
+  reader.
+- Opening a typed address in a tab that was scrolled down can start the new
+  page at the old scroll position. Following links inside the site does not.
 
 **Authentication**
 
 - Sign-up, sign-in and sign-out only. No email verification, password reset
   or social login.
+- Sign-up says when an email address is already registered, which reveals
+  that it is. Sign-in does not reveal which part was wrong.
+- A buyer's orders and keys are held in the browser's memory only while
+  they are signed in. They are discarded on sign-out, on any "not signed
+  in" answer, and whenever the session check fails, so a brief server
+  hiccup can replace an order on screen with "we could not check that you
+  are signed in" until it is retried.
 
 **Deployment (free tiers)**
 
-- The API sleeps after 15 minutes without traffic; the first request then
-  takes about a minute. What a visitor sees during that minute has not been
-  observed yet.
+- The API sleeps after 15 minutes without traffic. The first request then
+  waits for it to start: 25 seconds when measured on 2026-11-17, up to
+  about a minute by the host's documentation. Pages show their loading
+  state meanwhile and, after four seconds, a notice that the server may be
+  waking up.
 - Migrations and catalog loading run when the container starts. The free
   plan has no shell or rollback step, so a faulty migration is corrected by
   a new one. The migration that introduced `games` refuses to run if
   products already exist, and changes nothing in that case.
-- Each run of `make verify` leaves one throwaway `deploy-check-…` account
-  in the production database.
+- Each run of `make verify` leaves throwaway `deploy-check-…` accounts in
+  the production database (one, or two with `PURCHASE=1`), with any test
+  orders they placed. One real key of the seeded stock was consumed by the
+  one live test purchase.
+- Catalog pages have no rate limit of their own (search suggestions, the
+  cart, checkout and sign-in do).
 - An API path ending in a slash is answered by the frontend host with its
   own 404 and never reaches the API.
 - Rate limiting by caller relies on a header set by the API host's edge
@@ -210,3 +269,10 @@ Things a reviewer should know are deliberate, approximate or not done yet.
 A few features are built in depth rather than everything thinly: the
 product and seller-offer model, search, and checkout with key delivery.
 What was cut and why is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#scope).
+
+Before submission the whole application was reviewed against the
+assignment, in a browser at three widths, and by two independent code
+reviews. What that found and what was fixed (a privacy leak after sign-out,
+two ways to get a server error from outside, a rule only the application
+enforced, a possible deadlock between payments, and uneven styling between
+pages) is in the conversation log and in the commit history.

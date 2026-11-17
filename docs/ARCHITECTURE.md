@@ -1,9 +1,8 @@
 # Architecture and decisions
 
 This document records what the project is made of, why each choice was made,
-and what was deliberately left out. Sections marked **Built** exist in the
-repository today; sections marked **Planned** are agreed designs that the next
-increments implement.
+and what was deliberately left out. Every section describes what exists in
+the repository and runs on the public site today; nothing here is a plan.
 
 ## Overview
 
@@ -316,6 +315,8 @@ card data is ever asked for or stored.
 | Payment declined | Keys released, order failed, payment failed (402). Stock is back immediately. Trying again is a new order. |
 | Buyer never pays | The order expires at its deadline: reference cancelled at the gateway, keys released, order expired. |
 | Buyer goes back and changes the cart | Starting another checkout cancels the buyer's earlier pending order first, so they are never blocked by their own reservation; a quote counts keys held by the buyer's own pending order as available to them. |
+| One buyer starts several checkouts at the same moment | The database allows one pending order per buyer (a partial unique index, `orders_one_pending_per_user`). The request that loses at the index has held nothing; it gives up the order that beat it, as it would have a moment later, and tries once more. Losing twice answers 409 `checkout_in_progress`. One account can therefore never hold keys with more than one order. |
+| Two payments touch the same products or sellers | Paying raises a sales counter on each product and seller, which locks those rows. Every payment takes them in the same order (products by id, then sellers by id), so one payment can only wait for another, never deadlock with it. Recording a decision is also retried up to three times if the database reports a deadlock anyway; it re-reads the order under its lock, so repeating it is safe. |
 | Crash after step 1 | A pending order with held keys. The buyer can still pay until the deadline; otherwise it expires as above. |
 | Crash after the charge, before recording it | The gateway knows. The next touch records it: the buyer retrying, the buyer opening the order, or the expiry clean-up (whose cancel loses to the charge). The buyer gets the keys even if they never come back. |
 | Crash while recording | The transaction rolls back completely. Same as the previous row. |
@@ -375,6 +376,15 @@ that user's own orders, by a random public id: someone else's order answers
 one place only, the single-order response, and only once the order is paid.
 The order history, quotes and pending orders never contain a key.
 
+The browser holds on to none of it past the session. Orders and keys are
+kept in memory only, under the buyer's id, and are discarded the moment the
+person at the keyboard may have changed: on signing in, up or out, and
+whenever any request is answered 401. The order pages ask for and draw
+their data only once the server has confirmed who is signed in; while that
+is being checked, or if the check fails, they show that instead. Pressing
+Back after signing out therefore finds a sign-in prompt, not the previous
+buyer's orders. The cart is not personal and is kept.
+
 ### Tests
 
 PostgreSQL integration tests (`tests/Feature/Checkout`) cover: quotes and
@@ -385,16 +395,22 @@ step 3, a gateway that cannot be reached, and a sold key never being sold
 again. `CheckoutConcurrencyTest` runs real parallel processes, each with
 its own database connection: eight buyers for three keys, the same request
 six times at once, "Pay" six times at once, a charged order reconciled
-from six tabs at once, pay against cancel, opposite lock orders, and one
-buyer starting two checkouts.
+from six tabs at once, pay against cancel, one buyer starting six different
+checkouts at once (one pending order survives), and two orders that share
+products and sellers in opposite line order, paid together with the overlap
+forced (it deadlocked before the fixed lock order). A migration test shows
+that adding the one-pending-order rule first settles a buyer's extra unpaid
+orders the way a new checkout would.
 
 The frontend tests cover the cart store, revalidation notices, the order
-page in each state, duplicate presses, the countdown, and signed-out
-visitors. `make prod-check` buys a key through the production build, and
+page in each state, duplicate presses, the countdown, and what a signed-out
+browser shows: Back after signing out, a session check that is pending or
+has failed, a 401 arriving mid-session, and a second account using the same
+browser. `make prod-check` buys a key through the production build, and
 `make verify ... PURCHASE=1` does the same against a deployment. Neither
 prints a key: keys are compared by fingerprint.
 
-## Authentication (Built; awaiting proof on the deployed site)
+## Authentication (Built)
 
 Laravel's guidance is cookie-based sessions for a first-party SPA, and it
 states that the SPA and API must share the same top-level domain. Our hosts
@@ -436,12 +452,28 @@ How it works:
   error: "nobody is signed in" is a normal state. Server failures still
   return error statuses and the frontend shows them as failures.
 
-Verification: PHPUnit tests replay the real session cookie between requests;
-`scripts/deploy/verify-deployment.mjs` runs the whole flow against a running
-site (44 checks, passing against the local production stack). What remains is
-the same run against the public address: Vercel's documentation does not say
-how a rewrite treats cookies. If it fails there, the cause is diagnosed first
-(see DEPLOYMENT.md); option C is the fallback, option A a last resort.
+- The API issues no tokens. A request that carries an `Authorization: Bearer`
+  header is treated as carrying none: it is a visitor, or the signed-in
+  session it also has. (Sanctum would otherwise look the token up in a table
+  this project does not create, and answer 500.)
+
+Verification: PHPUnit tests replay the real session cookie between requests,
+and `scripts/deploy/verify-deployment.mjs` runs the whole flow against a
+running site, locally against the production build and against the public
+address. The open question when this was designed, whether Vercel's rewrite
+passes cookies through unchanged, was settled by that run: it does, and the
+session works in Safari and in private windows because the cookie is
+first-party.
+
+### Input no browser would send
+
+Every request is validated, and what fails validation is the caller's
+mistake (422), not a server error. A release review found four ways to get
+a 500 from outside, now closed and covered by `MalformedInputTest`: a price
+filter larger than the price column can hold, a query string that is not
+valid UTF-8, a list where the sign-in rate limiter expected an email, and
+the bearer token above. The API host's firewall refuses some of these
+before the application sees them (403), which is also a controlled answer.
 
 ## Search (Built)
 
@@ -608,14 +640,17 @@ use the same examples as mock data.
 
 | Component | Used for |
 |---|---|
-| `AppShell` | Header, navigation, skip link, footer around every page |
-| `ProductCard` | A product in any grid (store now; homepage blocks and search later) |
+| `AppShell` | Header, category links, skip link and footer around every page; the slow-server notice |
+| `ProductCard` | A product in any grid: the store, search results, homepage blocks |
 | `PriceTag` | Every price: amount, struck-through original, percentage, or "Sold out" |
 | `FilterPanel` | Checkbox groups and price range, driven by the URL |
 | `Pagination` | Page links that keep the other parameters |
 | `OfferTable` | Sellers' offers side by side, in the API's order |
 | `VariantList` | The same game on other platforms and regions |
-| `Notice`, `ProductGridSkeleton` | Empty, error and loading states |
+| `Notice`, `LoadError`, `ProductGridSkeleton` | Empty, error and loading states |
+| `SessionNotice` | What a buyer-only page shows while nobody is confirmed as signed in |
+| `HomeBlocks` | One component per homepage block type |
+| `OrderLines` | Cover, title and price breakdown shared by the cart and the order page |
 
 **States.** Loading shows skeletons; changing page keeps the current results
 dimmed instead of flashing. "No results", "invalid filters", "not found" and
@@ -626,6 +661,25 @@ then offer "Try again".
 **Design.** Tokens in `web/src/index.css` hold the colours and type read from
 eneba.com's computed styles. No animation library; one hover transition,
 disabled for visitors who prefer reduced motion.
+
+**One look across pages.** The pages were built in phases, and a release
+review found it showed (three sizes of page title, buttons re-declared with
+different states). What every page shares is now defined once, in
+`components/States.tsx`, and used everywhere: where a page starts, the page
+title (30px bold, as on eneba.com), the section title, and the primary and
+secondary button at two sizes, including how each looks disabled. The
+header's category links and the footer's are the product types reported by
+`GET /api/filters`, so they too are the backend's, not the frontend's.
+
+**Failures are described as what they are.** A request can fail because the
+free host is still waking up, or because the server answered with an error,
+and the page says which (`describeFailure` in `lib/api.ts`): no answer at
+all or a gateway's 502/503/504 page reads as "may be waking up"; a JSON 500
+reads as a server error; 429 as too many requests. Separately, when any
+request has gone four seconds without an answer, the shell shows a notice
+that the server may be waking up, and removes it when the answer arrives.
+A page that throws while drawing itself is replaced by a message inside the
+shell (`PageCrashed`) rather than the router's stack trace.
 
 **Accessibility.** Landmarks and a skip link; one `h1` per page with no
 skipped levels; every control labelled; the result count announced when it

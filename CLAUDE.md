@@ -35,5 +35,5 @@ scope and the reasons behind them.
 - `make test`: backend tests, style check, frontend lint, type check and tests
 - `make dev`: database, API on :8000, frontend on :5173
 - `make fresh`: rebuild the schema
-- `make prod-check`: run the production build locally and verify auth end to end
+- `make prod-check`: run the production build locally and verify it end to end (including buying a key)
 - `make audit`: must pass before every push (no secrets or private files tracked)
