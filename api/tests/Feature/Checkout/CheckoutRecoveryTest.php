@@ -117,6 +117,64 @@ class CheckoutRecoveryTest extends TestCase
         $this->actingAs($buyer)->getJson("/api/orders/{$order->public_id}")->assertJsonCount(1, 'data.items.0.keys');
     }
 
+    public function test_returning_to_the_order_history_also_completes_a_charged_order(): void
+    {
+        $buyer = User::factory()->create();
+        $offer = $this->offer(1000, keys: 1);
+        $order = $this->pendingOrder($buyer, $offer);
+        $this->gateway()->charge($order->public_id, $order->total_cents, 'EUR', 'test_card_approved');
+
+        $this->actingAs($buyer)->getJson('/api/orders')->assertOk()
+            ->assertJsonPath('data.0.id', $order->public_id)
+            ->assertJsonPath('data.0.status', 'paid')
+            ->assertJsonPath('data.0.payment.status', 'succeeded');
+
+        $this->assertSame(['available' => 0, 'reserved' => 0, 'sold' => 1], $this->keys($offer));
+    }
+
+    public function test_looking_at_orders_never_completes_or_changes_somebody_elses(): void
+    {
+        $offer = $this->offer(1000, keys: 2);
+        $charged = $this->pendingOrder(User::factory()->create(), $offer);
+        $this->gateway()->charge($charged->public_id, $charged->total_cents, 'EUR', 'test_card_approved');
+
+        $someoneElse = User::factory()->create();
+        $this->actingAs($someoneElse)->getJson('/api/orders')->assertOk()->assertJsonPath('meta.total', 0);
+        $this->actingAs($someoneElse)->getJson("/api/orders/{$charged->public_id}")->assertNotFound();
+
+        $this->assertSame(OrderStatus::Pending, $charged->fresh()->status);
+    }
+
+    public function test_the_buyer_can_still_see_the_order_when_the_provider_cannot_be_asked(): void
+    {
+        Exceptions::fake();
+        $buyer = User::factory()->create();
+        $offer = $this->offer(1000, keys: 1);
+        $order = $this->pendingOrder($buyer, $offer);
+        $this->gateway()->charge($order->public_id, $order->total_cents, 'EUR', 'test_card_approved');
+
+        $this->app->bind(PaymentGateway::class, fn () => new class extends SimulatedPaymentGateway
+        {
+            public function find(string $reference): ?ChargeResult
+            {
+                throw new RuntimeException('The payment provider did not answer.');
+            }
+        });
+
+        // Shown as it stands, keys still held, nothing decided.
+        $this->actingAs($buyer)->getJson("/api/orders/{$order->public_id}")->assertOk()->assertJsonPath('data.status', 'pending');
+        $this->actingAs($buyer)->getJson('/api/orders')->assertOk()->assertJsonPath('data.0.status', 'pending');
+        $this->assertSame(['available' => 0, 'reserved' => 1, 'sold' => 0], $this->keys($offer));
+        Exceptions::assertReported(RuntimeException::class);
+
+        // The provider is back: the next visit completes the order.
+        $this->app->bind(PaymentGateway::class, SimulatedPaymentGateway::class);
+
+        $this->actingAs($buyer)->getJson("/api/orders/{$order->public_id}")->assertOk()
+            ->assertJsonPath('data.status', 'paid')
+            ->assertJsonCount(1, 'data.items.0.keys');
+    }
+
     public function test_retrying_the_payment_after_such_a_crash_charges_nothing_more(): void
     {
         $buyer = User::factory()->create();

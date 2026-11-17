@@ -55,8 +55,8 @@ audit: ## Fail if a secret or private file is tracked by Git
 app-key: ## Print a new application key. Run in your own terminal; never paste it into a chat.
 	@$(API) php artisan key:generate --show
 
-verify: ## Verify a deployment: make verify URL=https://x.vercel.app API_URL=https://y.onrender.com
-	node scripts/deploy/verify-deployment.mjs $(URL) $(if $(API_URL),--api-origin=$(API_URL)) --expect-commit=$(shell git rev-parse origin/main)
+verify: ## Verify a deployment: make verify URL=https://x.vercel.app API_URL=https://y.onrender.com (add PURCHASE=1 to also buy one key)
+	node scripts/deploy/verify-deployment.mjs $(URL) $(if $(API_URL),--api-origin=$(API_URL)) --expect-commit=$(shell git rev-parse origin/main) $(if $(PURCHASE),--purchase)
 
 verify-backend: ## Prove a backend address serves this repository's code: make verify-backend API_URL=https://y.onrender.com
 	node scripts/deploy/verify-deployment.mjs $(API_URL) --api-origin=$(API_URL) --expect-commit=$(shell git rev-parse origin/main) --identity-only

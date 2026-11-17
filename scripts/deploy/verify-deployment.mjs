@@ -19,7 +19,7 @@
 //
 // No dependencies; needs only Node 20+.
 
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import http from 'node:http'
 import https from 'node:https'
 
@@ -517,13 +517,34 @@ heading('10. Cart and checkout')
   // key runs only with --purchase (the local production check passes it).
   const post = (path, body, headers = {}) => request('POST', path, { body, headers: { ...xsrfHeader(), ...headers } })
   const newKey = () => crypto.randomUUID()
+  let purchasedOrderId = null
+  let purchasedFingerprint = null
 
   const signedIn = await post('/api/auth/login', { email, password })
   check('Signed in again as the test buyer', signedIn.status === 200, `HTTP ${signedIn.status}`)
   const looksLikeAKey = /\b[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}\b/
 
-  const product = (await request('GET', '/api/products?per_page=48')).json?.data?.find((candidate) => candidate.in_stock)
-  const offer = (await request('GET', `/api/products/${product?.slug}`)).json?.data?.offers?.find((candidate) => candidate.in_stock)
+  const offersInStock = async (slug) => (await request('GET', `/api/products/${slug}`)).json?.data?.offers?.filter((candidate) => candidate.in_stock) ?? []
+  const candidates = ((await request('GET', '/api/products?per_page=48')).json?.data ?? []).filter((candidate) => candidate.in_stock)
+  let product = candidates[0]
+  let offer = product ? (await offersInStock(product.slug))[0] : undefined
+
+  if (flags.includes('--purchase')) {
+    // For the purchase, prefer an offer with fewer keys than one order may
+    // hold: only then can "exactly one key fewer afterwards" be seen from
+    // outside. The first few products are tried until one has such an offer.
+    for (const candidate of candidates.slice(0, 8)) {
+      const offers = await offersInStock(candidate.slug)
+      const stock = await post('/api/cart/quote', { items: offers.map((entry) => ({ offer_id: entry.id, quantity: 1000 })) })
+      const visible = stock.json?.data?.lines?.find((entry) => entry.max_quantity > 1 && entry.max_quantity < 10)
+      if (visible) {
+        product = candidate
+        offer = offers.find((entry) => entry.id === visible.offer_id)
+        break
+      }
+    }
+  }
+
   check('There is an offer in stock to test with', Boolean(offer), product?.name ?? 'no product in stock')
 
   if (offer) {
@@ -596,22 +617,78 @@ heading('10. Cart and checkout')
     check('After a declined and a cancelled order the offer is still in stock', stillThere.json?.data?.ok === true)
 
     if (flags.includes('--purchase')) {
+      // One real purchase with a simulated payment. A license key is never
+      // printed: keys are compared by fingerprint (SHA-256) and described
+      // only by how many there are and whether they have the right shape.
+      const fingerprint = (reply) => createHash('sha256').update(JSON.stringify(reply.json?.data?.items?.map((entry) => entry.keys))).digest('hex')
+      const stockBefore = (await post('/api/cart/quote', { items: [{ ...item, quantity: 1000 }] })).json?.data?.lines?.[0]?.max_quantity
+
       const bought = await post('/api/orders', { items: [item] }, { 'idempotency-key': newKey() })
-      const payments = await Promise.all([1, 2, 3].map(() => post(`/api/orders/${bought.json?.data?.id}/pay`, { payment_method: 'test_card_approved' })))
-      const keys = payments.map((reply) => JSON.stringify(reply.json?.data?.items?.map((entry) => entry.keys)))
+      const boughtId = bought.json?.data?.id
+      const payments = await Promise.all([1, 2, 3].map(() => post(`/api/orders/${boughtId}/pay`, { payment_method: 'test_card_approved' })))
+      const paid = payments[0].json?.data
+      const keys = paid?.items?.[0]?.keys ?? []
       check(
         'An approved payment, pressed three times at once, delivers one key once',
-        payments.every((reply) => reply.status === 200 && reply.json?.data?.status === 'paid') && new Set(keys).size === 1 && payments[0].json.data.items[0].keys.length === 1 && looksLikeAKey.test(payments[0].json.data.items[0].keys[0]),
-        payments.map((reply) => reply.status).join(', '),
+        payments.every((reply) => reply.status === 200 && reply.json?.data?.status === 'paid') && new Set(payments.map(fingerprint)).size === 1 && keys.length === 1 && looksLikeAKey.test(keys[0]),
+        `${payments.map((reply) => reply.status).join(', ')}; ${keys.length} key delivered`,
       )
 
-      const again = await request('GET', `/api/orders/${bought.json?.data?.id}`)
-      check('The buyer can read the key again later', again.status === 200 && JSON.stringify(again.json?.data?.items?.map((entry) => entry.keys)) === keys[0])
+      check(
+        'The order and its payment agree: paid, charged once in full, nothing left pending',
+        paid?.status === 'paid' &&
+          Boolean(paid.paid_at) &&
+          paid.expires_at === null &&
+          paid.failure_reason === null &&
+          paid.payment.status === 'succeeded' &&
+          Boolean(paid.payment.method) &&
+          paid.payment_methods.length === 0 &&
+          paid.totals.total_cents === offer.price.amount_cents &&
+          paid.totals.total_cents === paid.items.reduce((sum, entry) => sum + entry.line_total_cents, 0) &&
+          paid.items.every((entry) => entry.keys.length === entry.quantity),
+        `order ${paid?.status}, payment ${paid?.payment?.status}, ${paid?.totals?.total_cents} cents`,
+      )
 
-      const withoutSession = await request('GET', `/api/orders/${bought.json?.data?.id}`, { cookies: new Map(), asFrontend: false })
-      check('Nobody else can read a paid order or its key', withoutSession.status === 401 && !looksLikeAKey.test(withoutSession.text), `HTTP ${withoutSession.status}`)
+      // What a page refresh does: read the order again, twice.
+      const refreshes = [await request('GET', `/api/orders/${boughtId}`), await request('GET', `/api/orders/${boughtId}`)]
+      check('The same key is still there after refreshing the order page', refreshes.every((reply) => reply.status === 200 && reply.json?.data?.status === 'paid' && fingerprint(reply) === fingerprint(payments[0])))
+
+      const repay = await post(`/api/orders/${boughtId}/pay`, { payment_method: 'test_card_declined' })
+      const cancelPaid = await post(`/api/orders/${boughtId}/cancel`)
+      check('Paying or cancelling again changes nothing', repay.status === 200 && fingerprint(repay) === fingerprint(payments[0]) && cancelPaid.json?.data?.status === 'paid', `HTTP ${repay.status}, ${cancelPaid.status}`)
+
+      // The sold key has left the stock for good.
+      const afterwards = (await post('/api/cart/quote', { items: [{ ...item, quantity: 1000 }] })).json?.data?.lines?.[0]
+      const left = afterwards?.max_quantity
+      if (stockBefore < 10) {
+        check('The offer has exactly one key fewer to sell', left === stockBefore - 1, `${stockBefore} before, ${left} after`)
+      } else {
+        console.log('  (this offer has more keys than one order may hold, so its stock count is not visible from outside)')
+      }
+      if (left > 0) {
+        // Hold every key that is left: the delivered one must not be among them.
+        const rest = await post('/api/orders', { items: [{ ...item, quantity: left }] }, { 'idempotency-key': newKey() })
+        const tooMany = await post('/api/cart/quote', { items: [{ ...item, quantity: left + 1 }] })
+        check(
+          'Every remaining key can be held, and not one more: the sold key cannot be sold again',
+          rest.status === 201 && rest.json?.data?.items?.[0]?.quantity === left && (left >= 10 || tooMany.json?.data?.lines?.[0]?.quantity === left),
+          `HTTP ${rest.status}, ${left} held`,
+        )
+        await post(`/api/orders/${rest.json?.data?.id}/cancel`)
+      } else {
+        check('It was the last key: the offer is now sold out', afterwards?.issues?.includes('unavailable') === true)
+      }
+
+      const withoutSession = await request('GET', `/api/orders/${boughtId}`, { cookies: new Map(), asFrontend: false })
+      check('A signed-out caller cannot read the paid order or its key', withoutSession.status === 401 && !looksLikeAKey.test(withoutSession.text), `HTTP ${withoutSession.status}`)
+
+      const catalog = await Promise.all([request('GET', `/api/products/${product.slug}`), request('GET', '/api/products?per_page=48'), post('/api/cart/quote', { items: [item] })])
+      check('No catalog or cart response contains the delivered key', catalog.every((reply) => !reply.text.includes(keys[0] ?? 'no key')))
+
+      purchasedOrderId = boughtId
+      purchasedFingerprint = fingerprint(payments[0])
     } else {
-      console.log('  (a real purchase would use up a seeded key; that check runs only with --purchase, as "make prod-check" does)')
+      console.log('  (a real purchase uses up a seeded key; that check runs only with --purchase)')
     }
 
     const history = await request('GET', '/api/orders')
@@ -620,9 +697,30 @@ heading('10. Cart and checkout')
       history.status === 200 && history.json?.data?.some((entry) => entry.id === order?.id) && !history.text.includes('"keys"') && !looksLikeAKey.test(history.text),
       `${history.json?.meta?.total} orders`,
     )
+
+    if (purchasedOrderId) {
+      const entry = history.json?.data?.find((candidate) => candidate.id === purchasedOrderId)
+      check('The purchase is in the buyer\'s order history as paid', entry?.status === 'paid' && entry.payment.status === 'succeeded' && entry.totals.total_cents === offer.price.amount_cents)
+
+      const viaHistory = await request('GET', `/api/orders/${entry?.id}`)
+      check('Opening it from the order history shows the same key', viaHistory.status === 200 && createHash('sha256').update(JSON.stringify(viaHistory.json?.data?.items?.map((line) => line.keys))).digest('hex') === purchasedFingerprint)
+    }
   }
 
   await post('/api/auth/logout')
+
+  if (purchasedOrderId) {
+    // A different signed-in account: the order must not exist for it.
+    const stranger = await post('/api/auth/register', { name: 'Deploy Check Two', email: email.replace('@', '-other@'), password: randomBytes(18).toString('base64url') })
+    const theirView = await request('GET', `/api/orders/${purchasedOrderId}`)
+    const theirList = await request('GET', '/api/orders')
+    check(
+      'Another signed-in account gets "not found" for the order and has no orders',
+      stranger.status === 201 && theirView.status === 404 && !looksLikeAKey.test(theirView.text) && theirList.json?.meta?.total === 0,
+      `HTTP ${stranger.status}, ${theirView.status}`,
+    )
+    await post('/api/auth/logout')
+  }
 }
 
 // --------------------------------------------------------------- summary ---

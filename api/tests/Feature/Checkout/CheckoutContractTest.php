@@ -67,7 +67,7 @@ class CheckoutContractTest extends TestCase
     /**
      * Values that differ from run to run are not part of the contract: the
      * random order ids are replaced by fixed ones, and database offer ids
-     * by their position in their list.
+     * by their position in their list. License keys are masked.
      *
      * @param  array<string, mixed>  $value
      * @return array<string, mixed>
@@ -79,6 +79,10 @@ class CheckoutContractTest extends TestCase
         foreach ($orderIds as $position => $orderId) {
             $json = str_replace($orderId, substr(self::ORDER_ID, 0, -1).($position + 1), $json);
         }
+
+        // A license key has no business in a file in the repository, even
+        // a made-up one: its shape is the contract, not its value.
+        $json = preg_replace('/\b[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}\b/', 'XXXXX-XXXXX-XXXXX', $json);
 
         return $this->withOfferPositions(json_decode($json, true));
     }

@@ -76,6 +76,39 @@ class PayOrderTest extends TestCase
         $this->pay($other, $this->pendingOrder($other, $offer, 2))->assertOk();
     }
 
+    public function test_a_key_that_was_sold_is_never_sold_again(): void
+    {
+        $offer = $this->offer(1000, keys: 3);
+        $first = User::factory()->create();
+        $soldToFirst = $this->pay($first, $this->pendingOrder($first, $offer))->assertOk()->json('data.items.0.keys.0');
+        $soldKey = LicenseKey::where('code', $soldToFirst)->firstOrFail();
+
+        // Other buyers take everything that is left.
+        $second = User::factory()->create();
+        $soldToSecond = $this->pay($second, $this->pendingOrder($second, $offer, 2))->assertOk()->json('data.items.0.keys');
+
+        $this->assertNotContains($soldToFirst, $soldToSecond);
+        $this->assertCount(3, array_unique([$soldToFirst, ...$soldToSecond]));
+        // Nothing is left to sell, although three keys exist.
+        $this->placeOrder(User::factory()->create(), [$this->item($offer)])
+            ->assertConflict()
+            ->assertJsonPath('quote.lines.0.issues', ['unavailable']);
+        // The first key still belongs to the first buyer's order line.
+        $this->assertSame($soldKey->order_item_id, $soldKey->fresh()->order_item_id);
+        $this->assertSame(LicenseKeyStatus::Sold, $soldKey->fresh()->status);
+    }
+
+    public function test_the_database_refuses_to_put_a_sold_key_back_on_sale_without_clearing_its_sale(): void
+    {
+        $buyer = User::factory()->create();
+        $offer = $this->offer(1000, keys: 1);
+        $this->pay($buyer, $this->pendingOrder($buyer, $offer))->assertOk();
+
+        $this->expectExceptionMessage('license_keys_state_check');
+
+        DB::table('license_keys')->where('offer_id', $offer->id)->update(['status' => 'available']);
+    }
+
     public function test_each_decline_reason_is_reported(): void
     {
         $buyer = User::factory()->create();

@@ -7,6 +7,7 @@ use App\Models\LicenseKey;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Checkout\CartChanged;
+use App\Services\Checkout\PaymentGateway;
 use App\Services\Checkout\PlaceOrder;
 use App\Services\Checkout\SettleOrder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
@@ -113,6 +114,24 @@ class CheckoutConcurrencyTest extends TestCase
         $this->assertSame(['available' => 3, 'reserved' => 0, 'sold' => 2], $this->keys($offer));
         $this->assertSame($salesBefore + 2, $offer->product->fresh()->sales_count);
         $this->assertSame($sellerSalesBefore + 2, $offer->seller->fresh()->sales_count);
+    }
+
+    public function test_a_charged_order_opened_in_six_tabs_at_once_is_completed_once(): void
+    {
+        $offer = $this->offer(1000, keys: 3);
+        $buyer = User::factory()->create();
+        $order = app(PlaceOrder::class)->handle($buyer, [$this->item($offer, 2)], (string) Str::uuid());
+        $salesBefore = $offer->product->sales_count;
+        // Charged at the provider, never recorded: the crash this recovers from.
+        app(PaymentGateway::class)->charge($order->public_id, $order->total_cents, 'EUR', 'test_card_approved');
+
+        $results = $this->inParallel(array_fill(0, 6, fn () => app(SettleOrder::class)
+            ->reconcile(Order::findOrFail($order->id))->status->value));
+
+        $this->assertSame(array_fill(0, 6, 'paid'), $results);
+        $this->assertSame(['available' => 1, 'reserved' => 0, 'sold' => 2], $this->keys($offer));
+        $this->assertSame($salesBefore + 2, $offer->product->fresh()->sales_count);
+        $this->assertSame(1, DB::table('simulated_charges')->count());
     }
 
     public function test_paying_and_cancelling_at_the_same_moment_ends_one_way_or_the_other_never_both(): void

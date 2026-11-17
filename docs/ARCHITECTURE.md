@@ -324,6 +324,40 @@ There is no refund state because the case that would need one (charged, but
 the keys were given to someone else) cannot arise: an order's keys are
 never released while a charge for it could still succeed.
 
+### Recovery after a successful payment
+
+The one dangerous gap is "the gateway charged, and we did not record it"
+(the process died, or the response was lost). The order is still `pending`,
+its keys still held, and the gateway holds the truth. Three things close
+the gap, whichever comes first, and all three go through the same
+`SettleOrder::apply()` under the order's row lock, so they cannot double up:
+
+| Who | When | How |
+|---|---|---|
+| The buyer retries "Pay" | at once | The charge is asked again with the same reference; the gateway answers "already charged"; the result is recorded. |
+| The buyer comes back | any later visit | Opening the order, or the order history, asks the gateway what it decided (`reconcile`) and records it. |
+| Nobody comes back | at the order's deadline | The clean-up tries to cancel the reference, the gateway answers "already charged", and the order is completed instead of expired. |
+
+Reconciling is safe to repeat and safe to run from several tabs at once:
+a tested case opens the same charged order from six processes together and
+it is completed once. If the gateway cannot be asked at that moment, the
+buyer still sees the order as it stands; the failure is logged, nothing is
+decided, and the keys stay held until the gateway has answered.
+
+### What a real deployment would move to a background worker
+
+Everything above is correct without one. Three things are only *timely*
+with one, and two would be needed by a real payment provider:
+
+| Today | With a worker and a real provider |
+|---|---|
+| Overdue orders are settled by the next request that reads stock or orders. With no visitors, held keys stay held past the deadline (never sold twice, just not for sale). | `orders:expire` every minute from a scheduler. |
+| A charged order whose buyer never returns is completed at its deadline, by the same clean-up, so up to 10 minutes late. | A reconciliation job a few seconds after any payment whose result was not recorded. |
+| The clean-up calls the gateway from inside another visitor's page request. Harmless with the simulated gateway, which is a local table. | Gateway calls belong in a queue with retries and back-off; a provider outage must not slow down or break browsing. |
+| The gateway answers at once, in the request. | Real providers also report results later (3-D Secure, bank delays) through webhooks: an endpoint that verifies the provider's signature and feeds the same `apply()`. |
+| A persistently failing order is logged on every clean-up. | Alerting on orders pending past their deadline, and a way for staff to settle one by hand. |
+| Keys are shown on the order page only. | Delivery by email, sent from a queue after the order is paid. |
+
 ### Expiry without a background worker
 
 The free hosting tier runs no scheduler. Requests that show or take stock
@@ -346,14 +380,18 @@ PostgreSQL integration tests (`tests/Feature/Checkout`) cover: quotes and
 each issue; placing orders, snapshots, idempotency and its payload check;
 approved, declined, late and cancelled payments; who may read what; and
 every crash point above, including a failure injected half way through
-step 3. `CheckoutConcurrencyTest` runs real parallel processes, each with
+step 3, a gateway that cannot be reached, and a sold key never being sold
+again. `CheckoutConcurrencyTest` runs real parallel processes, each with
 its own database connection: eight buyers for three keys, the same request
-six times at once, "Pay" six times at once, pay against cancel, opposite
-lock orders, and one buyer starting two checkouts.
+six times at once, "Pay" six times at once, a charged order reconciled
+from six tabs at once, pay against cancel, opposite lock orders, and one
+buyer starting two checkouts.
 
 The frontend tests cover the cart store, revalidation notices, the order
 page in each state, duplicate presses, the countdown, and signed-out
-visitors. `make prod-check` buys a key through the production build.
+visitors. `make prod-check` buys a key through the production build, and
+`make verify ... PURCHASE=1` does the same against a deployment. Neither
+prints a key: keys are compared by fingerprint.
 
 ## Authentication (Built; awaiting proof on the deployed site)
 

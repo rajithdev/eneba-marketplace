@@ -26,8 +26,14 @@ class OrderController extends Controller
 {
     private const WITH = ['payment', 'items.product.game', 'items.product.platform', 'items.product.region'];
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, SettleOrder $settle): JsonResponse
     {
+        // A buyer returning to their orders sees them up to date: an unpaid
+        // order whose payment did go through is completed first. There is
+        // at most one such order per buyer in normal use.
+        $request->user()->orders()->where('status', OrderStatus::Pending)->get()
+            ->each(fn (Order $order) => $settle->reconcile($order));
+
         $page = $request->user()->orders()->with(self::WITH)->latest('id')->paginate(10);
 
         return response()->json([
@@ -69,7 +75,7 @@ class OrderController extends Controller
         // Reading a pending order also brings it up to date: a payment that
         // went through but was never recorded is recorded now, and an
         // overdue order is expired.
-        return $this->respond($request, $settle->refresh($this->find($request, $order)));
+        return $this->respond($request, $settle->reconcile($this->find($request, $order)));
     }
 
     /**

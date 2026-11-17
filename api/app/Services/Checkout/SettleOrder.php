@@ -89,6 +89,25 @@ class SettleOrder
     }
 
     /**
+     * refresh() for when the buyer comes back to look at their orders. The
+     * buyer must be able to see an order even if bringing it up to date
+     * fails just now (the payment provider does not answer, say): the
+     * failure is logged, the order is shown as it stands, and the next
+     * visit or the expiry clean-up tries again. Nothing is lost by waiting,
+     * because the order's keys stay held until the provider has answered.
+     */
+    public function reconcile(Order $order): Order
+    {
+        try {
+            return $this->refresh($order);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $order;
+        }
+    }
+
+    /**
      * Settle unpaid orders whose deadline has passed, oldest first, so their
      * keys go back on sale. There is no background worker on the free
      * hosting tier, so this runs at the start of requests that read stock
@@ -113,8 +132,7 @@ class SettleOrder
 
         foreach ($overdue as $order) {
             try {
-                $this->cancel($order);
-                $settled++;
+                $settled += $this->cancel($order)->status === OrderStatus::Pending ? 0 : 1;
             } catch (Throwable $exception) {
                 report($exception);
             }

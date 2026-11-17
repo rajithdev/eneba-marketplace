@@ -46,8 +46,8 @@
                     "quantity": 2,
                     "line_total_cents": 6298,
                     "keys": [
-                        "526C7-664E8-51DF5",
-                        "2386B-C5962-3B08A"
+                        "XXXXX-XXXXX-XXXXX",
+                        "XXXXX-XXXXX-XXXXX"
                     ]
                 },
                 {
@@ -75,7 +75,7 @@
                     "quantity": 1,
                     "line_total_cents": 1729,
                     "keys": [
-                        "AF026-798D6-84CFC"
+                        "XXXXX-XXXXX-XXXXX"
                     ]
                 }
             ],

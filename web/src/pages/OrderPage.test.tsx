@@ -8,7 +8,16 @@ import { cart, checkoutAttempt } from '../lib/cart'
 import { mockApi, renderAt, type SentRequest } from '../test/render'
 
 const pending = pendingExample.response.data
-const paid = paidExample.response.data
+// The recorded example masks its keys; give each one a distinct made-up
+// value so the tests can tell them apart.
+let keyNumber = 0
+const paidResponse = {
+  data: {
+    ...paidExample.response.data,
+    items: paidExample.response.data.items.map((item) => ({ ...item, keys: item.keys.map(() => `TEST${keyNumber++}-AAAAA-BBBBB`) })),
+  },
+}
+const paid = paidResponse.data
 const id = pending.id
 const allKeys = paid.items.flatMap((item) => item.keys)
 
@@ -21,7 +30,7 @@ function backend(options: { order?: Reply; pay?: (request: SentRequest) => Reply
 
   mockApi((path, _query, request) => {
     sent.push(request)
-    if (path === `/api/orders/${id}/pay`) return options.pay?.(request) ?? { body: paidExample.response }
+    if (path === `/api/orders/${id}/pay`) return options.pay?.(request) ?? { body: paidResponse }
     if (path === `/api/orders/${id}/cancel`) return options.cancel ?? { body: { data: { ...pending, status: 'cancelled', payment_methods: [], expires_at: null, expires_in_seconds: null } } }
     if (path === `/api/orders/${id}`) return state.order
     if (path === '/api/orders') return { body: ordersExample.response }
@@ -184,7 +193,7 @@ describe('an order awaiting payment', () => {
   })
 
   it('shows the order as paid if cancelling comes after the charge went through', async () => {
-    backend({ cancel: { body: paidExample.response } })
+    backend({ cancel: { body: paidResponse } })
     const router = renderAt(`/orders/${id}`)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel and return to cart' }))
@@ -198,7 +207,7 @@ describe('a settled order', () => {
   it('shows the keys of a paid order after a refresh, and copies one on request', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    backend({ order: { body: paidExample.response } })
+    backend({ order: { body: paidResponse } })
     renderAt(`/orders/${id}`)
 
     expect(await screen.findByRole('heading', { name: 'Payment confirmed' })).toBeInTheDocument()
@@ -212,7 +221,7 @@ describe('a settled order', () => {
   })
 
   it('empties the cart when a refresh finds the checkout this browser started was paid', async () => {
-    backend({ order: { body: paidExample.response } })
+    backend({ order: { body: paidResponse } })
     thisBrowserStartedTheCheckout()
     renderAt(`/orders/${id}`)
 
@@ -222,7 +231,7 @@ describe('a settled order', () => {
   })
 
   it('leaves the cart alone for an order this browser did not just start', async () => {
-    backend({ order: { body: paidExample.response } })
+    backend({ order: { body: paidResponse } })
     cart.add({ offerId: 7, unitPriceCents: 500, productName: 'Something else', sellerName: 'Someone' })
     renderAt(`/orders/${id}`)
 
