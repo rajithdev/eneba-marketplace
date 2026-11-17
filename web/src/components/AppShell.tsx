@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router'
+import { cartCount, useCart } from '../lib/cart'
 import { SearchBox } from './SearchBox'
 
 const navLink = ({ isActive }: { isActive: boolean }) =>
@@ -6,6 +7,8 @@ const navLink = ({ isActive }: { isActive: boolean }) =>
 
 /** The frame every page sits in: header, navigation, main area, footer. */
 export function AppShell() {
+  const inCart = cartCount(useCart())
+
   return (
     <div className="flex min-h-screen flex-col">
       <a
@@ -28,6 +31,14 @@ export function AppShell() {
           <nav aria-label="Main" className="ml-auto flex items-center">
             <NavLink to="/store" className={navLink}>
               Store
+            </NavLink>
+            <NavLink to="/cart" className={navLink} aria-label={inCart === 0 ? 'Cart, empty' : `Cart, ${inCart} ${inCart === 1 ? 'item' : 'items'}`}>
+              Cart
+              {inCart > 0 && (
+                <span aria-hidden="true" className="ml-1.5 inline-block min-w-5 bg-accent px-1 text-center text-xs text-black">
+                  {inCart}
+                </span>
+              )}
             </NavLink>
             <NavLink to="/account" className={navLink}>
               Account

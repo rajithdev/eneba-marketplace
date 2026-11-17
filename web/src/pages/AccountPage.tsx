@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Link, Navigate, useSearchParams } from 'react-router'
 import { primaryButton, secondaryButton } from '../components/States'
 import { ApiError } from '../lib/api'
 import { useCurrentUser, useLogin, useLogout, useRegister } from '../lib/auth'
@@ -9,6 +10,12 @@ export function AccountPage() {
   const currentUser = useCurrentUser()
   const logout = useLogout()
   useDocumentTitle('Account')
+  // Where the visitor was heading when they were asked to sign in, e.g.
+  // "/cart". Only a path inside this site is accepted, never a full address.
+  const next = useSearchParams()[0].get('next')
+  const returnTo = next && /^\/(?!\/)/.test(next) && !next.includes('\\') ? next : null
+
+  if (currentUser.data && returnTo) return <Navigate to={returnTo} replace />
 
   return (
     <div className="mx-auto max-w-md py-8">
@@ -17,10 +24,17 @@ export function AccountPage() {
       {currentUser.isPending && <p className="mt-4">Checking your session…</p>}
       {currentUser.isError && <p className="mt-4">The API is not reachable.</p>}
 
+      {returnTo && currentUser.data === null && <p className="mt-4 text-muted">Sign in or create an account to continue.</p>}
+
       {currentUser.data && (
         <section className="mt-4">
           <p>
             Signed in as <strong>{currentUser.data.email}</strong>
+          </p>
+          <p className="mt-4">
+            <Link to="/orders" className="font-extrabold underline hover:text-accent">
+              Your orders and keys
+            </Link>
           </p>
           <button
             type="button"

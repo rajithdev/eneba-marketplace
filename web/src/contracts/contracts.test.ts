@@ -1,6 +1,13 @@
 import { expect, it } from 'vitest'
 import type { FiltersResponse, ProductDetailResponse, ProductListResponse, SuggestionsResponse } from '../lib/catalog'
+import type { CartChangedResponse, OrderListResponse, OrderResponse, QuoteResponse } from '../lib/checkout'
+import quoteExample from './cart.quote.json'
 import filtersExample from './filters.json'
+import cartChangedExample from './orders.cart-changed.json'
+import declinedExample from './orders.declined.json'
+import ordersExample from './orders.list.json'
+import paidExample from './orders.paid.json'
+import pendingExample from './orders.pending.json'
 import listExample from './products.list.json'
 import showExample from './products.show.json'
 import suggestionsExample from './search.suggestions.json'
@@ -8,7 +15,7 @@ import suggestionsExample from './search.suggestions.json'
 /**
  * The contract between the API and this frontend.
  *
- * The three assignments below are checked by the TYPE CHECKER, not at run
+ * The assignments below are checked by the TYPE CHECKER, not at run
  * time: if a field the API really returns (recorded in these example files
  * by the backend's own tests) is missing from, or typed differently in, the
  * TypeScript types the app uses, `npm run typecheck` and the build fail.
@@ -17,6 +24,12 @@ const list: ProductListResponse = listExample.response
 const show: ProductDetailResponse = showExample.response
 const filters: FiltersResponse = filtersExample.response
 const suggestions: SuggestionsResponse = suggestionsExample.response
+const quote: QuoteResponse = quoteExample.response
+const cartChanged: CartChangedResponse = cartChangedExample.response
+const pending: OrderResponse = pendingExample.response
+const paid: OrderResponse = paidExample.response
+const declined: OrderResponse = declinedExample.response
+const orders: OrderListResponse = ordersExample.response
 
 it('the recorded examples cover the cases the pages must handle', () => {
   // A discounted product, a full-price one and a sold-out one.
@@ -29,4 +42,19 @@ it('the recorded examples cover the cases the pages must handle', () => {
   expect(filters.data.platforms.length).toBeGreaterThan(0)
   expect(filters.data.search.sort.value).toBe('relevance')
   expect(suggestions.data.length).toBeGreaterThan(0)
+
+  // A cart with a changed price; an order before, after and without payment.
+  expect(quote.data.ok).toBe(false)
+  expect(quote.data.lines.some((line) => line.issues.includes('price_changed'))).toBe(true)
+  expect(cartChanged.code).toBe('cart_changed')
+  expect(pending.data.status).toBe('pending')
+  expect(pending.data.payment_methods.length).toBeGreaterThan(1)
+  expect(pending.data.items.every((item) => item.keys.length === 0)).toBe(true)
+  expect(paid.data.status).toBe('paid')
+  expect(paid.data.items.every((item) => item.keys.length === item.quantity)).toBe(true)
+  expect(declined.data.status).toBe('failed')
+  expect(declined.data.items.every((item) => item.keys.length === 0)).toBe(true)
+  // The order history never carries keys.
+  expect(orders.data.length).toBeGreaterThan(1)
+  expect(JSON.stringify(orders)).not.toContain('"keys"')
 })

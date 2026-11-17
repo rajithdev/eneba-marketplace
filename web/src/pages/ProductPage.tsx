@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { OfferTable } from '../components/OfferTable'
 import { PriceTag } from '../components/PriceTag'
-import { Notice, primaryButton } from '../components/States'
+import { Notice, primaryButton, secondaryButton } from '../components/States'
 import { VariantList } from '../components/VariantList'
 import { ApiError } from '../lib/api'
-import { fetchProduct, type ProductDetail } from '../lib/catalog'
+import { cart, useCart } from '../lib/cart'
+import { fetchProduct, type Offer, type ProductDetail } from '../lib/catalog'
 import { formatDate, formatMoney } from '../lib/money'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
@@ -53,6 +54,18 @@ export function ProductPage() {
 function ProductView({ product }: { product: ProductDetail }) {
   const purchasable = product.offers.filter((offer) => offer.in_stock)
   const best = purchasable[0]
+  const cartItems = useCart()
+  const inCart = Object.fromEntries(cartItems.map((item) => [item.offerId, item.quantity]))
+
+  // The cart keeps the chosen seller's offer. The name and price stored
+  // with it are only what was shown here; the cart re-checks them.
+  const addToCart = (offer: Offer) =>
+    cart.add({
+      offerId: offer.id,
+      unitPriceCents: offer.price.amount_cents,
+      productName: product.name,
+      sellerName: offer.seller.name,
+    })
 
   return (
     <article>
@@ -111,7 +124,24 @@ function ProductView({ product }: { product: ProductDetail }) {
           ) : (
             <p className="mt-3 text-sm text-muted">Every seller is out of keys for this version right now.</p>
           )}
-          <a href="#offers" className={`${primaryButton} mt-5 w-full`}>
+          {best && (
+            <>
+              <button type="button" className={`${primaryButton} mt-5 w-full`} onClick={() => addToCart(best)}>
+                Add to cart
+              </button>
+              <p role="status" className="mt-2 min-h-5 text-sm">
+                {inCart[best.id] > 0 && (
+                  <>
+                    {inCart[best.id]} in your cart.{' '}
+                    <Link to="/cart" className="font-extrabold underline hover:text-accent">
+                      View cart
+                    </Link>
+                  </>
+                )}
+              </p>
+            </>
+          )}
+          <a href="#offers" className={`${best ? secondaryButton : primaryButton} ${best ? 'mt-2' : 'mt-5'} w-full`}>
             Compare {product.offers.length} {product.offers.length === 1 ? 'offer' : 'offers'}
           </a>
         </section>
@@ -130,7 +160,7 @@ function ProductView({ product }: { product: ProductDetail }) {
         <h2 id="offers-heading" className="mb-1 text-xl font-bold">
           Offers from sellers
         </h2>
-        <OfferTable offers={product.offers} />
+        <OfferTable offers={product.offers} inCart={inCart} onAdd={addToCart} />
       </section>
     </article>
   )

@@ -1,12 +1,20 @@
+import { Link } from 'react-router'
 import type { Offer } from '../lib/catalog'
 import { PriceTag } from './PriceTag'
+
+interface Props {
+  offers: Offer[]
+  /** How many of each offer (by id) the cart already holds. */
+  inCart: Record<number, number>
+  onAdd: (offer: Offer) => void
+}
 
 /**
  * Every seller's offer for one product, side by side. The order is the
  * API's: offers that can be bought first, cheapest first, so the first row
  * is the best price. Availability and prices are shown exactly as received.
  */
-export function OfferTable({ offers }: { offers: Offer[] }) {
+export function OfferTable({ offers, inCart, onAdd }: Props) {
   if (offers.length === 0) {
     return <p className="bg-card p-6 text-muted">No seller is offering this product at the moment.</p>
   }
@@ -47,8 +55,28 @@ export function OfferTable({ offers }: { offers: Offer[] }) {
             <td className="px-2 py-3 align-top sm:px-4">
               <PriceTag price={offer.price} />
             </td>
-            <td className="whitespace-nowrap px-3 py-3 text-right align-top text-sm font-extrabold sm:px-4">
-              {offer.in_stock ? <span className="text-region">In stock</span> : <span>Sold out</span>}
+            <td className="px-3 py-3 text-right align-top text-sm font-extrabold sm:px-4">
+              {offer.in_stock ? (
+                <>
+                  <span className="whitespace-nowrap text-region">In stock</span>
+                  {/* The buyer picks this seller: the cart holds the offer, not just the product. */}
+                  <button
+                    type="button"
+                    className="mt-2 block w-full whitespace-nowrap bg-accent px-3 py-2 text-sm font-extrabold text-black hover:bg-accent-strong sm:ml-auto sm:w-auto"
+                    aria-label={`Add to cart from ${offer.seller.name}`}
+                    onClick={() => onAdd(offer)}
+                  >
+                    Add to cart
+                  </button>
+                  {inCart[offer.id] > 0 && (
+                    <Link to="/cart" className="mt-1 block whitespace-nowrap text-xs font-normal underline hover:text-accent">
+                      {inCart[offer.id]} in cart
+                    </Link>
+                  )}
+                </>
+              ) : (
+                <span className="whitespace-nowrap">Sold out</span>
+              )}
             </td>
           </tr>
         ))}

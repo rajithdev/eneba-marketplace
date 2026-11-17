@@ -9,3 +9,10 @@ export function formatDate(isoDate: string): string {
     new Date(`${isoDate}T00:00:00Z`),
   )
 }
+
+/** "18 Nov 2026, 12:01" from an ISO date and time, in the visitor's own time zone. */
+export function formatDateTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(
+    new Date(iso),
+  )
+}

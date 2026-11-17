@@ -1,6 +1,7 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import showExample from '../contracts/products.show.json'
+import { cart } from '../lib/cart'
 import { mockApi, renderAt } from '../test/render'
 
 const product = showExample.response.data
@@ -107,5 +108,33 @@ describe('product page', () => {
 
     expect(await screen.findByRole('heading', { name: 'The product could not be loaded' })).toBeInTheDocument()
     expect(screen.queryByText('Product not found')).not.toBeInTheDocument()
+  })
+
+  it('adds the chosen seller offer to the cart, and one more of it when added again', async () => {
+    productApi()
+    renderAt(`/product/${product.slug}`)
+    const [best, other] = product.offers.filter((offer) => offer.in_stock)
+
+    fireEvent.click(await screen.findByRole('button', { name: `Add to cart from ${other.seller.name}` }))
+    fireEvent.click(screen.getByRole('button', { name: `Add to cart from ${other.seller.name}` }))
+    // The buy box adds the best offer: a different seller, so a different line.
+    fireEvent.click(screen.getByRole('button', { name: 'Add to cart' }))
+
+    expect(cart.items()).toEqual([
+      { offerId: other.id, quantity: 2, unitPriceCents: other.price.amount_cents, productName: product.name, sellerName: other.seller.name },
+      { offerId: best.id, quantity: 1, unitPriceCents: best.price.amount_cents, productName: product.name, sellerName: best.seller.name },
+    ])
+    expect(screen.getByRole('link', { name: '2 in cart' })).toHaveAttribute('href', '/cart')
+    expect(screen.getByRole('link', { name: 'Cart, 3 items' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View cart' })).toHaveAttribute('href', '/cart')
+  })
+
+  it('offers nothing to add for a seller who is sold out', async () => {
+    productApi()
+    renderAt(`/product/${product.slug}`)
+    await screen.findByRole('heading', { level: 1, name: product.name })
+
+    const inStock = product.offers.filter((offer) => offer.in_stock)
+    expect(screen.getAllByRole('button', { name: /^Add to cart from / })).toHaveLength(inStock.length)
   })
 })

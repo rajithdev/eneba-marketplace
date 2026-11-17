@@ -29,18 +29,33 @@ export function renderAt(address: string) {
 
 type Reply = { status?: number; body: unknown }
 
+/** What a faked request carried, for tests that check what was sent. */
+export interface SentRequest {
+  method: string
+  path: string
+  /** The decoded JSON body, or undefined when there was none. */
+  body: unknown
+  headers: Record<string, string>
+}
+
 /**
  * Stands in for the backend. `respond` gets the path and query of each
- * request and returns what the API would. Returns the list of requested
- * addresses, in order.
+ * request (and, for tests that need it, what was sent) and returns what the
+ * API would. Returns the list of requested addresses, in order.
  */
-export function mockApi(respond: (path: string, query: URLSearchParams) => Reply | undefined) {
+export function mockApi(respond: (path: string, query: URLSearchParams, request: SentRequest) => Reply | undefined) {
   const requested: string[] = []
 
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = new URL(String(input), 'http://localhost')
     requested.push(url.pathname + url.search)
-    const reply = respond(url.pathname, url.searchParams) ?? { status: 404, body: { message: 'Not found.' } }
+    const request: SentRequest = {
+      method: (init?.method ?? 'GET').toUpperCase(),
+      path: url.pathname,
+      body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
+      headers: Object.fromEntries(Object.entries((init?.headers ?? {}) as Record<string, string>)),
+    }
+    const reply = respond(url.pathname, url.searchParams, request) ?? { status: 404, body: { message: 'Not found.' } }
 
     return new Response(JSON.stringify(reply.body), { status: reply.status ?? 200 })
   })
