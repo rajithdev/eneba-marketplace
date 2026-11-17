@@ -111,8 +111,17 @@ def glow(name, colour, strength=1.0, image=None):
     return mat
 
 
+# "look": a better-lit version for stills that show intended appearance
+# (reflections in a polished floor); the frames for the page do not use it.
+LOOK = bool(options.get("look"))
+if LOOK:
+    try:
+        scene.eevee.use_raytracing = True
+    except Exception:
+        pass
+
 WALL = material("wall", linear("#160a38"), roughness=0.55)
-FLOOR = material("floor", linear("#0f0728"), roughness=0.3, metallic=0.2)
+FLOOR = material("floor", linear("#0f0728"), roughness=0.12 if LOOK else 0.3, metallic=0.6 if LOOK else 0.2)
 PILLAR = material("pillar", linear("#241057"), roughness=0.4)
 CASE = material("case", linear("#0b0620"), roughness=0.35)
 STRIP = {"purple": glow("strip-purple", PURPLE, 2.0), "teal": glow("strip-teal", TEAL, 1.6), "yellow": glow("strip-yellow", YELLOW, 1.6)}

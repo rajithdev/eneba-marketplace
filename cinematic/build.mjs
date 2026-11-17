@@ -28,7 +28,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 const flag = (name, fallback) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback
 
-const VERSION = flag('version', 'v0-blockout')
+const VERSION = flag('version', 'v1-blockout')
 const API = flag('api', 'http://localhost:8000')
 const BLENDER = flag('blender', '/Applications/Blender.app/Contents/MacOS/Blender')
 const CHROME = flag('chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
@@ -77,16 +77,11 @@ const cover = (content, columns, gap) => (content - (columns - 1) * gap) / colum
 const wideCover = cover(1248, 6, 16)
 const narrowCover = cover(343, 2, 12)
 const layouts = {
-  wide: {
-    minWidth: 1024, slots: 6, width: 640, height: 360, frames: 96,
-    gapRatio: 18 / wideCover, rowShare: (6 * wideCover + 5 * 18) / 1440, rowCentre: 0.47,
-    sample: { width: 1440, height: 810 },
-  },
-  narrow: {
-    maxWidth: 639, slots: 2, width: 360, height: 640, frames: 64,
-    gapRatio: 14 / narrowCover, rowShare: (2 * narrowCover + 14) / 375, rowCentre: 0.4,
-    sample: { width: 720, height: 1280 },
-  },
+  // Frame sizes and counts are the final ones, so that loading and memory
+  // are measured as they will be: five seconds at 24 frames a second on a
+  // desktop, four on a phone.
+  wide: { slots: 6, width: 1440, height: 810, frames: 120, gapRatio: 18 / wideCover, rowShare: (6 * wideCover + 5 * 18) / 1440, rowCentre: 0.47 },
+  narrow: { slots: 2, width: 720, height: 1280, frames: 96, gapRatio: 14 / narrowCover, rowShare: (2 * narrowCover + 14) / 375, rowCentre: 0.4 },
 }
 const BACKGROUND = '#341281' // --color-band in web/src/index.css
 
@@ -121,8 +116,8 @@ if (samplesOnly) {
   ]
   for (const [name, layout] of Object.entries(layouts)) {
     const only = Array.from({ length: 8 }, (_, index) => Math.round((index / 7) * (layout.frames - 1)))
-    const out = render(name, { ...layout, ...layout.sample }, { folder: `${name}-samples`, options: { only, variants, samples: 32 } })
-    console.log(`\n${name} at ${layout.sample.width}x${layout.sample.height}, ${only.length} frames (blockout content: flat shapes, so a lower bound for a detailed final look)`)
+    const out = render(name, layout, { folder: `${name}-samples`, options: { only, variants, samples: 32 } })
+    console.log(`\n${name} at ${layout.width}x${layout.height}, ${only.length} frames (blockout content: flat shapes, so a lower bound for a detailed final look)`)
     for (const variant of variants) {
       const each = sizes(out, variant.name)
       console.log(`  ${variant.name.padEnd(9)} average ${kilobytes(sum(each) / each.length).padStart(9)}   largest ${kilobytes(Math.max(...each)).padStart(9)}`)
@@ -162,6 +157,14 @@ if (referenceOnly) {
     for (const [index, beat] of beats.entries()) {
       cpSync(join(out, `f-${String(Math.round(beat * (stillFrames - 1))).padStart(3, '0')}.png`), join(reference, `still-${clip.name}-${index + 1}-at-${Math.round(beat * 100)}.png`))
     }
+    // The same beats without artwork or lettering and with the polished look: what a video model is shown as "appearance".
+    const plain = render(`${clip.name} plain stills`, { ...clip.layout, width: clip.still[0], height: clip.still[1], frames: stillFrames }, {
+      folder: `reference-stills-${clip.name}-plain`,
+      options: { format: 'PNG', samples: 128, plain: true, look: true, only: beats.map((beat) => Math.round(beat * (stillFrames - 1))) },
+    })
+    for (const [index, beat] of beats.entries()) {
+      cpSync(join(plain, `f-${String(Math.round(beat * (stillFrames - 1))).padStart(3, '0')}.png`), join(reference, `still-${clip.name}-plain-${index + 1}-at-${Math.round(beat * 100)}.png`))
+    }
   }
   for (const file of readdirSync(reference).sort()) console.log(`  ${file.padEnd(34)} ${kilobytes(statSync(join(reference, file)).size).padStart(10)}`)
   process.exit(0)
@@ -178,7 +181,6 @@ for (const [name, layout] of Object.entries(layouts)) {
   const report = JSON.parse(readFileSync(join(out, 'layout.json'), 'utf8'))
   const each = sizes(out, '.webp')
   manifest.layouts[name] = {
-    ...(layout.minWidth ? { minWidth: layout.minWidth } : { maxWidth: layout.maxWidth }),
     frames: report.frames, width: report.width, height: report.height,
     path: `${name}/f-{frame}.webp`,
     bytes: sum(each),

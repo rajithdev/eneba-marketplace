@@ -3,9 +3,10 @@
  * them decoded.
  *
  * A frame is small as a file and large once decoded (width x height x 4
- * bytes), so the files are all kept, as fetched, and decoded pictures are
- * kept only for the frames near the one on screen. The oldest are dropped
- * beyond `keep`.
+ * bytes), so the files are all kept, as fetched, and at most `keep`
+ * decoded pictures exist at a time: the ones nearest the frame on screen.
+ * As the visitor moves through the sequence, the picture furthest from
+ * where they are now is released to make room for the next.
  *
  * Loading is in two passes. The coarse pass fetches every eighth frame and
  * the last one; when it is done the animation can already be scrubbed from
@@ -23,16 +24,21 @@ export interface Sequence {
   /** Called whenever another picture has been decoded, so the stage can draw again. */
   onPicture: () => void
   stats(): { framesLoaded: number; bytesLoaded: number; coarseBytes: number; decoded: number }
+  /** Lets go of every decoded picture (the files stay): for when the section is off screen. */
+  release(): void
   dispose(): void
 }
 
 export function loadSequence(urlFor: (frame: number) => string, frames: number, keep: number): Sequence {
   const files: (Blob | undefined)[] = Array.from({ length: frames })
-  const pictures = new Map<number, ImageBitmap>() // in order of last use: the first entry is the stalest
+  const pictures = new Map<number, ImageBitmap>()
+  let current = 0 // the frame last asked for
+  let direction = 1 // which way the visitor is moving through the frames
   const decoding = new Set<number>()
   const abort = new AbortController()
   let coarseBytes = 0
   let disposed = false
+  let resting = false // released and not asked for a picture since
 
   const fetchFrame = async (frame: number) => {
     const reply = await fetch(urlFor(frame), { signal: abort.signal })
@@ -55,12 +61,14 @@ export function loadSequence(urlFor: (frame: number) => string, frames: number, 
     decoding.add(frame)
     try {
       const picture = await createImageBitmap(file)
-      if (disposed) return picture.close()
+      // Finished after everything was let go: this one is not wanted either.
+      if (disposed || resting) return picture.close()
       pictures.set(frame, picture)
+      // Over the limit: release whichever picture is furthest from the frame on screen.
       while (pictures.size > keep) {
-        const [stalest, old] = pictures.entries().next().value!
-        pictures.delete(stalest)
-        old.close()
+        const furthest = [...pictures.keys()].reduce((a, b) => (Math.abs(a - current) >= Math.abs(b - current) ? a : b))
+        pictures.get(furthest)!.close()
+        pictures.delete(furthest)
       }
       sequence.onPicture()
     } finally {
@@ -87,13 +95,14 @@ export function loadSequence(urlFor: (frame: number) => string, frames: number, 
     ready,
     onPicture: () => {},
     picture(frame) {
+      resting = false
+      if (frame !== current) direction = frame > current ? 1 : -1
+      current = frame
       const wanted = nearestLoaded(frame)
       const exact = pictures.get(wanted)
       if (exact) {
-        // Used just now: move it to the fresh end, and get its neighbours ready.
-        pictures.delete(wanted)
-        pictures.set(wanted, exact)
-        for (const ahead of [frame + 1, frame - 1, frame + 2, frame - 2]) void decode(nearestLoaded(clampFrame(ahead, frames)))
+        // Get the next few ready, in the direction of travel, and one behind in case of a change of mind.
+        for (const step of [1, 2, 3, -1]) void decode(nearestLoaded(clampFrame(frame + step * direction, frames)))
         return exact
       }
       if (wanted >= 0) void decode(wanted)
@@ -115,11 +124,15 @@ export function loadSequence(urlFor: (frame: number) => string, frames: number, 
       coarseBytes,
       decoded: pictures.size,
     }),
+    release() {
+      resting = true
+      for (const picture of pictures.values()) picture.close()
+      pictures.clear()
+    },
     dispose() {
       disposed = true
       abort.abort()
-      for (const picture of pictures.values()) picture.close()
-      pictures.clear()
+      sequence.release()
     },
   }
 

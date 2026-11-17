@@ -15,15 +15,15 @@ ordinary React block, backed by the API.
 | `build.mjs` | Prepares cover textures, asks the API which products the deals block holds, runs Blender, writes the manifest and publishes frames to `web/public/cinematic/<version>/`. |
 | `measure.mjs` | Opens the site in Chrome at several window sizes and measures loading, memory, alignment and scroll smoothness, and records the scroll. |
 | `build/` | Working files (not committed): rendered frames, `.blend` files, reference material. |
-| `web/src/cinematic/` | The page side: `fit.ts` (arithmetic), `sequence.ts` (frame loading), `stage.ts` (drawing), `CinematicDeals.tsx` (the block with its fallback). |
-| `web/public/cinematic/v0-blockout/` | The published frames of the current version and their manifest. |
+| `web/src/cinematic/` | The page side: `layouts.ts` (which windows get the section, and its memory budgets), `fit.ts` (arithmetic), `sequence.ts` (frame loading and release), `stage.ts` (drawing), `CinematicDeals.tsx` (the block with its fallback). |
+| `web/public/cinematic/v1-blockout/` | The published frames of the current version and their manifest: the blockout at final frame size. |
 
 ## Commands
 
 Needs Blender, Google Chrome and ffmpeg installed, and the API running (`make dev`).
 
 ```bash
-node cinematic/build.mjs              # the low-resolution blockout, both layouts
+node cinematic/build.mjs              # the blockout at final frame size, both layouts
 node cinematic/build.mjs --reference  # motion reference videos and stills for look development
 node cinematic/build.mjs --samples    # a few frames at final size in several encodings, to measure file sizes
 node cinematic/measure.mjs http://localhost:4173 design-review/cinematic/harness
@@ -42,9 +42,23 @@ cover.
   cards fade in over the cases.
 - Anything else: the cases fade out, then the cards fade in.
 
+## Space first, pictures second
+
+Whether the section gets its pinned stage and scrolling room is decided
+when the block first appears, from the window and the device alone. The
+frames are fetched afterwards; when they arrive nothing on the page moves.
+`measure.mjs` checks this by slowing the frames down and comparing the
+page before and after.
+
+Decoded pictures are held to a budget per layout (48 MB on a desktop,
+24 MB on a phone): the picture furthest from the one on screen is released
+to make room for the next, and all are released when the section leaves
+the screen.
+
 ## When there is no animation
 
-The block renders as it always has when motion is reduced, data saving is
-on, the connection is slow, the window is tablet-sized (640 to 1023 px),
-the browser lacks what is needed, the frames fail to load, or the block
-was already on screen when the frames arrived.
+No space is reserved and the block renders as it always has when motion is
+reduced, data saving is on, the connection is slow, the device reports
+little memory, the window is tablet-sized (640 to 1023 px) or the browser
+lacks what is needed. If the frames cannot be fetched, the block is simply
+shown; the pinned stretch is dropped if that can be done out of sight.
