@@ -286,6 +286,11 @@ heading('5. CSRF protection')
     headers: { 'sec-fetch-site': 'cross-site' },
   })
   check('A request from another site, without the token, is rejected', forged.status === 419, `HTTP ${forged.status}`)
+
+  // No token and nothing saying where the request came from: what a script
+  // or a tool sends. Only a real page of ours can supply either.
+  const tokenless = await request('POST', '/api/auth/login', { body: { email: `nobody-${email}`, password } })
+  check('A request that changes data without the token is rejected', tokenless.status === 419, `HTTP ${tokenless.status}`)
 }
 
 heading('6. Sign up, sign in, sign out')
@@ -301,6 +306,9 @@ heading('6. Sign up, sign in, sign out')
 
   const me = await request('GET', '/api/auth/me')
   check('The session cookie alone identifies the user on the next request', me.status === 200 && me.json?.data?.email === email, `HTTP ${me.status}`)
+
+  const withBearer = await request('GET', '/api/auth/me', { headers: { authorization: 'Bearer 1|not-a-real-token' } })
+  check('A stray bearer token next to the session cookie changes nothing', withBearer.status === 200 && withBearer.json?.data?.email === email, `HTTP ${withBearer.status}`)
 
   const noOrigin = await request('GET', '/api/auth/me', { asFrontend: false })
   check('The same cookie sent without the frontend origin is not accepted', noOrigin.status === 200 && noOrigin.json?.data === null, `HTTP ${noOrigin.status}`)
@@ -761,6 +769,31 @@ heading('11. Homepage')
   }
 
   check('The homepage contains no license key', !/\b[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}\b/.test(home.text))
+}
+
+heading('12. Requests no browser would send')
+{
+  // This API signs people in with a cookie and issues no tokens. A request
+  // carrying one must be treated as carrying none, not fail.
+  const bearer = { authorization: 'Bearer 1|not-a-real-token' }
+  const me = await request('GET', '/api/auth/me', { headers: bearer })
+  check('A bearer token is ignored: the caller is a visitor', me.status === 200 && me.json?.data === null, `HTTP ${me.status}`)
+  const orders = await request('GET', '/api/orders', { headers: bearer })
+  check('A bearer token opens no protected route', orders.status === 401, `HTTP ${orders.status}`)
+
+  // Malformed filters are the caller's mistake (422), never a server error.
+  // The API host's firewall may refuse some of them first (403); that is
+  // also a controlled answer.
+  const controlled = (response) => response.status === 422 || response.status === 403
+  for (const [what, query] of [
+    ['A price filter too large for the price column', 'min_price=3000000000'],
+    ['A filter that is not valid text', 'platform=%FF'],
+    ['A product type that is not valid text', 'type=%FF'],
+    ['More product types than exist', `type=${Array(21).fill('game').join(',')}`],
+  ]) {
+    const response = await request('GET', `/api/products?${query}`)
+    check(`${what} is refused, not a server error`, controlled(response), `HTTP ${response.status}`)
+  }
 }
 
 // --------------------------------------------------------------- summary ---
