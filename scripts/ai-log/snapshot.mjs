@@ -34,7 +34,7 @@ import {
   copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readSync,
   closeSync, readdirSync, renameSync, statSync, writeFileSync,
 } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, userInfo } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -153,9 +153,18 @@ function loadRedactions() {
   return JSON.parse(readFileSync(file, 'utf8')).redactions.filter((entry) => entry.text)
 }
 
+/**
+ * Private text is replaced in two ways. The local list names strings that
+ * are private to the author (a personal folder name). And one rule needs
+ * no list: this computer's account name, which is part of every file path
+ * recorded on it and says nothing about the project.
+ */
 function redact(markdown, redactions) {
   let count = 0
-  for (const { text, replacement = '[redacted]' } of redactions) {
+  const accountName = userInfo().username
+  const rules = [...redactions, ...(accountName.length >= 3 ? [{ text: accountName, replacement: '[redacted: account name]' }] : [])]
+
+  for (const { text, replacement = '[redacted]' } of rules) {
     const parts = markdown.split(text)
     count += parts.length - 1
     markdown = parts.join(replacement)
@@ -232,6 +241,7 @@ function renderSession(id, sessionRawDir, redactions) {
   const models = new Set()
   let title = null
   const delegated = [] // prompts given to subagents, in order
+  let compactions = 0
 
   const flushTools = () => {
     if (toolRun.length) out.push(toolRun.map((line) => `> - ${line}`).join('\n'), '')
@@ -248,6 +258,24 @@ function renderSession(id, sessionRawDir, redactions) {
     if (record.timestamp && (record.type === 'user' || record.type === 'assistant')) {
       firstTime ??= record.timestamp
       lastTime = record.timestamp
+    }
+
+    // The conversation outgrew what the model can hold at once, and the app
+    // replaced the earlier part, in the model's working memory only, with a
+    // summary. Nothing was removed from the transcript or from this log;
+    // the reader is told where it happened, because the model's later
+    // answers rest on that summary rather than on the messages themselves.
+    if (record.type === 'system' && record.subtype === 'compact_boundary') {
+      flushTools()
+      compactions += 1
+      out.push(
+        `> **Context compacted (${compactions}).** At this point the conversation had grown past what the model can`,
+        '> read at once. The app replaced the earlier messages, in the model\'s working memory only, with a summary',
+        '> the model wrote. Every prompt and response before this point is above, unchanged. The summary itself is',
+        '> in the original transcript and is not reproduced here.',
+        '',
+      )
+      continue
     }
 
     // A prompt typed by the human. Tool results and system notices are also
@@ -301,6 +329,14 @@ function renderSession(id, sessionRawDir, redactions) {
     'Prompts and responses are verbatim. Each tool call is summarised on one quoted line.',
     'Not shown here, but present in the original transcript: full tool inputs and outputs,',
     "the model's private reasoning, and context the app injects automatically.",
+    ...(compactions
+      ? [
+          '',
+          `This session was compacted ${compactions} time(s): when it grew past what the model can read at once, the app`,
+          "replaced the earlier messages, in the model's working memory only, with a summary written by the model.",
+          'Each place is marked "Context compacted" below. No prompt or response was removed from this log.',
+        ]
+      : []),
     '',
     '---',
     '',
@@ -311,8 +347,10 @@ function renderSession(id, sessionRawDir, redactions) {
     header.splice(
       header.length - 3,
       0,
-      `${body.count} occurrence(s) of private text unrelated to this project (such as a personal folder`,
-      'name in a file path) were replaced with a "[redacted…]" marker. Nothing else was changed.',
+      '',
+      `${body.count} occurrence(s) of private text unrelated to this project were replaced with a "[redacted…]" marker:`,
+      "the computer's account name wherever it appears in a file path, and a personal folder name.",
+      'Nothing else was changed.',
     )
   }
 

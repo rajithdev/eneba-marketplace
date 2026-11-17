@@ -57,6 +57,15 @@ LIST
         || fail "private text found in: $leaked"
 fi
 
+# 3c. This computer's account name is part of every local file path
+#     (/Users/<name>/...). The AI log replaces it; nothing tracked may carry it.
+account=$(id -un)
+if [ "${#account}" -ge 3 ]; then
+    named=$(echo "$files" | while read -r f; do [ -f "$f" ] && grep -IlF "/Users/$account" "$f"; done)
+    [ -z "$named" ] && pass "no tracked file contains this computer's account name in a path" \
+        || fail "account name in a path in: $(echo $named)"
+fi
+
 # 4. The ignore rules themselves.
 for path in api/.env api/.env.production web/.env web/.env.local docs/ai-log/raw/x.jsonl docs/ai-log/redactions.local.json web/.vercel/project.json; do
     git check-ignore -q "$path" || { fail "$path is not ignored by Git"; }
