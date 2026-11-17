@@ -3,6 +3,7 @@
 namespace Tests\Feature\Catalog;
 
 use Database\Seeders\CatalogSeeder;
+use Database\Seeders\HomepageSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\ChecksContracts;
 use Tests\TestCase;
@@ -19,6 +20,8 @@ class CatalogContractTest extends TestCase
         'filters.json' => '/api/filters',
         // A misspelt search: the same product shape as the list, best match first.
         'search.suggestions.json' => '/api/search/suggestions?q=eldn+ring',
+        // The seeded homepage: a hero, best sellers, deals and featured products.
+        'homepage.json' => '/api/homepage',
     ];
 
     protected function setUp(): void
@@ -26,6 +29,7 @@ class CatalogContractTest extends TestCase
         parent::setUp();
 
         $this->seed(CatalogSeeder::class);
+        $this->seed(HomepageSeeder::class);
     }
 
     public function test_every_catalog_endpoint_returns_exactly_its_recorded_example(): void

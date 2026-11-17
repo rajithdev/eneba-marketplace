@@ -16,5 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         // Safe to run on every deploy: see CatalogSeeder.
         $this->call(CatalogSeeder::class);
+        // Only fills an empty homepage: see HomepageSeeder.
+        $this->call(HomepageSeeder::class);
     }
 }

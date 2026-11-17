@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CatalogFilterController;
 use App\Http\Controllers\DiagnosticsController;
+use App\Http\Controllers\HomepageController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SearchSuggestionController;
@@ -36,6 +37,9 @@ Route::get('/search/suggestions', SearchSuggestionController::class)->middleware
 // Everything that shows or takes stock first puts back on sale the keys of
 // unpaid orders whose time is up (see ReleaseExpiredReservations).
 Route::middleware(ReleaseExpiredReservations::class)->group(function () {
+    // The homepage's blocks, in order. Decided by the homepage_blocks table.
+    Route::get('/homepage', HomepageController::class);
+
     // Catalog: public, read-only.
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);

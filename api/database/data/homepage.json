@@ -1,0 +1,50 @@
+{
+  "blocks": [
+    { "type": "hero_banner", "title": null, "position": 10, "config": { "limit": 3 } },
+    { "type": "best_sellers", "title": "Best sellers", "position": 20, "config": { "limit": 6, "link": { "label": "See the whole store", "url": "/store" } } },
+    { "type": "deals", "title": "Top deals", "position": 30, "config": { "limit": 6, "min_discount_percent": 10 } },
+    {
+      "type": "featured",
+      "title": "Picked for you",
+      "position": 40,
+      "config": {
+        "limit": 5,
+        "products": [
+          "baldurs-gate-3-steam-key-global",
+          "the-legend-of-zelda-tears-of-the-kingdom-nintendo-eshop-key-europe",
+          "helldivers-2-steam-key-global",
+          "red-dead-redemption-2-steam-key-global",
+          "stardew-valley-steam-key-global",
+          "hogwarts-legacy-steam-key-global",
+          "cyberpunk-2077-steam-key-global"
+        ]
+      }
+    }
+  ],
+  "banners": [
+    {
+      "title": "Shadow of the Erdtree",
+      "subtitle": "The Elden Ring expansion. Compare every seller's price before you buy.",
+      "image_url": "/covers/elden-ring-shadow-of-the-erdtree.svg",
+      "link_url": "/product/elden-ring-shadow-of-the-erdtree-steam-key-global",
+      "cta_label": "See offers",
+      "position": 10
+    },
+    {
+      "title": "Gift cards",
+      "subtitle": "Steam, PlayStation and Nintendo credit, delivered as a code.",
+      "image_url": "/covers/steam-wallet-gift-card-20-eur.svg",
+      "link_url": "/store?type=gift_card",
+      "cta_label": "Browse gift cards",
+      "position": 20
+    },
+    {
+      "title": "Subscriptions",
+      "subtitle": "Game Pass, PlayStation Plus and EA Play, by the month or the year.",
+      "image_url": "/covers/xbox-game-pass-ultimate-1-month.svg",
+      "link_url": "/store?type=subscription",
+      "cta_label": "Browse subscriptions",
+      "position": 30
+    }
+  ]
+}

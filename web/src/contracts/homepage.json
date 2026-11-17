@@ -1,0 +1,464 @@
+{
+    "request": "GET /api/homepage",
+    "response": {
+        "data": {
+            "blocks": [
+                {
+                    "id": 1,
+                    "type": "hero_banner",
+                    "title": null,
+                    "link": null,
+                    "data": {
+                        "banners": [
+                            {
+                                "title": "Shadow of the Erdtree",
+                                "subtitle": "The Elden Ring expansion. Compare every seller's price before you buy.",
+                                "image_url": "/covers/elden-ring-shadow-of-the-erdtree.svg",
+                                "link_url": "/product/elden-ring-shadow-of-the-erdtree-steam-key-global",
+                                "cta_label": "See offers"
+                            },
+                            {
+                                "title": "Gift cards",
+                                "subtitle": "Steam, PlayStation and Nintendo credit, delivered as a code.",
+                                "image_url": "/covers/steam-wallet-gift-card-20-eur.svg",
+                                "link_url": "/store?type=gift_card",
+                                "cta_label": "Browse gift cards"
+                            },
+                            {
+                                "title": "Subscriptions",
+                                "subtitle": "Game Pass, PlayStation Plus and EA Play, by the month or the year.",
+                                "image_url": "/covers/xbox-game-pass-ultimate-1-month.svg",
+                                "link_url": "/store?type=subscription",
+                                "cta_label": "Browse subscriptions"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": 2,
+                    "type": "best_sellers",
+                    "title": "Best sellers",
+                    "link": {
+                        "label": "See the whole store",
+                        "url": "/store"
+                    },
+                    "data": {
+                        "products": [
+                            {
+                                "slug": "grand-theft-auto-v-xbox-live-key-global",
+                                "name": "Grand Theft Auto V Xbox Live Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/grand-theft-auto-v.svg",
+                                "release_date": "2013-09-17",
+                                "platform": {
+                                    "slug": "xbox-live",
+                                    "name": "Xbox Live"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 1329,
+                                    "currency": "EUR",
+                                    "original_amount_cents": null,
+                                    "discount_percent": null
+                                },
+                                "offers_count": 1
+                            },
+                            {
+                                "slug": "minecraft-xbox-live-key-global",
+                                "name": "Minecraft Xbox Live Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/minecraft.svg",
+                                "release_date": "2011-11-18",
+                                "platform": {
+                                    "slug": "xbox-live",
+                                    "name": "Xbox Live"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 1729,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 3499,
+                                    "discount_percent": 51
+                                },
+                                "offers_count": 4
+                            },
+                            {
+                                "slug": "ea-sports-fc-25-playstation-network-key-europe",
+                                "name": "EA Sports FC 25 PlayStation Network Key EUROPE",
+                                "type": "game",
+                                "cover_image_url": "/covers/ea-sports-fc-25.svg",
+                                "release_date": "2024-09-27",
+                                "platform": {
+                                    "slug": "psn",
+                                    "name": "PlayStation Network"
+                                },
+                                "region": {
+                                    "slug": "europe",
+                                    "name": "Europe"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 3129,
+                                    "currency": "EUR",
+                                    "original_amount_cents": null,
+                                    "discount_percent": null
+                                },
+                                "offers_count": 3
+                            },
+                            {
+                                "slug": "elden-ring-playstation-network-key-europe",
+                                "name": "Elden Ring PlayStation Network Key EUROPE",
+                                "type": "game",
+                                "cover_image_url": "/covers/elden-ring.svg",
+                                "release_date": "2022-02-25",
+                                "platform": {
+                                    "slug": "psn",
+                                    "name": "PlayStation Network"
+                                },
+                                "region": {
+                                    "slug": "europe",
+                                    "name": "Europe"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 3649,
+                                    "currency": "EUR",
+                                    "original_amount_cents": null,
+                                    "discount_percent": null
+                                },
+                                "offers_count": 2
+                            },
+                            {
+                                "slug": "baldurs-gate-3-playstation-network-key-europe",
+                                "name": "Baldur's Gate 3 PlayStation Network Key EUROPE",
+                                "type": "game",
+                                "cover_image_url": "/covers/baldurs-gate-3.svg",
+                                "release_date": "2023-08-03",
+                                "platform": {
+                                    "slug": "psn",
+                                    "name": "PlayStation Network"
+                                },
+                                "region": {
+                                    "slug": "europe",
+                                    "name": "Europe"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 4379,
+                                    "currency": "EUR",
+                                    "original_amount_cents": null,
+                                    "discount_percent": null
+                                },
+                                "offers_count": 2
+                            },
+                            {
+                                "slug": "cyberpunk-2077-steam-key-global",
+                                "name": "Cyberpunk 2077 Steam Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/cyberpunk-2077.svg",
+                                "release_date": "2020-12-10",
+                                "platform": {
+                                    "slug": "steam",
+                                    "name": "Steam"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 2299,
+                                    "currency": "EUR",
+                                    "original_amount_cents": null,
+                                    "discount_percent": null
+                                },
+                                "offers_count": 2
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": 3,
+                    "type": "deals",
+                    "title": "Top deals",
+                    "link": null,
+                    "data": {
+                        "products": [
+                            {
+                                "slug": "minecraft-xbox-live-key-global",
+                                "name": "Minecraft Xbox Live Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/minecraft.svg",
+                                "release_date": "2011-11-18",
+                                "platform": {
+                                    "slug": "xbox-live",
+                                    "name": "Xbox Live"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 1729,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 3499,
+                                    "discount_percent": 51
+                                },
+                                "offers_count": 4
+                            },
+                            {
+                                "slug": "hogwarts-legacy-nintendo-eshop-key-europe",
+                                "name": "Hogwarts Legacy Nintendo eShop Key EUROPE",
+                                "type": "game",
+                                "cover_image_url": "/covers/hogwarts-legacy.svg",
+                                "release_date": "2023-02-10",
+                                "platform": {
+                                    "slug": "nintendo",
+                                    "name": "Nintendo eShop"
+                                },
+                                "region": {
+                                    "slug": "europe",
+                                    "name": "Europe"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 2579,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 4229,
+                                    "discount_percent": 39
+                                },
+                                "offers_count": 3
+                            },
+                            {
+                                "slug": "ea-sports-fc-25-xbox-live-key-europe",
+                                "name": "EA Sports FC 25 Xbox Live Key EUROPE",
+                                "type": "game",
+                                "cover_image_url": "/covers/ea-sports-fc-25.svg",
+                                "release_date": "2024-09-27",
+                                "platform": {
+                                    "slug": "xbox-live",
+                                    "name": "Xbox Live"
+                                },
+                                "region": {
+                                    "slug": "europe",
+                                    "name": "Europe"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 3029,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 4399,
+                                    "discount_percent": 31
+                                },
+                                "offers_count": 6
+                            },
+                            {
+                                "slug": "god-of-war-steam-key-global",
+                                "name": "God of War Steam Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/god-of-war.svg",
+                                "release_date": "2018-04-20",
+                                "platform": {
+                                    "slug": "steam",
+                                    "name": "Steam"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 2399,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 3449,
+                                    "discount_percent": 30
+                                },
+                                "offers_count": 4
+                            },
+                            {
+                                "slug": "doom-eternal-steam-key-global",
+                                "name": "DOOM Eternal Steam Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/doom-eternal.svg",
+                                "release_date": "2020-03-20",
+                                "platform": {
+                                    "slug": "steam",
+                                    "name": "Steam"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 1249,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 1679,
+                                    "discount_percent": 26
+                                },
+                                "offers_count": 4
+                            },
+                            {
+                                "slug": "forza-horizon-5-steam-key-global",
+                                "name": "Forza Horizon 5 Steam Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/forza-horizon-5.svg",
+                                "release_date": "2021-11-09",
+                                "platform": {
+                                    "slug": "steam",
+                                    "name": "Steam"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 2679,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 3599,
+                                    "discount_percent": 26
+                                },
+                                "offers_count": 1
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": 4,
+                    "type": "featured",
+                    "title": "Picked for you",
+                    "link": null,
+                    "data": {
+                        "products": [
+                            {
+                                "slug": "baldurs-gate-3-steam-key-global",
+                                "name": "Baldur's Gate 3 Steam Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/baldurs-gate-3.svg",
+                                "release_date": "2023-08-03",
+                                "platform": {
+                                    "slug": "steam",
+                                    "name": "Steam"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 4349,
+                                    "currency": "EUR",
+                                    "original_amount_cents": null,
+                                    "discount_percent": null
+                                },
+                                "offers_count": 2
+                            },
+                            {
+                                "slug": "the-legend-of-zelda-tears-of-the-kingdom-nintendo-eshop-key-europe",
+                                "name": "The Legend of Zelda: Tears of the Kingdom Nintendo eShop Key EUROPE",
+                                "type": "game",
+                                "cover_image_url": "/covers/the-legend-of-zelda-tears-of-the-kingdom.svg",
+                                "release_date": "2023-05-12",
+                                "platform": {
+                                    "slug": "nintendo",
+                                    "name": "Nintendo eShop"
+                                },
+                                "region": {
+                                    "slug": "europe",
+                                    "name": "Europe"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 4449,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 5549,
+                                    "discount_percent": 20
+                                },
+                                "offers_count": 2
+                            },
+                            {
+                                "slug": "helldivers-2-steam-key-global",
+                                "name": "Helldivers 2 Steam Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/helldivers-2.svg",
+                                "release_date": "2024-02-08",
+                                "platform": {
+                                    "slug": "steam",
+                                    "name": "Steam"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 2979,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 3599,
+                                    "discount_percent": 17
+                                },
+                                "offers_count": 5
+                            },
+                            {
+                                "slug": "red-dead-redemption-2-steam-key-global",
+                                "name": "Red Dead Redemption 2 Steam Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/red-dead-redemption-2.svg",
+                                "release_date": "2018-10-26",
+                                "platform": {
+                                    "slug": "steam",
+                                    "name": "Steam"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 1729,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 2099,
+                                    "discount_percent": 18
+                                },
+                                "offers_count": 2
+                            },
+                            {
+                                "slug": "stardew-valley-steam-key-global",
+                                "name": "Stardew Valley Steam Key GLOBAL",
+                                "type": "game",
+                                "cover_image_url": "/covers/stardew-valley.svg",
+                                "release_date": "2016-02-26",
+                                "platform": {
+                                    "slug": "steam",
+                                    "name": "Steam"
+                                },
+                                "region": {
+                                    "slug": "global",
+                                    "name": "Global"
+                                },
+                                "in_stock": true,
+                                "price": {
+                                    "amount_cents": 929,
+                                    "currency": "EUR",
+                                    "original_amount_cents": 1229,
+                                    "discount_percent": 24
+                                },
+                                "offers_count": 4
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}
