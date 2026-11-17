@@ -5,6 +5,8 @@ namespace Tests\Feature\Checkout;
 use App\Enums\OrderStatus;
 use App\Models\LicenseKey;
 use App\Models\Order;
+use App\Models\Product;
+use App\Models\Seller;
 use App\Models\User;
 use App\Services\Checkout\CartChanged;
 use App\Services\Checkout\CheckoutInProgress;
@@ -255,5 +257,43 @@ class CheckoutConcurrencyTest extends TestCase
         $this->assertSame(['available' => 1, 'reserved' => 0, 'sold' => 0], $this->keys($older));
         $this->assertSame(OrderStatus::Pending, $second->fresh()->status);
         $this->assertSame(['available' => 0, 'reserved' => 1, 'sold' => 0], $this->keys($newer));
+    }
+
+    public function test_two_orders_sharing_sellers_and_products_in_opposite_line_order_are_both_paid(): void
+    {
+        // Paying raises a sales counter on each product and seller bought
+        // from. Two payments that reach the same rows in opposite order
+        // can each end up waiting for the other; the database then stops
+        // one of them, after its buyer has been charged.
+        //
+        // Lines are stored in offer order. Anna's offers run through the
+        // sellers and products first to last, Ben's last to first.
+        $sellers = Seller::factory()->count(8)->create();
+        $products = Product::factory()->count(8)->create();
+        $forAnna = $sellers->map(fn (Seller $seller, int $i) => $this->offer(1000, keys: 20, attributes: ['seller_id' => $seller->id, 'product_id' => $products[$i]->id]));
+        $forBen = $sellers->reverse()->values()->map(fn (Seller $seller, int $i) => $this->offer(1000, keys: 20, attributes: ['seller_id' => $seller->id, 'product_id' => $products[(14 - $i) % 8]->id]));
+
+        // Left to chance the two payments rarely overlap, so each one
+        // pauses after every counter it raises: both are then certain to
+        // be in the middle of their counters at the same time.
+        $payslowly = function (int $orderId) {
+            DB::listen(fn ($query) => str_contains($query->sql, 'sales_count') && usleep(25_000));
+
+            return app(SettleOrder::class)->pay(Order::findOrFail($orderId), 'test_card_approved')->status->value;
+        };
+
+        foreach (range(1, 2) as $round) {
+            [$anna, $ben] = User::factory()->count(2)->create()->all();
+            $annas = app(PlaceOrder::class)->handle($anna, $forAnna->map(fn ($offer) => $this->item($offer))->all(), (string) Str::uuid());
+            $bens = app(PlaceOrder::class)->handle($ben, $forBen->map(fn ($offer) => $this->item($offer))->all(), (string) Str::uuid());
+
+            $results = $this->inParallel([fn () => $payslowly($annas->id), fn () => $payslowly($bens->id)]);
+
+            $this->assertSame(['paid', 'paid'], $results, "round {$round}: ".json_encode($results));
+        }
+
+        // Every sale was counted exactly once.
+        $this->assertSame(array_fill(0, 8, 4), $sellers->map(fn (Seller $seller) => $seller->fresh()->sales_count - $seller->sales_count)->all());
+        $this->assertSame(array_fill(0, 8, 4), $products->map(fn (Product $product) => $product->fresh()->sales_count - $product->sales_count)->all());
     }
 }

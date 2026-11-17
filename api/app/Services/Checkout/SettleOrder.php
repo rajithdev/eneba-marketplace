@@ -149,6 +149,13 @@ class SettleOrder
      * requests settle the same order at once (a double click on "Pay"), the
      * second waits for the first, finds the order no longer pending and
      * changes nothing.
+     *
+     * Locks are always taken in the same order (this order's row, its keys,
+     * its payment, then the counters in countSales), so two payments cannot
+     * deadlock. Should the database still abort the transaction as a
+     * deadlock for a reason not foreseen here, it has undone every change,
+     * and because the order is read again under the lock it is safe to run
+     * again: that is tried up to three times before the error is let out.
      */
     private function apply(Order $order, ChargeResult $decision): Order
     {
@@ -185,15 +192,33 @@ class SettleOrder
             }
 
             return $order;
-        });
+        }, attempts: 3);
     }
 
-    /** Popularity counters shown in the store, raised by what was just bought. */
+    /**
+     * Popularity counters shown in the store, raised by what was just bought.
+     *
+     * Each increment locks one product or seller row until the payment's
+     * transaction ends. Two payments that took those locks in different
+     * orders could each end up waiting for a row the other holds; the
+     * database then aborts one of them, after its buyer was charged. So
+     * every payment takes them in the same order: products by id, then
+     * sellers by id. A payment can then only ever wait for one that is
+     * ahead of it, never for one that is also waiting for it.
+     */
     private function countSales(Order $order): void
     {
-        foreach ($order->items as $item) {
-            Product::whereKey($item->product_id)->increment('sales_count', $item->quantity);
-            Seller::whereKey(Offer::whereKey($item->offer_id)->value('seller_id'))->increment('sales_count', $item->quantity);
+        $sellerOf = Offer::whereKey($order->items->pluck('offer_id'))->pluck('seller_id', 'id');
+
+        $soldByProduct = $order->items->groupBy('product_id')->map->sum('quantity')->sortKeys();
+        $soldBySeller = $order->items->groupBy(fn ($item) => $sellerOf[$item->offer_id])->map->sum('quantity')->sortKeys();
+
+        foreach ($soldByProduct as $productId => $quantity) {
+            Product::whereKey($productId)->increment('sales_count', $quantity);
+        }
+
+        foreach ($soldBySeller as $sellerId => $quantity) {
+            Seller::whereKey($sellerId)->increment('sales_count', $quantity);
         }
     }
 }

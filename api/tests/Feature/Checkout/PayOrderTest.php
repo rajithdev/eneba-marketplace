@@ -6,6 +6,9 @@ use App\Enums\LicenseKeyStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Models\LicenseKey;
+use App\Models\Order;
+use App\Models\Product;
+use App\Models\Seller;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -248,5 +251,42 @@ class PayOrderTest extends TestCase
         $this->postJson("/api/orders/{$order->public_id}/cancel")->assertUnauthorized();
 
         $this->assertSame(OrderStatus::Pending, $order->fresh()->status);
+    }
+
+    public function test_sales_counters_are_raised_in_one_fixed_order_whatever_the_order_of_the_lines(): void
+    {
+        // Two payments locking the same counters in different orders can
+        // deadlock (see SettleOrder::countSales). The fixed order is:
+        // products by id, then sellers by id, each once.
+        [$early, $late] = Seller::factory()->count(2)->create()->all();
+        [$first, $second] = Product::factory()->count(2)->create()->all();
+        // Stored in offer order, the lines run: late seller, early seller,
+        // early seller again; second product, first product, second again.
+        $offers = [
+            $this->offer(1000, keys: 5, attributes: ['seller_id' => $late->id, 'product_id' => $second->id]),
+            $this->offer(1000, keys: 5, attributes: ['seller_id' => $early->id, 'product_id' => $first->id]),
+            $this->offer(1000, keys: 5, attributes: ['seller_id' => $early->id, 'product_id' => $second->id]),
+        ];
+        $buyer = User::factory()->create();
+        $order = Order::where('public_id', $this->placeOrder($buyer, [
+            $this->item($offers[0], 1), $this->item($offers[1], 2), $this->item($offers[2], 3),
+        ])->assertCreated()->json('data.id'))->firstOrFail();
+
+        $raised = [];
+        DB::listen(function ($query) use (&$raised) {
+            if (preg_match('/^update "(products|sellers)" set "sales_count" = "sales_count" \+ (\d+)/', $query->sql, $match)) {
+                $raised[] = [$match[1], (int) $match[2], last($query->bindings)];
+            }
+        });
+
+        $this->pay($buyer, $order)->assertOk();
+
+        // [table, how many, row id]
+        $this->assertSame([
+            ['products', 2, $first->id],
+            ['products', 4, $second->id],
+            ['sellers', 5, $early->id],
+            ['sellers', 1, $late->id],
+        ], $raised);
     }
 }
