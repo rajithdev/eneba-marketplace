@@ -12,3 +12,4 @@ docs/ai-log/redactions.local.json
 .env.*
 !.env.example
 .vercel/
+cinematic/build/

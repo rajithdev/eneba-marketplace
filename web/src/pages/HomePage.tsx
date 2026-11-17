@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { BestSellersBlock, DealsBlock, FeaturedBlock, HeroBlock } from '../components/HomeBlocks'
+import { CinematicDeals } from '../cinematic/CinematicDeals'
+import { BestSellersBlock, FeaturedBlock, HeroBlock } from '../components/HomeBlocks'
 import { primaryButton, secondaryButton } from '../components/States'
 import { describeFailure } from '../lib/api'
 import { fetchHomepage, type HomepageBlock } from '../lib/homepage'
@@ -11,7 +12,8 @@ import { useDocumentTitle } from '../lib/useDocumentTitle'
 const blockComponents: Record<string, (props: { block: HomepageBlock }) => ReactNode> = {
   hero_banner: HeroBlock,
   best_sellers: BestSellersBlock,
-  deals: DealsBlock,
+  // The deals block, with its scroll-controlled introduction where one can run.
+  deals: CinematicDeals,
   featured: FeaturedBlock,
 }
 
