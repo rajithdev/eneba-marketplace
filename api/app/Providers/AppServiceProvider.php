@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -35,6 +36,14 @@ class AppServiceProvider extends ServiceProvider
             URL::forceRootUrl(config('app.url'));
             URL::forceScheme(parse_url(config('app.url'), PHP_URL_SCHEME));
         }
+
+        // People sign in with a session cookie only; this API issues no
+        // tokens. Left alone, the login library answers any request that
+        // carries an "Authorization: Bearer ..." header by looking the token
+        // up in a table this project does not have, which is a server
+        // error. Telling it that no request carries a token makes such a
+        // request an ordinary visitor (or the signed-in session it also has).
+        Sanctum::getAccessTokenFromRequestUsing(fn () => null);
 
         // Sign-in and sign-up, per minute:
         //   10 per visitor address  (accurate through the frontend)
