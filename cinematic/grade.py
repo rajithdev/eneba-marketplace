@@ -31,7 +31,8 @@ usage (Blender's Python has numpy; nothing is installed):
   PY=/Applications/Blender.app/Contents/Resources/5.3/python/bin/python3.13
   $PY -I cinematic/grade.py fit   <frame 0.png> <reference.png> <grade.cube>     also writes the rule as <grade.json>
   $PY -I cinematic/grade.py bake  <grade.json> <grade.cube>                     the colour table again, from the rule
-  $PY -I cinematic/grade.py apply <grade.cube> <folder of f-NNN.png> <out folder>
+  $PY -I cinematic/grade.py apply <grade.cube> <folder of f-NNN.png> <out folder> [full until] [gone by]
+                                  the last two, as shares of the move, try another easing; left out, the ones below are used
 """
 
 import json
@@ -168,19 +169,19 @@ def write_cube(rule, path):
         json.dump(rule, out, indent=1)
 
 
-def strength(frame, frames):
+def strength(frame, frames, full_until=FULL_UNTIL, gone_by=GONE_BY):
     """How much of the grade a frame gets: all of it, easing to none at the end of the move."""
-    t = min(1.0, max(0.0, (frame / (frames - 1) - FULL_UNTIL) / (GONE_BY - FULL_UNTIL)))
+    t = min(1.0, max(0.0, (frame / (frames - 1) - full_until) / (gone_by - full_until)))
     return 1 - t * t * (3 - 2 * t)
 
 
-def apply(cube, folder, out):
+def apply(cube, folder, out, full_until=FULL_UNTIL, gone_by=GONE_BY):
     os.makedirs(out, exist_ok=True)
     names = sorted(name for name in os.listdir(folder) if name.startswith("f-") and name.endswith(".png"))
     layout = os.path.join(folder, "layout.json")
     frames = json.load(open(layout))["frames"] if os.path.exists(layout) else len(names)
     for name in names:
-        share = strength(int(name[2:5]), frames)
+        share = strength(int(name[2:5]), frames, float(full_until), float(gone_by))
         source, target = os.path.join(folder, name), os.path.join(out, name)
         if share == 0:
             subprocess.run(["cp", source, target], check=True)  # untouched: the frame the page takes over from
@@ -200,4 +201,4 @@ if __name__ == "__main__":
     elif sys.argv[1] == "bake":
         write_cube(json.load(open(sys.argv[2])), sys.argv[3])
     elif sys.argv[1] == "apply":
-        apply(*sys.argv[2:5])
+        apply(*sys.argv[2:7])
