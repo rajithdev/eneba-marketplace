@@ -172,7 +172,9 @@ repeats this check on every run.
 
 ## Live verification
 
-Run on 2026-11-16 against the public site, with the API at commit `5fb73b7`:
+First run on 2026-11-16 against the public site, with the API at commit
+`5fb73b7`. The checks have grown with every feature since; the latest run
+is under "Release review deployment" below.
 
 ```bash
 make verify URL=https://eneba-marketplace-ten.vercel.app API_URL=https://eneba-marketplace-api-pylw.onrender.com
@@ -256,15 +258,38 @@ before it considers any rewrite. A cover path with no file behind it would
 get the app's page instead of a 404; `generate-covers.mjs --check`, which
 runs with the tests, fails if any game lacks its cover.
 
-### Still open
+### Release review deployment (2026-11-17)
 
-- What a visitor sees while the Render service is waking from sleep. The
-  service was awake during every run.
-- `DEPLOY_DIAGNOSTICS` was switched off in `render.yaml` once authentication
-  was verified, so `/api/_diagnostics` answers 404 in production. `make
-  verify` keeps working without it, minus the checks that need the server's
-  view of a request; the local production check switches it on for itself.
-  To debug a deployment again, set it to `true` in Render's dashboard.
+The fixes from the pre-submission review were deployed as commit `630bf59`:
+the one-pending-order index (a migration that first settles any buyer's
+extra unpaid orders), the fixed lock order for payments, input validation,
+the bearer-token fix, and the frontend changes.
+
+| Check | Result |
+|---|---|
+| Backend tests, frontend tests, style and type checks | 274 and 149 passed |
+| `make prod-check` (the production build, locally, including a purchase) | 118 of 118 |
+| `make audit` | passed |
+| Deploy | the migration applied on start; `/api/health` reported the new commit |
+| `make verify` against the public site | 97 of 97, including the new section 12 (bearer tokens ignored, a write without the CSRF token refused, malformed filters answered 422) |
+| The site in a browser, signed out, at 1440 and 375 px wide | homepage, store by category, product, cart, account, order history and an unknown address: no console errors, no broken images, no sideways scroll |
+
+### Cold start, observed
+
+On 2026-11-17 the first request after the API had slept took 25 seconds
+through the public address and then succeeded (HTTP 200); the frontend's
+own files were served at once throughout. A visitor therefore sees the
+page frame immediately, loading placeholders where data goes, and after
+four seconds a notice that the server may be waking up, which leaves when
+the data arrives. The host's documentation allows up to about a minute.
+
+### Diagnostics
+
+`DEPLOY_DIAGNOSTICS` was switched off in `render.yaml` once authentication
+was verified, so `/api/_diagnostics` answers 404 in production. `make
+verify` keeps working without it, minus the checks that need the server's
+view of a request; the local production check switches it on for itself.
+To debug a deployment again, set it to `true` in Render's dashboard.
 
 ## Step by step
 
@@ -420,10 +445,15 @@ one address (option C in ARCHITECTURE.md).
 
 ## Known limitations
 
-- **Cold start.** After 15 idle minutes the first API request takes about a
-  minute. The proxy waits up to 120 seconds.
+- **Cold start.** After 15 idle minutes the first API request waits for the
+  service to start: 25 seconds when measured, up to about a minute. The
+  proxy waits up to 120 seconds.
 - **Throwaway accounts.** Each `make verify` run creates one
-  `deploy-check-…@example.com` user.
+  `deploy-check-…@example.com` user, or two with `PURCHASE=1`, and leaves
+  any test orders they placed.
+- **No rollback step.** A migration that fails stops the new container from
+  starting, and the host keeps serving the previous version; it is then
+  corrected by a new commit.
 
 ## Free-tier limits verified on 2026-11-16
 
