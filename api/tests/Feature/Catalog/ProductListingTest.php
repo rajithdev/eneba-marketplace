@@ -358,7 +358,8 @@ class ProductListingTest extends TestCase
         $withThirtyTwo = $countQueries();
 
         $this->assertSame($withTwo, $withThirtyTwo, 'the list must not run extra queries per product');
-        // One to count, one for the page, one each for games, platforms, regions.
-        $this->assertSame(5, $withThirtyTwo);
+        // The check for overdue reservations, one to count, one for the page,
+        // one each for games, platforms, regions.
+        $this->assertSame(6, $withThirtyTwo);
     }
 }

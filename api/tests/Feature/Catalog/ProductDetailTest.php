@@ -181,8 +181,9 @@ class ProductDetailTest extends TestCase
         Product::factory()->count(6)->for($game)->pricedAt(2000)->create();
 
         $this->assertSame($countQueries('small'), $countQueries('large'));
-        // Product, its game/platform/region, offers, sellers, variants, and the
-        // variants' game/platform/region.
-        $this->assertSame(10, $countQueries('large'));
+        // The check for overdue reservations, then: product, its
+        // game/platform/region, offers, sellers, variants, and the variants'
+        // game/platform/region.
+        $this->assertSame(11, $countQueries('large'));
     }
 }

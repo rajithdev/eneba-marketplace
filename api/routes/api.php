@@ -1,10 +1,13 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CartController;
 use App\Http\Controllers\CatalogFilterController;
 use App\Http\Controllers\DiagnosticsController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SearchSuggestionController;
+use App\Http\Middleware\ReleaseExpiredReservations;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,12 +26,35 @@ Route::get('/health', fn () => response()->json([
     'commit' => config('app.deployment.git_commit'),
 ]));
 
-// Catalog: public, read-only.
+// Options for the store's filter panel.
 Route::get('/filters', CatalogFilterController::class);
-Route::get('/products', [ProductController::class, 'index']);
-Route::get('/products/{slug}', [ProductController::class, 'show']);
-// Called on every pause in typing, so it has its own limit (see AppServiceProvider).
+
+// Called on every pause in typing, so it has its own limit (see
+// AppServiceProvider) and does none of the stock housekeeping below.
 Route::get('/search/suggestions', SearchSuggestionController::class)->middleware('throttle:search');
+
+// Everything that shows or takes stock first puts back on sale the keys of
+// unpaid orders whose time is up (see ReleaseExpiredReservations).
+Route::middleware(ReleaseExpiredReservations::class)->group(function () {
+    // Catalog: public, read-only.
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/products/{slug}', [ProductController::class, 'show']);
+
+    // The cart is kept in the browser, for guests too. This prices it.
+    Route::post('/cart/quote', [CartController::class, 'quote'])->middleware('throttle:cart');
+
+    // Orders belong to a signed-in buyer. {order} is the order's public id.
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/orders', [OrderController::class, 'index']);
+        Route::get('/orders/{order}', [OrderController::class, 'show'])->whereUuid('order');
+
+        Route::middleware('throttle:checkout')->group(function () {
+            Route::post('/orders', [OrderController::class, 'store']);
+            Route::post('/orders/{order}/pay', [OrderController::class, 'pay'])->whereUuid('order');
+            Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->whereUuid('order');
+        });
+    });
+});
 
 Route::prefix('auth')->group(function () {
     // Limited per IP address and per email (see AppServiceProvider).

@@ -1,0 +1,85 @@
+{
+    "request": "POST /api/cart/quote",
+    "response": {
+        "data": {
+            "lines": [
+                {
+                    "offer_id": 1,
+                    "requested_quantity": 2,
+                    "quantity": 2,
+                    "max_quantity": 6,
+                    "product": {
+                        "slug": "elden-ring-steam-key-global",
+                        "name": "Elden Ring Steam Key GLOBAL",
+                        "cover_image_url": "/covers/elden-ring.svg",
+                        "platform": {
+                            "slug": "steam",
+                            "name": "Steam"
+                        },
+                        "region": {
+                            "slug": "global",
+                            "name": "Global"
+                        }
+                    },
+                    "seller": {
+                        "slug": "arcade-harbor",
+                        "name": "Arcade Harbor",
+                        "rating_percent": 97.93,
+                        "sales_count": 12406
+                    },
+                    "unit_price": {
+                        "amount_cents": 3149,
+                        "currency": "EUR",
+                        "original_amount_cents": null,
+                        "discount_percent": null
+                    },
+                    "line_total_cents": 6298,
+                    "issues": [
+                        "price_changed"
+                    ]
+                },
+                {
+                    "offer_id": 2,
+                    "requested_quantity": 1,
+                    "quantity": 1,
+                    "max_quantity": 4,
+                    "product": {
+                        "slug": "minecraft-xbox-live-key-global",
+                        "name": "Minecraft Xbox Live Key GLOBAL",
+                        "cover_image_url": "/covers/minecraft.svg",
+                        "platform": {
+                            "slug": "xbox-live",
+                            "name": "Xbox Live"
+                        },
+                        "region": {
+                            "slug": "global",
+                            "name": "Global"
+                        }
+                    },
+                    "seller": {
+                        "slug": "arcade-harbor",
+                        "name": "Arcade Harbor",
+                        "rating_percent": 97.93,
+                        "sales_count": 12406
+                    },
+                    "unit_price": {
+                        "amount_cents": 1729,
+                        "currency": "EUR",
+                        "original_amount_cents": 3499,
+                        "discount_percent": 51
+                    },
+                    "line_total_cents": 1729,
+                    "issues": []
+                }
+            ],
+            "totals": {
+                "items_count": 3,
+                "subtotal_cents": 9797,
+                "discount_cents": 1770,
+                "total_cents": 8027,
+                "currency": "EUR"
+            },
+            "ok": false
+        }
+    }
+}

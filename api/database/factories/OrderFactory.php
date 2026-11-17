@@ -23,6 +23,8 @@ class OrderFactory extends Factory
             'total_cents' => fake()->numberBetween(500, 20_000),
             'currency' => 'EUR',
             'idempotency_key' => (string) Str::uuid(),
+            'cart_hash' => hash('sha256', (string) Str::uuid()),
+            'expires_at' => now()->addMinutes(10),
         ];
     }
 

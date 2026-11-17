@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'public_id', 'user_id', 'status', 'total_cents', 'currency',
-    'idempotency_key', 'failure_reason', 'paid_at',
+    'idempotency_key', 'cart_hash', 'failure_reason', 'expires_at', 'paid_at',
 ])]
 class Order extends Model
 {
@@ -26,6 +26,7 @@ class Order extends Model
         return [
             'status' => OrderStatus::class,
             'total_cents' => 'integer',
+            'expires_at' => 'datetime',
             'paid_at' => 'datetime',
         ];
     }

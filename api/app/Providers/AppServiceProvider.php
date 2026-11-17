@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Checkout\PaymentGateway;
+use App\Services\Checkout\SimulatedPaymentGateway;
 use App\Support\ClientAddress;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -16,7 +18,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // The checkout talks to "a payment gateway"; which one is decided
+        // here. A real provider would be another class with the same methods.
+        $this->app->bind(PaymentGateway::class, SimulatedPaymentGateway::class);
     }
 
     /**
@@ -45,6 +49,19 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('search', fn (Request $request) => [
             Limit::perMinute(120)->by('claimed:'.ClientAddress::claimed($request)),
             Limit::perMinute(600)->by('edge:'.ClientAddress::edge($request)),
+        ]);
+
+        // The cart re-prices itself whenever it changes: generous for a
+        // person, limited per address like search.
+        RateLimiter::for('cart', fn (Request $request) => [
+            Limit::perMinute(60)->by('claimed:'.ClientAddress::claimed($request)),
+            Limit::perMinute(300)->by('edge:'.ClientAddress::edge($request)),
+        ]);
+
+        // Placing, paying for and cancelling orders. These hold stock, so
+        // they are limited per signed-in buyer wherever the requests come from.
+        RateLimiter::for('checkout', fn (Request $request) => [
+            Limit::perMinute(30)->by('user:'.$request->user()?->id),
         ]);
 
         RateLimiter::for('auth', fn (Request $request) => [

@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * "did money move" and "does the buyer own keys" are separate facts, which
  * is what makes a crash between the two recoverable.
  */
-#[Fillable(['order_id', 'provider', 'provider_reference', 'status', 'amount_cents', 'currency', 'failure_code'])]
+#[Fillable(['order_id', 'provider', 'provider_reference', 'status', 'method', 'amount_cents', 'currency', 'failure_code'])]
 class Payment extends Model
 {
     /** @use HasFactory<PaymentFactory> */

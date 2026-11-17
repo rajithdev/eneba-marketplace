@@ -1,0 +1,54 @@
+{
+    "request": "POST /api/orders (409)",
+    "response": {
+        "message": "Your cart has changed. Review the updated prices and availability.",
+        "code": "cart_changed",
+        "quote": {
+            "lines": [
+                {
+                    "offer_id": 1,
+                    "requested_quantity": 2,
+                    "quantity": 2,
+                    "max_quantity": 6,
+                    "product": {
+                        "slug": "elden-ring-steam-key-global",
+                        "name": "Elden Ring Steam Key GLOBAL",
+                        "cover_image_url": "/covers/elden-ring.svg",
+                        "platform": {
+                            "slug": "steam",
+                            "name": "Steam"
+                        },
+                        "region": {
+                            "slug": "global",
+                            "name": "Global"
+                        }
+                    },
+                    "seller": {
+                        "slug": "arcade-harbor",
+                        "name": "Arcade Harbor",
+                        "rating_percent": 97.93,
+                        "sales_count": 12406
+                    },
+                    "unit_price": {
+                        "amount_cents": 3149,
+                        "currency": "EUR",
+                        "original_amount_cents": null,
+                        "discount_percent": null
+                    },
+                    "line_total_cents": 6298,
+                    "issues": [
+                        "price_changed"
+                    ]
+                }
+            ],
+            "totals": {
+                "items_count": 2,
+                "subtotal_cents": 6298,
+                "discount_cents": 0,
+                "total_cents": 6298,
+                "currency": "EUR"
+            },
+            "ok": false
+        }
+    }
+}

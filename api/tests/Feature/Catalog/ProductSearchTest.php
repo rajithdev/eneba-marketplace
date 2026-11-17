@@ -396,7 +396,9 @@ class ProductSearchTest extends TestCase
         }
 
         $this->assertSame($few, [$count('/api/products?q=hades'), $count('/api/search/suggestions?q=hades')]);
-        // The threshold setting, then: count + page + three lookups; or one list + three lookups.
-        $this->assertSame([6, 5], $few);
+        // The store: the check for overdue reservations, the threshold
+        // setting, count + page + three lookups. Suggestions: the threshold
+        // setting, one list + three lookups.
+        $this->assertSame([7, 5], $few);
     }
 }

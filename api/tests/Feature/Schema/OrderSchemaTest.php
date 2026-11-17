@@ -46,6 +46,48 @@ class OrderSchemaTest extends TestCase
         );
     }
 
+    public function test_an_order_is_paid_exactly_when_it_has_a_payment_time(): void
+    {
+        $order = Order::factory()->create();
+
+        $this->assertViolatesConstraint(
+            'orders_paid_at_check',
+            fn () => DB::table('orders')->where('id', $order->id)->update(['status' => 'paid']),
+        );
+        $this->assertViolatesConstraint(
+            'orders_paid_at_check',
+            fn () => DB::table('orders')->where('id', $order->id)->update(['paid_at' => now()]),
+        );
+
+        DB::table('orders')->where('id', $order->id)->update(['status' => 'paid', 'paid_at' => now()]);
+        $this->assertSame('paid', DB::table('orders')->where('id', $order->id)->value('status'));
+    }
+
+    public function test_orders_and_payments_can_be_cancelled(): void
+    {
+        $order = Order::factory()->create();
+        $payment = Payment::factory()->for($order)->create();
+
+        DB::table('orders')->where('id', $order->id)->update(['status' => 'cancelled']);
+        DB::table('payments')->where('id', $payment->id)->update(['status' => 'cancelled']);
+
+        $this->assertViolatesConstraint(
+            'payments_status_check',
+            fn () => DB::table('payments')->where('id', $payment->id)->update(['status' => 'refunded']),
+        );
+    }
+
+    public function test_the_payment_provider_decides_a_reference_only_once(): void
+    {
+        $charge = ['reference' => 'order-1', 'status' => 'succeeded', 'created_at' => now(), 'updated_at' => now()];
+        DB::table('simulated_charges')->insert($charge);
+
+        $this->assertViolatesConstraint(
+            'simulated_charges_reference_unique',
+            fn () => DB::table('simulated_charges')->insert([...$charge, 'status' => 'cancelled']),
+        );
+    }
+
     public function test_an_order_can_be_charged_only_once(): void
     {
         $order = Order::factory()->create();

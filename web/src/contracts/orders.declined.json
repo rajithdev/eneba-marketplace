@@ -1,0 +1,55 @@
+{
+    "request": "POST /api/orders/{id}/pay (402)",
+    "response": {
+        "message": "The payment was declined. You have not been charged.",
+        "data": {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "status": "failed",
+            "created_at": "2026-11-18T12:01:30+00:00",
+            "paid_at": null,
+            "expires_at": null,
+            "expires_in_seconds": null,
+            "failure_reason": "card_declined",
+            "totals": {
+                "items_count": 1,
+                "subtotal_cents": 3499,
+                "discount_cents": 1770,
+                "total_cents": 1729,
+                "currency": "EUR"
+            },
+            "payment": {
+                "status": "failed",
+                "method": "Test card ending 0002"
+            },
+            "items": [
+                {
+                    "offer_id": 1,
+                    "product": {
+                        "slug": "minecraft-xbox-live-key-global",
+                        "name": "Minecraft Xbox Live Key GLOBAL",
+                        "cover_image_url": "/covers/minecraft.svg",
+                        "platform": {
+                            "slug": "xbox-live",
+                            "name": "Xbox Live"
+                        },
+                        "region": {
+                            "slug": "global",
+                            "name": "Global"
+                        }
+                    },
+                    "seller_name": "Arcade Harbor",
+                    "unit_price": {
+                        "amount_cents": 1729,
+                        "currency": "EUR",
+                        "original_amount_cents": 3499,
+                        "discount_percent": 51
+                    },
+                    "quantity": 1,
+                    "line_total_cents": 1729,
+                    "keys": []
+                }
+            ],
+            "payment_methods": []
+        }
+    }
+}

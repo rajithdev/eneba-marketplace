@@ -37,7 +37,7 @@ test-web:
 	node scripts/catalog/generate-covers.mjs --check
 
 contracts: ## Regenerate the example API responses in web/src/contracts, then review the diff
-	docker compose run --rm -e UPDATE_CONTRACTS=1 api php artisan test --filter=CatalogContractTest
+	docker compose run --rm -e UPDATE_CONTRACTS=1 api php artisan test --filter=ContractTest
 	git status --short web/src/contracts
 
 covers: ## Regenerate the cover images in web/public/covers from the catalog data

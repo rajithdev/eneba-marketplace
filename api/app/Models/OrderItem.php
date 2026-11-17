@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 #[Fillable([
     'order_id', 'offer_id', 'product_id',
-    'product_name', 'seller_name', 'unit_price_cents', 'quantity',
+    'product_name', 'seller_name', 'unit_price_cents', 'original_unit_price_cents', 'quantity',
 ])]
 class OrderItem extends Model
 {
@@ -27,6 +27,7 @@ class OrderItem extends Model
     {
         return [
             'unit_price_cents' => 'integer',
+            'original_unit_price_cents' => 'integer',
             'quantity' => 'integer',
         ];
     }
