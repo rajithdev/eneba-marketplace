@@ -5,17 +5,21 @@ namespace Tests\Feature\Checkout;
 use App\Enums\OrderStatus;
 use App\Models\LicenseKey;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Seller;
 use App\Models\User;
 use App\Services\Checkout\CartChanged;
 use App\Services\Checkout\CheckoutInProgress;
+use App\Services\Checkout\InventoryAllocator;
 use App\Services\Checkout\PaymentGateway;
 use App\Services\Checkout\PlaceOrder;
 use App\Services\Checkout\SettleOrder;
+use DateTimeInterface;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Tests\Concerns\BuildsCheckouts;
 use Tests\Concerns\RunsInParallel;
 use Tests\TestCase;
@@ -295,5 +299,110 @@ class CheckoutConcurrencyTest extends TestCase
         // Every sale was counted exactly once.
         $this->assertSame(array_fill(0, 8, 4), $sellers->map(fn (Seller $seller) => $seller->fresh()->sales_count - $seller->sales_count)->all());
         $this->assertSame(array_fill(0, 8, 4), $products->map(fn (Product $product) => $product->fresh()->sales_count - $product->sales_count)->all());
+    }
+
+    /**
+     * Two checkouts of one buyer, interleaved in a fixed way instead of
+     * being left to timing. Each runs in its own process, on its own
+     * database connection:
+     *
+     *   1. the first inserts its order and stops, its transaction still open;
+     *   2. only then does the second start. It cannot see that order (it is
+     *      not committed), passes its own checks, and its insert is made to
+     *      wait by the one-pending-order index;
+     *   3. only when the database reports that wait does the first carry on
+     *      and commit, which is what refuses the second.
+     *
+     * So the first always wins, and the second always loses at the index
+     * having seen nothing: the case that cannot be produced by sleeping.
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>} what the winner and the loser got
+     */
+    private function winnerThenBlockedLoser(User $buyer, array $winnersCart, array $losersCart): array
+    {
+        $inserted = sys_get_temp_dir().'/order-inserted-'.bin2hex(random_bytes(6));
+
+        $results = $this->inParallel([
+            function () use ($buyer, $winnersCart, $inserted) {
+                // Reserving keys is the step right after the order row is
+                // inserted, inside the same transaction: pause there.
+                $this->app->bind(InventoryAllocator::class, fn () => new class($inserted) extends InventoryAllocator
+                {
+                    public function __construct(private string $inserted) {}
+
+                    public function reserve(OrderItem $item, DateTimeInterface $until): void
+                    {
+                        touch($this->inserted);
+                        $giveUpAt = microtime(true) + 10;
+
+                        // "Another connection is waiting for a lock": the
+                        // second request's insert, held up by this order.
+                        while ((int) DB::selectOne('SELECT count(*) AS waiting FROM pg_locks WHERE NOT granted')->waiting === 0) {
+                            if (microtime(true) > $giveUpAt) {
+                                throw new RuntimeException('The second request never reached the index.');
+                            }
+                            usleep(10_000);
+                        }
+
+                        parent::reserve($item, $until);
+                    }
+                });
+
+                return $this->tryToPlace($buyer->id, $winnersCart, (string) Str::uuid());
+            },
+            function () use ($buyer, $losersCart, $inserted) {
+                $giveUpAt = microtime(true) + 10;
+                while (! file_exists($inserted) && microtime(true) < $giveUpAt) {
+                    usleep(5_000);
+                }
+
+                return $this->tryToPlace($buyer->id, $losersCart, (string) Str::uuid());
+            },
+        ]);
+
+        @unlink($inserted);
+
+        return $results;
+    }
+
+    public function test_a_checkout_that_loses_the_race_to_another_of_the_same_buyer_leaves_the_winner_untouched(): void
+    {
+        [$winnersOffer, $losersOffer] = [$this->offer(1000, keys: 3), $this->offer(2000, keys: 3)];
+        $buyer = User::factory()->create();
+
+        [$winner, $loser] = $this->winnerThenBlockedLoser($buyer, [$this->item($winnersOffer, 2)], [$this->item($losersOffer)]);
+
+        // The request that was answered "here is your order" still has it.
+        $this->assertNotNull($winner['order'] ?? null, json_encode([$winner, $loser]));
+        $order = Order::sole();
+        $this->assertSame($winner['order'], $order->public_id);
+        $this->assertSame(OrderStatus::Pending, $order->status);
+        $this->assertSame(['available' => 1, 'reserved' => 2, 'sold' => 0], $this->keys($winnersOffer));
+        // Nothing was cancelled at the payment provider behind its back.
+        $this->assertNull($this->charge($order));
+
+        // The other request was refused in a controlled way, holding nothing.
+        $this->assertSame(CheckoutInProgress::class, $loser['exception'] ?? null, json_encode($loser));
+        $this->assertSame(['available' => 3, 'reserved' => 0, 'sold' => 0], $this->keys($losersOffer));
+    }
+
+    public function test_the_same_cart_checked_out_twice_at_once_under_different_keys_is_one_order_for_both(): void
+    {
+        // Two tabs, each with its own idempotency key, press "check out"
+        // for the same cart together.
+        $offer = $this->offer(1000, keys: 5);
+        $buyer = User::factory()->create();
+
+        [$winner, $loser] = $this->winnerThenBlockedLoser($buyer, [$this->item($offer, 2)], [$this->item($offer, 2)]);
+
+        $order = Order::sole();
+        $this->assertSame(OrderStatus::Pending, $order->status);
+        $this->assertSame($order->public_id, $winner['order'] ?? null, json_encode([$winner, $loser]));
+        $this->assertTrue($winner['created']);
+        // The second request is given the first one's order, not a new one.
+        $this->assertSame($order->public_id, $loser['order'] ?? null, json_encode($loser));
+        $this->assertFalse($loser['created']);
+        $this->assertSame(['available' => 3, 'reserved' => 2, 'sold' => 0], $this->keys($offer));
+        $this->assertNull($this->charge($order));
     }
 }

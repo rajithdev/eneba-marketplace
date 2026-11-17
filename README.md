@@ -178,8 +178,10 @@ Things a reviewer should know are deliberate, approximate or not done yet.
   that looks at stock or orders (`php artisan orders:expire` exists for a
   host with cron). Search suggestions and the filter counts skip that step,
   so they can show an expired hold as "sold out" until the next page load.
-- A buyer has one checkout in progress at a time, enforced by the database:
-  starting another cancels the earlier unpaid order. One order holds at
+- A buyer has one checkout in progress at a time, enforced by the database.
+  Checking out the same cart again returns that checkout; checking out a
+  changed cart cancels the earlier unpaid order. Two different carts sent
+  at the same instant: the first is kept, the second is asked to try again. One order holds at
   most 10 of an offer and 20 different offers. Several accounts could still
   hold stock between them for 10 minutes at a time; nothing limits how many
   accounts one person creates.

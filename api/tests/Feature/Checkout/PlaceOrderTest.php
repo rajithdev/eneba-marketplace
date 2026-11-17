@@ -273,21 +273,57 @@ class PlaceOrderTest extends TestCase
         $this->assertSame(['available' => 2, 'reserved' => 3, 'sold' => 0], $this->keys($offer));
     }
 
-    public function test_starting_another_checkout_gives_up_the_earlier_one(): void
+    public function test_checking_out_a_different_cart_gives_up_the_earlier_order(): void
     {
         $buyer = User::factory()->create();
         // The last key: without this rule the buyer's own abandoned order
         // would make it look sold out to them.
         $offer = $this->offer(1000, keys: 1);
+        $added = $this->offer(500, keys: 3);
 
         $first = $this->pendingOrder($buyer, $offer);
-        $second = $this->pendingOrder($buyer, $offer);
+        // The buyer goes back, adds something, and checks out again.
+        $id = $this->placeOrder($buyer, [$this->item($offer), $this->item($added)])->assertCreated()->json('data.id');
+        $second = Order::where('public_id', $id)->firstOrFail();
 
         $this->assertSame(OrderStatus::Cancelled, $first->fresh()->status);
         $this->assertSame('cancelled', $this->charge($first));
-        $this->assertSame(OrderStatus::Pending, $second->fresh()->status);
+        $this->assertSame(OrderStatus::Pending, $second->status);
         $this->assertSame(['available' => 0, 'reserved' => 1, 'sold' => 0], $this->keys($offer));
-        $this->assertSame($second->items->first()->id, LicenseKey::firstOrFail()->order_item_id);
+        $this->assertSame($second->items->first()->id, LicenseKey::where('offer_id', $offer->id)->firstOrFail()->order_item_id);
+    }
+
+    public function test_checking_out_the_same_cart_again_under_another_key_is_the_same_checkout(): void
+    {
+        // Another tab, another device, or a browser that lost its key: the
+        // request is for the checkout already in progress, and must not
+        // cancel it to make an identical one.
+        $buyer = User::factory()->create();
+        $offer = $this->offer(1000, keys: 3);
+        $first = $this->pendingOrder($buyer, $offer, 2);
+
+        $this->placeOrder($buyer, [$this->item($offer, 2)])
+            ->assertOk()
+            ->assertJsonPath('data.id', $first->public_id)
+            ->assertJsonPath('data.status', 'pending');
+
+        $this->assertSame(1, $buyer->orders()->count());
+        $this->assertNull($this->charge($first));
+        $this->assertSame(['available' => 1, 'reserved' => 2, 'sold' => 0], $this->keys($offer));
+    }
+
+    public function test_an_unpaid_order_whose_time_is_up_is_not_handed_out_again_for_the_same_cart(): void
+    {
+        $buyer = User::factory()->create();
+        $offer = $this->offer(1000, keys: 2);
+        $first = $this->pendingOrder($buyer, $offer);
+
+        $this->travel(config('checkout.reservation_minutes') + 1)->minutes();
+        $id = $this->placeOrder($buyer, [$this->item($offer)])->assertCreated()->json('data.id');
+
+        $this->assertNotSame($first->public_id, $id);
+        $this->assertSame(OrderStatus::Expired, $first->fresh()->status);
+        $this->assertSame(['available' => 1, 'reserved' => 1, 'sold' => 0], $this->keys($offer));
     }
 
     public function test_a_copy_of_a_request_never_cancels_the_order_its_twin_just_created(): void
@@ -336,13 +372,14 @@ class PlaceOrderTest extends TestCase
         $this->assertSame(['available' => 0, 'reserved' => 2, 'sold' => 0], $this->keys($offer));
     }
 
-    public function test_a_buyer_whose_simultaneous_checkouts_keep_colliding_is_asked_to_try_again(): void
+    public function test_a_checkout_refused_because_another_just_started_answers_409_and_holds_nothing(): void
     {
         $offer = $this->offer(1000, keys: 2);
         $buyer = User::factory()->create();
-        // "Another checkout of mine was created a moment ago, and I did not
+        // "Another checkout of mine was saved a moment ago, and I did not
         // see it when I looked": what two requests at once do to each
-        // other. Here it happens on every attempt.
+        // other. (CheckoutConcurrencyTest produces this with two real
+        // connections; here it is enough that the look finds nothing.)
         $this->app->bind(PlaceOrder::class, fn ($app) => new class($app->make(QuoteCart::class), $app->make(InventoryAllocator::class), $app->make(SettleOrder::class)) extends PlaceOrder
         {
             protected function giveUpEarlierOrders(User $user, string $idempotencyKey): void
@@ -350,15 +387,18 @@ class PlaceOrderTest extends TestCase
                 // Sees nothing, as the request that lost the race did.
             }
         });
-        Order::factory()->for($buyer)->create();
+        $winner = Order::factory()->for($buyer)->create();
 
         $this->placeOrder($buyer, [$this->item($offer)])
             ->assertStatus(409)
             ->assertJsonPath('code', 'checkout_in_progress')
             ->assertJsonMissingPath('quote');
 
-        // Nothing was held for the refused request.
+        // Nothing was held for the refused request, and the order that got
+        // there first is exactly as it was.
         $this->assertSame(['available' => 2, 'reserved' => 0, 'sold' => 0], $this->keys($offer));
         $this->assertSame(1, $buyer->orders()->count());
+        $this->assertSame(OrderStatus::Pending, $winner->fresh()->status);
+        $this->assertNull($this->charge($winner));
     }
 }

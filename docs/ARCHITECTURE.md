@@ -109,6 +109,7 @@ test in `api/tests/Feature/Schema`.
 | A seller has one offer per product | unique `(product_id, seller_id)` |
 | A price is positive; a "was" price is not below the current price | check constraints |
 | The same checkout attempt cannot create two orders | unique `(user_id, idempotency_key)` |
+| A buyer has at most one unpaid order | partial unique index `orders_one_pending_per_user` on `(user_id) WHERE status = 'pending'` |
 | An order is charged at most once | unique `payments.order_id` |
 | An order is paid exactly when it has a payment time | check constraint `orders_paid_at_check` |
 | The payment provider decides a charge reference once | unique `simulated_charges.reference` |
@@ -315,7 +316,7 @@ card data is ever asked for or stored.
 | Payment declined | Keys released, order failed, payment failed (402). Stock is back immediately. Trying again is a new order. |
 | Buyer never pays | The order expires at its deadline: reference cancelled at the gateway, keys released, order expired. |
 | Buyer goes back and changes the cart | Starting another checkout cancels the buyer's earlier pending order first, so they are never blocked by their own reservation; a quote counts keys held by the buyer's own pending order as available to them. |
-| One buyer starts several checkouts at the same moment | The database allows one pending order per buyer (a partial unique index, `orders_one_pending_per_user`). The request that loses at the index has held nothing; it gives up the order that beat it, as it would have a moment later, and tries once more. Losing twice answers 409 `checkout_in_progress`. One account can therefore never hold keys with more than one order. |
+| One buyer's checkouts overlap | The database allows one pending order per buyer (a partial unique index, `orders_one_pending_per_user`), so two can never both exist. The same cart checked out again, under any key, **is** the checkout in progress and is answered with that order. A different cart that arrives while the first request is still saving loses at the index, having held nothing, and is answered 409 `checkout_in_progress`; it never cancels the order that got there first, whose buyer has already been told it exists. Only a request that could see the earlier order when it started (the buyer went back and changed the cart) gives that order up. |
 | Two payments touch the same products or sellers | Paying raises a sales counter on each product and seller, which locks those rows. Every payment takes them in the same order (products by id, then sellers by id), so one payment can only wait for another, never deadlock with it. Recording a decision is also retried up to three times if the database reports a deadlock anyway; it re-reads the order under its lock, so repeating it is safe. |
 | Crash after step 1 | A pending order with held keys. The buyer can still pay until the deadline; otherwise it expires as above. |
 | Crash after the charge, before recording it | The gateway knows. The next touch records it: the buyer retrying, the buyer opening the order, or the expiry clean-up (whose cancel loses to the charge). The buyer gets the keys even if they never come back. |
@@ -401,6 +402,16 @@ products and sellers in opposite line order, paid together with the overlap
 forced (it deadlocked before the fixed lock order). A migration test shows
 that adding the one-pending-order rule first settles a buyer's extra unpaid
 orders the way a new checkout would.
+
+Two of these do not rely on timing at all. They fix the interleaving: the
+first request inserts its order and pauses with its transaction open; the
+second starts only then, cannot see that order, and its insert is made to
+wait by the index; the first commits only once the database reports that
+wait (`pg_locks`). The winner's order must come through untouched (still
+pending, its keys held, nothing cancelled at the gateway) while the loser
+is refused, or, for the same cart, given the winner's order. The first
+version of the rule failed both: the loser cancelled the winner and took
+its place.
 
 The frontend tests cover the cart store, revalidation notices, the order
 page in each state, duplicate presses, the countdown, and what a signed-out

@@ -591,6 +591,15 @@ heading('10. Cart and checkout')
     check('The order is pending, with a deadline and ways to pay', order?.status === 'pending' && order.expires_in_seconds > 0 && order.payment_methods.length > 0)
     check('No license key is shown before payment', Boolean(order) && order.items.every((entry) => entry.keys.length === 0) && !looksLikeAKey.test(copies[0].text))
 
+    // The same cart again under other keys, as two more tabs would send it.
+    const otherTabs = await Promise.all([1, 2].map(() => post('/api/orders', { items: [item] }, { 'idempotency-key': newKey() })))
+    const afterTabs = await request('GET', `/api/orders/${order?.id}`)
+    check(
+      'The same cart checked out again under other keys is the same order, which is left untouched',
+      otherTabs.every((reply) => reply.status === 200 && reply.json?.data?.id === order?.id) && afterTabs.json?.data?.status === 'pending',
+      otherTabs.map((reply) => reply.status).join(', '),
+    )
+
     const reused = await post('/api/orders', { items: [{ ...item, quantity: 2 }] }, { 'idempotency-key': key })
     check('The same key with a different cart is refused', reused.status === 422 && reused.json?.code === 'idempotency_key_reused', `HTTP ${reused.status}`)
 

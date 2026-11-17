@@ -47,43 +47,59 @@ class PlaceOrder
         }
 
         // A buyer has one checkout in progress at a time, and the database
-        // enforces it (the orders_one_pending_per_user index). Starting
-        // another gives up the earlier ones first.
+        // enforces it (the orders_one_pending_per_user index).
         //
-        // Two different checkouts of one buyer can still start at the same
-        // moment. Neither sees the other's order yet, so the slower one is
-        // refused by the index, having held nothing. It then does what it
-        // would have done had it arrived a moment later: gives up the order
-        // that beat it and tries once more. Losing a second time means the
-        // buyer is starting checkouts faster than they can be given up, and
-        // is told to try again.
-        for ($attempt = 1; ; $attempt++) {
-            $this->giveUpEarlierOrders($user, $idempotencyKey);
-
-            try {
-                return $this->create($user, $items, $cartHash, $idempotencyKey);
-            } catch (UniqueConstraintViolationException|CartChanged|OutOfStock $failure) {
-                // The same request may have arrived twice at once. If the
-                // other copy created the order, that order is this copy's
-                // answer too: whether this copy lost at the unique index, or
-                // found the keys already held (by that very order).
-                if ($existing = $this->find($user, $idempotencyKey)) {
-                    return $this->sameCartOrFail($existing, $cartHash);
-                }
-
-                if ($failure instanceof UniqueConstraintViolationException) {
-                    if ($attempt < 2) {
-                        continue;
-                    }
-
-                    throw new CheckoutInProgress;
-                }
-
-                // Another buyer took the keys between the quote and the
-                // reservation. Everything was rolled back; say what is left.
-                throw $failure instanceof OutOfStock ? new CartChanged($this->quotes->quote($items)) : $failure;
-            }
+        // Asking to check out the cart that is already being checked out
+        // is asking for that same checkout, whichever tab or key the
+        // request came with: it is answered with the order in progress.
+        if ($inProgress = $this->inProgressFor($user, $cartHash)) {
+            return $inProgress;
         }
+
+        // A different cart is a new checkout. The buyer went back and
+        // changed their mind, so the earlier order is given up first.
+        $this->giveUpEarlierOrders($user, $idempotencyKey);
+
+        try {
+            return $this->create($user, $items, $cartHash, $idempotencyKey);
+        } catch (UniqueConstraintViolationException|CartChanged|OutOfStock $failure) {
+            // Another request of this buyer got there first, in the moment
+            // between this one looking and this one saving. Its order was
+            // committed and its caller has been told so: it is the
+            // checkout in progress, and this request must not undo it.
+            //
+            // If that request was a copy of this one (the same key), or was
+            // for the same cart, its order is this request's answer too.
+            if ($existing = $this->find($user, $idempotencyKey)) {
+                return $this->sameCartOrFail($existing, $cartHash);
+            }
+
+            if ($inProgress = $this->inProgressFor($user, $cartHash)) {
+                return $inProgress;
+            }
+
+            // It was for a different cart. This request held nothing (the
+            // order row is the first thing saved, and it was refused), so
+            // the buyer is simply told to try again; by then the other
+            // order is visible, and trying again is a deliberate choice.
+            if ($failure instanceof UniqueConstraintViolationException) {
+                throw new CheckoutInProgress;
+            }
+
+            // Another buyer took the keys between the quote and the
+            // reservation. Everything was rolled back; say what is left.
+            throw $failure instanceof OutOfStock ? new CartChanged($this->quotes->quote($items)) : $failure;
+        }
+    }
+
+    /** The buyer's unpaid order for exactly this cart, if it can still be paid. */
+    private function inProgressFor(User $user, string $cartHash): ?Order
+    {
+        return $user->orders()
+            ->where('status', OrderStatus::Pending)
+            ->where('cart_hash', $cartHash)
+            ->where('expires_at', '>', now())
+            ->first();
     }
 
     /**
@@ -94,6 +110,11 @@ class PlaceOrder
      * An order with this very key is not "an earlier one": it can only have
      * been created, a moment ago, by another copy of this same request, and
      * must be returned to the caller, not cancelled.
+     *
+     * This runs before anything is saved and only ever cancels orders this
+     * request could see when it started. An order committed after that
+     * point, by a request running at the same time, is never cancelled here:
+     * see the conflict handling in handle().
      *
      * Protected so a test can stand in for "the other order was not there
      * yet when this request looked".
