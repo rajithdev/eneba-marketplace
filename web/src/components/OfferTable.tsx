@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import type { Offer } from '../lib/catalog'
 import { PriceTag } from './PriceTag'
+import { smallPrimaryButton } from './States'
 
 interface Props {
   offers: Offer[]
@@ -60,14 +61,16 @@ export function OfferTable({ offers, inCart, onAdd }: Props) {
                 <>
                   <span className="whitespace-nowrap text-region">In stock</span>
                   {/* The buyer picks this seller: the cart holds the offer, not just the product. */}
-                  <button
-                    type="button"
-                    className="mt-2 block w-full whitespace-nowrap bg-accent px-3 py-2 text-sm font-extrabold text-black hover:bg-accent-strong sm:ml-auto sm:w-auto"
-                    aria-label={`Add to cart from ${offer.seller.name}`}
-                    onClick={() => onAdd(offer)}
-                  >
-                    Add to cart
-                  </button>
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      className={`${smallPrimaryButton} w-full whitespace-nowrap sm:w-auto`}
+                      aria-label={`Add to cart from ${offer.seller.name}`}
+                      onClick={() => onAdd(offer)}
+                    >
+                      Add to cart
+                    </button>
+                  </div>
                   {inCart[offer.id] > 0 && (
                     <Link to="/cart" className="mt-1 block whitespace-nowrap text-xs font-normal underline hover:text-accent">
                       {inCart[offer.id]} in cart

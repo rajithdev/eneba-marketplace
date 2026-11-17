@@ -10,15 +10,26 @@ import { LoadError, Notice, primaryButton } from './States'
  *
  * `what` completes "Sign in to see ...", `next` is where to return to.
  */
-export function SessionNotice({ session, what, next }: { session: Exclude<Session, { state: 'signed-in' }>; what: string; next: string }) {
+export function SessionNotice({
+  session,
+  what,
+  next,
+  heading,
+}: {
+  session: Exclude<Session, { state: 'signed-in' }>
+  what: string
+  next: string
+  /** "h1" when the notice is the whole page. */
+  heading?: 'h1' | 'h2'
+}) {
   if (session.state === 'checking') return <p role="status">Checking that you are signed in…</p>
 
   if (session.state === 'unknown') {
-    return <LoadError title="We could not check that you are signed in" error={session.error} retry={session.retry} />
+    return <LoadError title="We could not check that you are signed in" error={session.error} retry={session.retry} heading={heading} />
   }
 
   return (
-    <Notice title={`Sign in to see ${what}`}>
+    <Notice title={`Sign in to see ${what}`} heading={heading}>
       <p>Orders and their keys are only shown to the account that placed them.</p>
       <Link to={`/account?next=${next}`} className={primaryButton}>
         Sign in

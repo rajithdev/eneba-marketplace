@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router'
 import { FilterPanel } from '../components/FilterPanel'
 import { Pagination } from '../components/Pagination'
 import { ProductCard } from '../components/ProductCard'
-import { Notice, ProductGridSkeleton, primaryButton, productGrid, secondaryButton } from '../components/States'
+import { LoadError, Notice, pageTitle, pageTop, primaryButton, productGrid, ProductGridSkeleton, secondaryButton } from '../components/States'
 import { ApiError } from '../lib/api'
 import { fetchFilters, fetchProducts } from '../lib/catalog'
 import { activeFilterCount, apiQuery, withValue, withoutFilters } from '../lib/storeParams'
@@ -49,8 +49,8 @@ export function StorePage() {
 
   return (
     <>
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-6">
-        <h1 className="text-3xl font-bold">{searchTerm ? <>Results for “{searchTerm}”</> : 'Store'}</h1>
+      <div className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 pb-6 ${pageTop}`}>
+        <h1 className={pageTitle}>{searchTerm ? <>Results for “{searchTerm}”</> : 'Store'}</h1>
         {searchTerm && (
           <Link to={{ search: withValue(params, 'q', null).toString() }} className="text-sm font-extrabold underline hover:text-accent">
             Clear search
@@ -140,12 +140,7 @@ export function StorePage() {
           )}
 
           {products.isError && !invalidAddress && !refused && (
-            <Notice title="The products could not be loaded" tone="error">
-              <p>The server may be starting up. This can take up to a minute.</p>
-              <button type="button" className={primaryButton} onClick={() => products.refetch()}>
-                Try again
-              </button>
-            </Notice>
+            <LoadError title="The products could not be loaded" error={products.error} retry={() => products.refetch()} />
           )}
 
           {products.data && products.data.data.length === 0 && searchTerm && (

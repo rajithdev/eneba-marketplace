@@ -345,4 +345,24 @@ describe('cart page', () => {
 
     expect(await screen.findByRole('link', { name: 'Cart, 3 items' })).toHaveAttribute('href', '/cart')
   })
+
+  it('does not tell a buyer to sign in when it could not find out whether they are signed in', async () => {
+    const sent: SentRequest[] = []
+    let sessionWorks = false
+    mockApi((path, _query, request) => {
+      sent.push(request)
+      if (path === '/api/auth/me') return sessionWorks ? { body: { data: ada } } : { status: 500, body: { message: 'Server Error' } }
+      if (path === '/api/cart/quote') return { body: { data: quoteFor(catalog(), (request.body as { items: SentItem[] }).items) } }
+    })
+    fillCart({})
+    renderAt('/cart')
+
+    expect(await screen.findByText(/We could not check that you are signed in/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Sign in to check out' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Proceed to checkout' })).not.toBeInTheDocument()
+
+    sessionWorks = true
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('button', { name: 'Proceed to checkout' })).toBeEnabled()
+  })
 })

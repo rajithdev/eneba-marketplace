@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { OfferTable } from '../components/OfferTable'
 import { PriceTag } from '../components/PriceTag'
-import { Notice, primaryButton, secondaryButton } from '../components/States'
+import { LoadError, Notice, pageTitle, pageTop, primaryButton, secondaryButton, sectionTitle } from '../components/States'
 import { VariantList } from '../components/VariantList'
 import { ApiError } from '../lib/api'
 import { cart, useCart } from '../lib/cart'
@@ -24,8 +24,8 @@ export function ProductPage() {
 
   if (product.error instanceof ApiError && product.error.status === 404) {
     return (
-      <div className="pt-8">
-        <Notice title="Product not found">
+      <div className={pageTop}>
+        <Notice title="Product not found" heading="h1">
           <p>This product does not exist, or is no longer sold.</p>
           <Link to="/store" className={primaryButton}>
             Browse the store
@@ -37,13 +37,8 @@ export function ProductPage() {
 
   if (product.isError) {
     return (
-      <div className="pt-8">
-        <Notice title="The product could not be loaded" tone="error">
-          <p>The server may be starting up. This can take up to a minute.</p>
-          <button type="button" className={primaryButton} onClick={() => product.refetch()}>
-            Try again
-          </button>
-        </Notice>
+      <div className={pageTop}>
+        <LoadError title="The product could not be loaded" error={product.error} retry={() => product.refetch()} heading="h1" />
       </div>
     )
   }
@@ -69,7 +64,7 @@ function ProductView({ product }: { product: ProductDetail }) {
 
   return (
     <article>
-      <nav aria-label="Breadcrumb" className="py-4 text-sm text-muted">
+      <nav aria-label="Breadcrumb" className={`pb-4 text-sm text-muted ${pageTop}`}>
         <Link to="/store" className="underline hover:text-accent">
           Store
         </Link>
@@ -91,7 +86,7 @@ function ProductView({ product }: { product: ProductDetail }) {
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold leading-tight sm:text-[26px]">{product.name}</h1>
+          <h1 className={pageTitle}>{product.name}</h1>
 
           <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-4 md:grid-cols-2 xl:grid-cols-4">
             <Fact term="Platform" value={product.platform.name} />
@@ -149,7 +144,7 @@ function ProductView({ product }: { product: ProductDetail }) {
 
       {product.variants.length > 0 && (
         <section aria-labelledby="variants-heading" className="mt-10">
-          <h2 id="variants-heading" className="mb-3 text-xl font-bold">
+          <h2 id="variants-heading" className={`mb-3 ${sectionTitle}`}>
             Other platforms and regions
           </h2>
           <VariantList variants={product.variants} />
@@ -157,7 +152,7 @@ function ProductView({ product }: { product: ProductDetail }) {
       )}
 
       <section id="offers" aria-labelledby="offers-heading" className="mt-10 scroll-mt-4">
-        <h2 id="offers-heading" className="mb-1 text-xl font-bold">
+        <h2 id="offers-heading" className={`mb-1 ${sectionTitle}`}>
           Offers from sellers
         </h2>
         <OfferTable offers={product.offers} inCart={inCart} onAdd={addToCart} />
@@ -184,7 +179,7 @@ function Fact({ term, value, highlight = false }: { term: string; value: string;
 
 function ProductSkeleton() {
   return (
-    <div role="status" aria-label="Loading product" className="grid animate-pulse gap-6 pt-14 md:grid-cols-[220px_1fr]">
+    <div role="status" aria-label="Loading product" className="grid animate-pulse gap-6 pt-[68px] md:grid-cols-[220px_1fr]">
       <div className="mx-auto aspect-[3/4] w-44 bg-card md:w-full" />
       <div className="space-y-4">
         <div className="h-8 w-3/4 bg-card" />

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { FiltersResponse } from '../lib/catalog'
 import { formatMoney } from '../lib/money'
+import { smallSecondaryButton } from './States'
 import { centsToEuros, eurosToCents, selected, withToggled, withValue, type ListFilter } from '../lib/storeParams'
 
 interface Props {
@@ -121,7 +122,7 @@ function PriceRange({ options, params, onChange }: Props) {
               Currently {formatMoney(min_cents, currency)} to {formatMoney(max_cents, currency)}
             </p>
           )}
-          <button type="submit" className="h-9 w-full border border-white/60 text-sm font-extrabold hover:border-accent hover:text-accent">
+          <button type="submit" className={`${smallSecondaryButton} w-full`}>
             Apply price
           </button>
         </div>

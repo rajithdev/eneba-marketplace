@@ -36,6 +36,15 @@
     outline-offset: 2px;
   }
 
+  /* Buttons show they can be pressed, and when they cannot. */
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     * {
       animation: none !important;

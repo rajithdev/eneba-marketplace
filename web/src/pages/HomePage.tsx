@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { BestSellersBlock, DealsBlock, FeaturedBlock, HeroBlock } from '../components/HomeBlocks'
 import { primaryButton, secondaryButton } from '../components/States'
+import { describeFailure } from '../lib/api'
 import { fetchHomepage, type HomepageBlock } from '../lib/homepage'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
@@ -38,7 +39,7 @@ export function HomePage() {
         <p className="mt-4 max-w-xl text-lg text-muted">Compare offers from several sellers and pick the price that suits you.</p>
         {homepage.isError && (
           <p role="alert" className="mt-4 max-w-xl text-danger">
-            The homepage could not be loaded. The server may be starting up, which can take up to a minute.
+            The homepage could not be loaded. {describeFailure(homepage.error)}
           </p>
         )}
         <div className="mt-8 flex flex-wrap gap-3">
@@ -58,10 +59,13 @@ export function HomePage() {
   return (
     <>
       <h1 className="sr-only">Game keys, gift cards and subscriptions</h1>
-      {blocks.map((block) => {
-        const Component = blockComponents[block.type]
-        return <Component key={block.id} block={block} />
-      })}
+      {/* A wrapper of their own, so the first block knows it is first. */}
+      <div>
+        {blocks.map((block) => {
+          const Component = blockComponents[block.type]
+          return <Component key={block.id} block={block} />
+        })}
+      </div>
     </>
   )
 }

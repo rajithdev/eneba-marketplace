@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
 import { Pagination } from '../components/Pagination'
 import { SessionNotice } from '../components/SessionNotice'
-import { LoadError, Notice, primaryButton } from '../components/States'
+import { LoadError, Notice, pageTitle, pageTop, primaryButton } from '../components/States'
 import { useSession } from '../lib/auth'
 import { fetchOrders, ordersKey, shortId, statusLabels, type OrderSummary } from '../lib/checkout'
 import { formatDateTime, formatMoney } from '../lib/money'
@@ -28,16 +28,16 @@ export function OrdersPage() {
 
   if (session.state !== 'signed-in') {
     return (
-      <div className="pt-8">
-        <h1 className="mb-6 text-3xl font-bold">Your orders</h1>
+      <div className={pageTop}>
+        <h1 className={`mb-6 ${pageTitle}`}>Your orders</h1>
         <SessionNotice session={session} what="your orders" next="/orders" />
       </div>
     )
   }
 
   return (
-    <div className="pt-8">
-      <h1 className="mb-6 text-3xl font-bold">Your orders</h1>
+    <div className={pageTop}>
+      <h1 className={`mb-6 ${pageTitle}`}>Your orders</h1>
 
       {orders.isPending && <p role="status">Loading your orders…</p>}
 

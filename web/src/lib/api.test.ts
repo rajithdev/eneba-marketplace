@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiFetch } from './api'
+import { ApiError, apiFetch, describeFailure } from './api'
 
 function respondWith(body: string | null, init: ResponseInit) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(body, init))
@@ -102,5 +102,30 @@ describe('CSRF token', () => {
       '/api/auth/login',
     ])
     expect(fetchSpy.mock.calls[2][1]?.headers).toMatchObject({ 'X-XSRF-TOKEN': 'fresh' })
+  })
+})
+
+describe('describing a failure to a visitor', () => {
+  const wakingUp = /did not answer.*sleeps when idle.*up to a minute/
+  const serverError = 'The server reported an error. Please try again in a moment.'
+
+  it('says the server may be waking up only when the server itself never answered', () => {
+    // No response at all: the browser's own network error.
+    expect(describeFailure(new TypeError('Failed to fetch'))).toMatch(wakingUp)
+    // The hosting platform's page in place of the API's answer.
+    expect(describeFailure(new ApiError(502, null))).toMatch(wakingUp)
+    expect(describeFailure(new ApiError(503, { message: 'Service Unavailable' }))).toMatch(wakingUp)
+    expect(describeFailure(new ApiError(504, null))).toMatch(wakingUp)
+    // A 200 whose body is not JSON: an HTML page from something in between.
+    expect(describeFailure(new ApiError(200, null))).toMatch(wakingUp)
+  })
+
+  it('reports a failure the server answered with as a server error, not as waking up', () => {
+    expect(describeFailure(new ApiError(500, { message: 'Server Error' }))).toBe(serverError)
+    expect(describeFailure(new ApiError(500, { message: 'Server Error' }))).not.toMatch(/sleep|minute/)
+  })
+
+  it('says so when requests are arriving too fast', () => {
+    expect(describeFailure(new ApiError(429, { message: 'Too Many Attempts.' }))).toMatch(/Too many requests/)
   })
 })

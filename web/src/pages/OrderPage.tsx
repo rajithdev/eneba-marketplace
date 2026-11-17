@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { LineCover, LineTitle, PriceBreakdown } from '../components/OrderLines'
 import { SessionNotice } from '../components/SessionNotice'
-import { LoadError, Notice, primaryButton, secondaryButton } from '../components/States'
+import { LoadError, Notice, pageTitle, pageTop, primaryButton, secondaryButton, sectionTitle } from '../components/States'
 import { ApiError } from '../lib/api'
 import { useSession } from '../lib/auth'
 import { cart, checkoutAttempt } from '../lib/cart'
@@ -52,18 +52,18 @@ export function OrderPage() {
 
   if (session.state !== 'signed-in') {
     return (
-      <div className="pt-8">
-        <SessionNotice session={session} what="this order" next={`/orders/${id}`} />
+      <div className={pageTop}>
+        <SessionNotice session={session} what="this order" next={`/orders/${id}`} heading="h1" />
       </div>
     )
   }
 
-  if (order.isPending) return <p role="status" className="pt-14">Loading your order…</p>
+  if (order.isPending) return <p role="status" className={pageTop}>Loading your order…</p>
 
   if (order.error instanceof ApiError && order.error.status === 404) {
     return (
-      <div className="pt-8">
-        <Notice title="Order not found">
+      <div className={pageTop}>
+        <Notice title="Order not found" heading="h1">
           <p>This order does not exist, or belongs to another account.</p>
           <Link to="/orders" className={primaryButton}>
             Your orders
@@ -75,14 +75,14 @@ export function OrderPage() {
 
   if (!data) {
     return (
-      <div className="pt-8">
-        <LoadError title="The order could not be loaded" error={order.error} retry={() => order.refetch()} />
+      <div className={pageTop}>
+        <LoadError title="The order could not be loaded" error={order.error} retry={() => order.refetch()} heading="h1" />
       </div>
     )
   }
 
   return (
-    <div className="pt-8">
+    <div className={pageTop}>
       <p className="text-sm text-muted">
         <Link to="/orders" className="underline hover:text-accent">
           Your orders
@@ -97,7 +97,7 @@ export function OrderPage() {
         </div>
 
         <section aria-label="Order summary" className="self-start bg-panel p-5">
-          <h2 className="mb-4 text-lg font-extrabold">Summary</h2>
+          <h2 className={`mb-4 ${sectionTitle}`}>Summary</h2>
           <PriceBreakdown totals={data.totals} totalLabel={data.status === 'paid' ? 'Paid' : 'Total'} />
           <dl className="mt-5 space-y-2 border-t border-line pt-4 text-sm">
             <Row term="Order" value={shortId(data.id)} />
@@ -194,7 +194,7 @@ function Payment({ order, userId, receivedAt, onExpired }: { order: Order; userI
 
   return (
     <section aria-labelledby="payment-heading" className="bg-card p-5">
-      <h1 id="payment-heading" className="text-2xl font-bold">
+      <h1 id="payment-heading" className={pageTitle}>
         Complete your payment
       </h1>
 
@@ -231,10 +231,10 @@ function Payment({ order, userId, receivedAt, onExpired }: { order: Order; userI
       )}
 
       <div className="mt-5 flex flex-wrap gap-3">
-        <button type="button" className={`${primaryButton} min-w-48 disabled:opacity-60`} disabled={busy || !method} onClick={() => pay.mutate()}>
+        <button type="button" className={`${primaryButton} min-w-48`} disabled={busy || !method} onClick={() => pay.mutate()}>
           {pay.isPending ? 'Processing payment…' : `Pay ${total}`}
         </button>
-        <button type="button" className={`${secondaryButton} disabled:opacity-60`} disabled={busy} onClick={() => cancel.mutate()}>
+        <button type="button" className={secondaryButton} disabled={busy} onClick={() => cancel.mutate()}>
           Cancel and return to cart
         </button>
       </div>
@@ -247,7 +247,7 @@ function Outcome({ order }: { order: Order }) {
   if (order.status === 'paid') {
     return (
       <section aria-labelledby="outcome-heading" className="border-l-4 border-deal bg-card p-5">
-        <h1 id="outcome-heading" className="text-2xl font-bold">
+        <h1 id="outcome-heading" className={pageTitle}>
           Payment confirmed
         </h1>
         <p className="mt-2 text-muted">
@@ -270,7 +270,7 @@ function Outcome({ order }: { order: Order }) {
 
   return (
     <section aria-labelledby="outcome-heading" role="alert" className="border-l-4 border-danger bg-card p-5">
-      <h1 id="outcome-heading" className="text-2xl font-bold">
+      <h1 id="outcome-heading" className={pageTitle}>
         {titles[order.status] ?? 'Order closed'}
       </h1>
       <p className="mt-2 text-muted">{explanation}</p>
@@ -290,7 +290,7 @@ function Outcome({ order }: { order: Order }) {
 function Items({ order }: { order: Order }) {
   return (
     <section aria-labelledby="items-heading">
-      <h2 id="items-heading" className="mb-3 text-lg font-extrabold">
+      <h2 id="items-heading" className={`mb-3 ${sectionTitle}`}>
         {order.status === 'paid' ? 'Your keys' : 'Items'}
       </h2>
       <ul className="space-y-2">

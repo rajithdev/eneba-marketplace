@@ -81,7 +81,10 @@ it('reports a real API failure instead of pretending the visitor is signed out',
 
   renderAccountPage()
 
-  expect(await screen.findByText('The API is not reachable.')).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'We could not check that you are signed in' })).toBeInTheDocument()
+  // A server that answers "I failed" is not described as waking up.
+  expect(screen.getByText('The server reported an error. Please try again in a moment.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument()
 })
 
@@ -132,4 +135,51 @@ it('links a signed-in user to their orders', async () => {
   renderAccountPage()
 
   expect(await screen.findByRole('link', { name: 'Your orders and keys' })).toHaveAttribute('href', '/orders')
+})
+
+it('tells a visitor the server may be waking up when it does not answer, and lets them try again', async () => {
+  let awake = false
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+    if (!awake) throw new TypeError('Failed to fetch')
+    return json({ data: null })
+  })
+
+  renderAccountPage()
+
+  expect(await screen.findByRole('heading', { name: 'We could not check that you are signed in' })).toBeInTheDocument()
+  expect(screen.getByText(/The server did not answer.*up to a minute/)).toBeInTheDocument()
+  expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
+
+  awake = true
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  expect(await screen.findByLabelText('Email')).toBeInTheDocument()
+})
+
+it('shows that signing in is under way, and explains a failure that is not about the credentials', async () => {
+  document.cookie = 'XSRF-TOKEN=token'
+  let answer: (response: Response) => void = () => {}
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) =>
+    url === '/api/auth/login' ? new Promise<Response>((resolve) => (answer = resolve)) : json({ data: null }),
+  )
+
+  renderAccountPage()
+  fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'ada@example.com' } })
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'a-test-password' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+
+  expect(await screen.findByRole('button', { name: 'Signing in…' })).toBeDisabled()
+
+  answer(json({ message: 'Server Error' }, 500))
+  expect(await screen.findByRole('alert')).toHaveTextContent('The server reported an error. Please try again in a moment.')
+  expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled()
+})
+
+it('asks the browser to offer a new password when registering and the saved one when signing in', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json({ data: null }))
+  renderAccountPage()
+
+  expect(await screen.findByLabelText('Password')).toHaveAttribute('autocomplete', 'current-password')
+  fireEvent.click(screen.getByRole('button', { name: 'New here? Create an account' }))
+  expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'new-password')
+  expect(screen.getByLabelText('Name')).toHaveAttribute('autocomplete', 'name')
 })

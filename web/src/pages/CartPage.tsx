@@ -2,9 +2,9 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { Link, useNavigate } from 'react-router'
 import { LineCover, LineTitle, PriceBreakdown } from '../components/OrderLines'
 import { PriceTag } from '../components/PriceTag'
-import { Notice, primaryButton } from '../components/States'
-import { ApiError } from '../lib/api'
-import { useCurrentUser } from '../lib/auth'
+import { Notice, pageTitle, pageTop, primaryButton, secondaryButton, sectionTitle } from '../components/States'
+import { ApiError, describeFailure } from '../lib/api'
+import { useSession } from '../lib/auth'
 import { cart, checkoutAttempt, useCart, type CartItem } from '../lib/cart'
 import { isCartChanged, orderKey, placeOrder, quoteCart, reconcile, type QuoteLine } from '../lib/checkout'
 import { formatMoney } from '../lib/money'
@@ -23,7 +23,7 @@ import { useSingleFlight } from '../lib/useSingleFlight'
 export function CartPage() {
   useDocumentTitle('Cart')
   const items = useCart()
-  const currentUser = useCurrentUser()
+  const session = useSession()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -53,7 +53,7 @@ export function CartPage() {
     mutationFn: startCheckout,
     onSuccess: (order) => {
       checkoutAttempt.startedOrder(order.id)
-      queryClient.setQueryData(orderKey(currentUser.data?.id ?? null, order.id), { data: order })
+      queryClient.setQueryData(orderKey(session.state === 'signed-in' ? session.user.id : null, order.id), { data: order })
       navigate(`/orders/${order.id}`)
     },
     onError: (error) => {
@@ -67,8 +67,8 @@ export function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="pt-8">
-        <h1 className="mb-6 text-3xl font-bold">Cart</h1>
+      <div className={pageTop}>
+        <h1 className={`mb-6 ${pageTitle}`}>Cart</h1>
         <Notice title="Your cart is empty">
           <p>Pick a seller's offer on any product page to add it here.</p>
           <Link to="/store" className={primaryButton}>
@@ -81,7 +81,6 @@ export function CartPage() {
 
   const data = quote.data?.data
   const lineFor = (item: CartItem) => data?.lines.find((line) => line.offer_id === item.offerId)
-  const signedIn = Boolean(currentUser.data)
   // Waiting for the quote of the cart as it is now, or for the order to be
   // placed. A refresh of a quote that is already on screen (the browser tab
   // regaining focus triggers one) does not count: it would disable the
@@ -89,14 +88,14 @@ export function CartPage() {
   const busy = quote.isPlaceholderData || checkout.isPending
 
   return (
-    <div className="pt-8">
-      <h1 className="mb-6 text-3xl font-bold">Cart</h1>
+    <div className={pageTop}>
+      <h1 className={`mb-6 ${pageTitle}`}>Cart</h1>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div>
           {quote.isError && !data && (
             <Notice title="The cart could not be checked" tone="error">
-              <p>{quote.error instanceof ApiError && quote.error.status === 422 ? quote.error.message : 'The server may be starting up. This can take up to a minute.'}</p>
+              <p>{quote.error instanceof ApiError && quote.error.status === 422 ? quote.error.message : describeFailure(quote.error)}</p>
               <button type="button" className={primaryButton} onClick={() => quote.refetch()}>
                 Try again
               </button>
@@ -115,9 +114,15 @@ export function CartPage() {
         </div>
 
         <section aria-label="Order summary" className="self-start bg-panel p-5">
-          <h2 className="mb-4 text-lg font-extrabold">Summary</h2>
+          <h2 className={`mb-4 ${sectionTitle}`}>Summary</h2>
 
-          {data ? <PriceBreakdown totals={data.totals} /> : <p role="status">Checking prices and stock…</p>}
+          {data ? (
+            <PriceBreakdown totals={data.totals} />
+          ) : quote.isError ? (
+            <p className="text-sm text-muted">Prices and stock are shown once the cart has been checked.</p>
+          ) : (
+            <p role="status">Checking prices and stock…</p>
+          )}
 
           {checkout.isError && (
             <p role="alert" className="mt-4 text-sm text-danger">
@@ -135,10 +140,24 @@ export function CartPage() {
                   Update cart
                 </button>
               </>
-            ) : signedIn ? (
-              <button type="button" className={`${primaryButton} w-full disabled:opacity-60`} disabled={!data || busy} onClick={() => checkout.mutate()}>
+            ) : session.state === 'signed-in' ? (
+              <button type="button" className={`${primaryButton} w-full`} disabled={!data || busy} onClick={() => checkout.mutate()}>
                 {checkout.isPending ? 'Reserving your keys…' : 'Proceed to checkout'}
               </button>
+            ) : session.state === 'checking' ? (
+              // Not yet known whether to offer the checkout or the sign-in.
+              <p role="status" className="text-sm text-muted">
+                Checking that you are signed in…
+              </p>
+            ) : session.state === 'unknown' ? (
+              <>
+                <p role="alert" className="mb-3 text-sm text-danger">
+                  We could not check that you are signed in. {describeFailure(session.error)}
+                </p>
+                <button type="button" className={`${secondaryButton} w-full`} onClick={session.retry}>
+                  Try again
+                </button>
+              </>
             ) : (
               <>
                 <Link to="/account?next=/cart" className={`${primaryButton} w-full`}>
@@ -196,7 +215,7 @@ function CartLine({ item, line, disabled }: { item: CartItem; line: QuoteLine | 
           <div className="flex items-center" role="group" aria-label={`Quantity of ${name}`}>
             <button
               type="button"
-              className="h-9 w-9 border border-line text-lg font-extrabold disabled:opacity-40"
+              className="h-9 w-9 border border-line text-lg font-extrabold hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-line disabled:hover:text-white"
               aria-label={`Decrease quantity of ${name}`}
               disabled={disabled || item.quantity <= 1}
               onClick={() => cart.setQuantity(item.offerId, item.quantity - 1)}
@@ -208,7 +227,7 @@ function CartLine({ item, line, disabled }: { item: CartItem; line: QuoteLine | 
             </span>
             <button
               type="button"
-              className="h-9 w-9 border border-line text-lg font-extrabold disabled:opacity-40"
+              className="h-9 w-9 border border-line text-lg font-extrabold hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-line disabled:hover:text-white"
               aria-label={`Increase quantity of ${name}`}
               disabled={disabled || !line || item.quantity >= max}
               onClick={() => cart.setQuantity(item.offerId, item.quantity + 1)}
@@ -226,7 +245,7 @@ function CartLine({ item, line, disabled }: { item: CartItem; line: QuoteLine | 
               <span className="font-extrabold">{formatMoney(line.line_total_cents, line.unit_price.currency)}</span>
             </span>
           )}
-          <button type="button" className="py-2 text-sm underline hover:text-accent" aria-label={`Remove ${name}`} disabled={disabled} onClick={() => cart.remove(item.offerId)}>
+          <button type="button" className="py-2 text-sm underline hover:text-accent disabled:opacity-60" aria-label={`Remove ${name}`} disabled={disabled} onClick={() => cart.remove(item.offerId)}>
             Remove
           </button>
         </div>

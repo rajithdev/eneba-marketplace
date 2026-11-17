@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import type { Banner, HomepageBlock } from '../lib/homepage'
 import { PriceTag } from './PriceTag'
 import { ProductCard } from './ProductCard'
-import { primaryButton } from './States'
+import { pageTitle, primaryButton } from './States'
 
 /*
  * One component per type of homepage block. Each draws whatever the API
@@ -25,7 +25,7 @@ function Block({ block, label, className = '', children }: { block: HomepageBloc
       {(block.title || block.link) && (
         <div className="mb-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
           {block.title && (
-            <h2 id={headingId} className="text-2xl font-black sm:text-3xl">
+            <h2 id={headingId} className={pageTitle}>
               {block.title}
             </h2>
           )}
@@ -65,7 +65,7 @@ export function HeroBlock({ block }: { block: HomepageBlock }) {
           <div className="relative max-w-xl p-6 sm:p-10">
             <h2 className="text-4xl font-black leading-[1.05] sm:text-6xl">{main.title}</h2>
             {main.subtitle && <p className="mt-4 max-w-md text-lg text-muted">{main.subtitle}</p>}
-            <Link to={main.link_url} className={`${primaryButton} mt-7 h-12 px-7 text-base`}>
+            <Link to={main.link_url} className={`${primaryButton} mt-7`}>
               {main.cta_label ?? main.title}
             </Link>
           </div>
