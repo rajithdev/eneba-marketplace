@@ -4,6 +4,7 @@
 //   node cinematic/build.mjs                  the blockout, both layouts
 //   node cinematic/build.mjs --samples        a few frames at the final size, in several encodings, to measure real file sizes
 //   node cinematic/build.mjs --lookdev        five stills of the "vault" look beside the blockout, and a check that the last frame is unchanged
+//   node cinematic/build.mjs --lookdev --chamber [--hero-covers=<folder>]   three chamber frames at final quality, desktop and phone
 //   node cinematic/build.mjs --lookdev --reference   the vault look as material for a video model: stills and the whole move, covers without lettering
 //   node cinematic/build.mjs --artwork        the shop's own cover illustrations (cinematic/artwork.mjs) as pictures, and a contact sheet of them
 //   node cinematic/build.mjs --api=http://localhost:8000
@@ -126,6 +127,17 @@ try {
 }
 console.log(`deals block: ${products.map((product) => product.slug).join(', ')}`)
 
+// --hero-covers=<folder>: for previews only, the pictures in that folder
+// (3:4, in name order) on the hero cases instead of the backend's covers.
+// Published frames always show the products the backend returns, because
+// the last frame has to become those products' cards.
+const heroCovers = flag('hero-covers')
+if (heroCovers) {
+  if (!lookdevOnly) throw new Error('--hero-covers is for previews (--lookdev) only.')
+  products = readdirSync(heroCovers).filter((name) => /\.(png|jpe?g)$/i.test(name)).sort().map((name) => ({ slug: name.replace(/\.\w+$/, ''), texture: join(heroCovers, name) }))
+  console.log(`hero covers for this preview: ${products.map((product) => product.slug).join(', ')}`)
+}
+
 // ---------------------------------------------------------------- 3. layouts
 
 /*
@@ -244,6 +256,17 @@ if (lookdevOnly && referenceOnly) {
     console.log(`motion: ${seconds.length} frames, ${Math.round(sum(seconds))} seconds in all`)
   }
   for (const file of readdirSync(reference).sort()) console.log(`  ${file.padEnd(34)} ${kilobytes(statSync(join(reference, file)).size).padStart(10)}`)
+  process.exit(0)
+}
+
+if (lookdevOnly && process.argv.includes('--chamber')) {
+  // The chamber alone at final quality, in both layouts: the cases gliding
+  // in, nearly in their row, and the last frame. Nothing is published.
+  for (const name of ['wide', 'narrow']) {
+    const shape = layouts[name]
+    const only = [0.72, 0.8, 1].map((beat) => Math.round(beat * (shape.frames - 1)))
+    render(`${name} chamber`, shape, { folder: `${name}-chamber`, options: { format: 'PNG', look: 'vault', gallery: artwork().large, decor: artwork().stock, samples: 256, noise: 0.02, only } })
+  }
   process.exit(0)
 }
 
