@@ -159,8 +159,9 @@ describe('homepage', () => {
 
     expect(screen.getByRole('status', { name: 'Loading the homepage' })).toBeInTheDocument()
     const nav = screen.getByRole('navigation', { name: 'Main' })
-    expect(nav).toHaveTextContent('Store')
+    expect(nav).toHaveTextContent('Cart')
     expect(nav).toHaveTextContent('Account')
+    expect(within(screen.getByRole('navigation', { name: 'Categories' })).getByRole('link', { name: 'Store' })).toHaveAttribute('href', '/store')
     expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#main')
   })
 })

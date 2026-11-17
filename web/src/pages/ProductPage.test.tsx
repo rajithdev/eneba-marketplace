@@ -16,7 +16,9 @@ describe('product page', () => {
     renderAt(`/product/${product.slug}`)
 
     expect(await screen.findByRole('heading', { level: 1, name: product.name })).toBeInTheDocument()
-    expect(requested).toEqual([`/api/products/${product.slug}`])
+    // One request for the product. (The shell around the page asks who is
+    // signed in and which categories exist; those are not about it.)
+    expect(requested.filter((path) => path.startsWith('/api/products'))).toEqual([`/api/products/${product.slug}`])
 
     expect(screen.getByText(product.game.description)).toBeInTheDocument()
     expect(screen.getByRole('img', { name: `Cover of ${product.game.title}` })).toHaveAttribute('src', product.cover_image_url)
@@ -99,7 +101,7 @@ describe('product page', () => {
 
     expect(await screen.findByRole('heading', { name: 'Product not found' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Browse the store' })).toHaveAttribute('href', '/store')
-    expect(requested).toHaveLength(1)
+    expect(requested.filter((path) => path.startsWith('/api/products'))).toHaveLength(1)
   })
 
   it('shows a server failure as a failure, not as a missing product', async () => {

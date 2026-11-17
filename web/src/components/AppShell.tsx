@@ -1,13 +1,21 @@
-import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router'
+import { useIsFetching, useIsMutating, useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from 'react-router'
+import { useSession } from '../lib/auth'
 import { cartCount, useCart } from '../lib/cart'
+import { fetchFilters } from '../lib/catalog'
 import { SearchBox } from './SearchBox'
 
 const navLink = ({ isActive }: { isActive: boolean }) =>
-  `px-3 py-2 text-sm font-extrabold hover:text-accent ${isActive ? 'text-accent' : 'text-white'}`
+  `px-2 py-2 text-sm font-extrabold hover:text-accent sm:px-3 ${isActive ? 'text-accent' : 'text-white'}`
 
-/** The frame every page sits in: header, navigation, main area, footer. */
+const footerLink = 'hover:text-accent hover:underline'
+
+/** The frame every page sits in: header, categories, main area, footer. */
 export function AppShell() {
   const inCart = cartCount(useCart())
+  const session = useSession()
+  const categories = useCategories()
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -20,18 +28,15 @@ export function AppShell() {
 
       <header className="bg-page">
         {/* One row on wide screens; on narrow ones the search drops to its own row. */}
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-3 px-4 py-4 sm:gap-x-6">
           {/* A text wordmark: Eneba's logo is theirs and is not copied. */}
-          <Link to="/" className="text-2xl font-black tracking-tight">
+          <Link to="/" className="text-xl font-black tracking-tight sm:text-2xl">
             key<span className="text-accent">market</span>
           </Link>
           <div className="order-last w-full md:order-none md:w-auto md:flex-1">
             <SearchBox />
           </div>
           <nav aria-label="Main" className="ml-auto flex items-center">
-            <NavLink to="/store" className={navLink}>
-              Store
-            </NavLink>
             <NavLink to="/cart" className={navLink} aria-label={inCart === 0 ? 'Cart, empty' : `Cart, ${inCart} ${inCart === 1 ? 'item' : 'items'}`}>
               Cart
               {inCart > 0 && (
@@ -40,23 +45,152 @@ export function AppShell() {
                 </span>
               )}
             </NavLink>
-            <NavLink to="/account" className={navLink}>
-              Account
+            {/* A signed-in buyer sees their orders and their own name here. */}
+            {session.state === 'signed-in' && (
+              <NavLink to="/orders" className={navLink}>
+                Orders
+              </NavLink>
+            )}
+            <NavLink
+              to="/account"
+              className={navLink}
+              aria-label={session.state === 'signed-in' ? `Account, signed in as ${session.user.name}` : undefined}
+            >
+              {session.state === 'signed-in' ? <span className="inline-block max-w-16 truncate align-bottom sm:max-w-28">{session.user.name}</span> : 'Account'}
             </NavLink>
           </nav>
         </div>
+
+        <nav aria-label="Categories" className="border-y border-line/50 bg-card/40">
+          {/* Scrolls sideways on a narrow screen, without drawing a scrollbar. */}
+          <ul className="mx-auto flex max-w-7xl overflow-x-auto px-2 text-sm font-extrabold [scrollbar-width:none] sm:px-1">
+            {categories.map((category) => (
+              <li key={category.to} className="shrink-0">
+                <Link
+                  to={category.to}
+                  aria-current={category.current ? 'page' : undefined}
+                  className={`block px-2 py-2.5 hover:text-accent sm:px-3 ${category.current ? 'text-accent' : 'text-white'}`}
+                >
+                  {category.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </header>
+
+      <SlowServerNotice />
 
       <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 pb-16">
         <Outlet />
       </main>
 
-      <footer className="bg-card px-4 py-6 text-center text-sm text-muted">
-        A demonstration marketplace built for an internship assignment. Not affiliated with Eneba. No real keys are
-        sold here.
+      <footer className="bg-card text-sm text-muted">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-[2fr_1fr_1fr]">
+          <div>
+            <p className="text-xl font-black tracking-tight text-white">
+              key<span className="text-accent">market</span>
+            </p>
+            <p className="mt-3 max-w-md">
+              A demonstration marketplace built for an internship assignment. Not affiliated with Eneba. No real keys are
+              sold here and no real payment is taken.
+            </p>
+          </div>
+          <nav aria-label="Shop">
+            <p aria-hidden="true" className="font-extrabold uppercase tracking-wide text-white">Shop</p>
+            <ul className="mt-3 space-y-2">
+              {categories.map((category) => (
+                <li key={category.to}>
+                  <Link to={category.to} className={footerLink}>
+                    {category.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <nav aria-label="Your account">
+            <p aria-hidden="true" className="font-extrabold uppercase tracking-wide text-white">Your account</p>
+            <ul className="mt-3 space-y-2">
+              <li>
+                <Link to="/account" className={footerLink}>
+                  {session.state === 'signed-in' ? 'Account' : 'Sign in or register'}
+                </Link>
+              </li>
+              <li>
+                <Link to="/cart" className={footerLink}>
+                  Cart
+                </Link>
+              </li>
+              <li>
+                <Link to="/orders" className={footerLink}>
+                  Your orders and keys
+                </Link>
+              </li>
+            </ul>
+          </nav>
+        </div>
       </footer>
 
       <ScrollRestoration />
     </div>
+  )
+}
+
+/**
+ * The category links under the header and in the footer: the whole store,
+ * then one link per product type. The types and their names come from the
+ * API (the same answer the store's filter panel uses), so a type added
+ * there appears here. Until that answer arrives, or if it fails or is not
+ * in the expected shape, there is only "Store".
+ */
+function useCategories(): { to: string; label: string; current: boolean }[] {
+  const filters = useQuery({ queryKey: ['filters'], queryFn: fetchFilters, staleTime: 5 * 60_000 })
+  const location = useLocation()
+  const inStore = location.pathname === '/store'
+  const chosenType = new URLSearchParams(location.search).get('type')
+
+  return [
+    { to: '/store', label: 'Store', current: inStore && !chosenType },
+    ...(filters.data?.data?.types ?? [])
+      .filter((type) => type.products_count > 0)
+      .map((type) => ({ to: `/store?type=${type.value}`, label: type.label, current: inStore && chosenType === type.value })),
+  ]
+}
+
+/** How long a wait is ordinary. Longer than this and the visitor is told why it may be slow. */
+const PATIENCE_MS = 4000
+
+/**
+ * The API runs on a free hosting plan that puts it to sleep when nobody
+ * has used it for a while; the first request afterwards waits for it to
+ * start, which can take up to a minute. A visitor who is kept waiting is
+ * told so, instead of watching a page that seems stuck.
+ *
+ * It appears only while a request has gone unanswered for some seconds and
+ * goes away with the answer. A request that fails is reported by the page
+ * as what it is (see describeFailure), not as "waking up".
+ */
+function SlowServerNotice() {
+  const waiting = useIsFetching() + useIsMutating() > 0
+  const [slow, setSlow] = useState(false)
+
+  useEffect(() => {
+    if (!waiting) return
+
+    const timer = setTimeout(() => setSlow(true), PATIENCE_MS)
+
+    return () => {
+      clearTimeout(timer)
+      setSlow(false)
+    }
+  }, [waiting])
+
+  if (!slow) return null
+
+  return (
+    <p role="status" className="bg-accent px-4 py-2 text-center text-sm font-extrabold text-black">
+      Still waiting for the server. If it was asleep (it sleeps when idle on the free hosting plan), waking up can take up to
+      a minute.
+    </p>
   )
 }

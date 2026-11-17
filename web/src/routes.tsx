@@ -6,22 +6,35 @@ import { HomePage } from './pages/HomePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { OrderPage } from './pages/OrderPage'
 import { OrdersPage } from './pages/OrdersPage'
+import { PageCrashed } from './pages/PageCrashed'
 import { ProductPage } from './pages/ProductPage'
 import { StorePage } from './pages/StorePage'
 
-/** Every page is shown inside the shared shell (header, navigation, footer). */
-export const routes: RouteObject[] = [
+/**
+ * Puts pages inside the shared shell (header, navigation, footer). If a
+ * page fails while drawing itself, that page is replaced by a message and
+ * the shell around it stays, so the visitor can still go somewhere else.
+ */
+export const inShell = (pages: RouteObject[]): RouteObject[] => [
   {
     element: <AppShell />,
-    children: [
-      { path: '/', element: <HomePage /> },
-      { path: '/store', element: <StorePage /> },
-      { path: '/product/:slug', element: <ProductPage /> },
-      { path: '/cart', element: <CartPage /> },
-      { path: '/orders', element: <OrdersPage /> },
-      { path: '/orders/:id', element: <OrderPage /> },
-      { path: '/account', element: <AccountPage /> },
-      { path: '*', element: <NotFoundPage /> },
-    ],
+    // Last resort, should the shell itself fail: the message on its own.
+    errorElement: (
+      <div className="px-4">
+        <PageCrashed />
+      </div>
+    ),
+    children: [{ errorElement: <PageCrashed />, children: pages }],
   },
 ]
+
+export const routes: RouteObject[] = inShell([
+  { path: '/', element: <HomePage /> },
+  { path: '/store', element: <StorePage /> },
+  { path: '/product/:slug', element: <ProductPage /> },
+  { path: '/cart', element: <CartPage /> },
+  { path: '/orders', element: <OrdersPage /> },
+  { path: '/orders/:id', element: <OrderPage /> },
+  { path: '/account', element: <AccountPage /> },
+  { path: '*', element: <NotFoundPage /> },
+])

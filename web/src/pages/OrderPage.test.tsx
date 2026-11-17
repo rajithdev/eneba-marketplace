@@ -264,10 +264,9 @@ describe('order history', () => {
 
     const [first, second] = ordersExample.response.data
     expect(await screen.findByRole('heading', { name: 'Your orders' })).toBeInTheDocument()
-    const rows = await screen.findAllByRole('listitem')
-    expect(rows.length).toBeGreaterThanOrEqual(2)
+    expect(await screen.findByText('Payment declined')).toBeInTheDocument()
+    expect(within(screen.getByRole('main')).getAllByRole('listitem').length).toBeGreaterThanOrEqual(2)
 
-    expect(screen.getByText('Payment declined')).toBeInTheDocument()
     expect(screen.getByText('Paid')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'View keys' })).toHaveAttribute('href', `/orders/${second.id}`)
     expect(screen.getByRole('link', { name: 'View order' })).toHaveAttribute('href', `/orders/${first.id}`)
