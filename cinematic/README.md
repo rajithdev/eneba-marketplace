@@ -75,7 +75,7 @@ only the surroundings differ.
 | Renderer | EEVEE, about a second a frame | Cycles on the graphics processor |
 | Surfaces | flat colours | veined stone, brushed metal, glass panes, polished floor tiles |
 | Architecture | walls, pillars, glowing shelves | niches cut into the stone, metal shelves, framed cases on feet, a second shelf of small cases, a ledge under the ceiling, a bronze doorway, a chamber with side walls |
-| Stock | none | every niche stocked like a shop: rows of small cases below, beside and above the display case, a pile of them on the shelf, a lit picture panel over the niche, spotlights on ceiling tracks. The stock wears the project's own cover drawings with the lettering taken out and the colours turned, and stands no nearer the middle than the shelves' front edge |
+| Stock | none | every niche stocked like a shop: rows of small cases below, beside and above the display case, a pile of them on the shelf, a lit picture panel over the niche, spotlights on ceiling tracks. The large cases and the stock show the shop's own illustrations (below), and everything stands no nearer the middle than the shelves' front edge |
 | Light | glowing bars | neon tubes drawn at a brightness a picture can show, each with a hidden lamp beside it that gives the light the tube would |
 
 Three things keep the handoff to the page untouched in the vault look:
@@ -99,6 +99,24 @@ frame with the blockout's. Stills go to `design-review/cinematic/lookdev/`
 and working files to `build/v2-lookdev/`; nothing is published to the site.
 The vault look is look development: the frames on the site are still the
 blockout's.
+
+## The shop's cover illustrations
+
+`artwork.mjs` draws twenty original game covers (600 by 800, the shape of a
+product card's cover) from shapes and gradients: science fiction, fantasy,
+racing, action, horror, adventure and cyberpunk. They carry no lettering
+and no logos, and nothing is taken from an existing game.
+
+They are in ranking order. The first eight go on the large display cases,
+chosen so that neighbouring bays and the two sides of the aisle differ;
+all twenty stock the shelves, three drawings apart from one case to the
+next so that neighbours never match. The six cases the animation ends on
+are not part of this: they keep the real products' covers.
+
+```
+node cinematic/build.mjs --artwork                      the pictures and a contact sheet
+node cinematic/build.mjs --lookdev --art-folder=<dir>   use the pictures in a folder instead (3:4, best first by name)
+```
 
 ## Comparing a generated clip with the reference
 

@@ -345,28 +345,18 @@ def neon(name, colour, shown, true):
     return mat
 
 
-def varied(path, strength):
-    """A cover as stock on a shelf wears it: the same drawing, with its
-    colours turned a different way round the colour wheel on every object,
-    so thirty drawings fill a shop without two neighbours looking alike."""
+def stock_cover(path, strength):
+    """A cover as stock on a shelf wears it: lit from within like the display
+    cases, a little dimmer."""
     if (path, strength) not in covers:
-        mat = glow("stock-" + os.path.basename(path), (1, 1, 1, 1), strength, bpy.data.images.load(path, check_existing=True))
-        nodes, links = mat.node_tree.nodes, mat.node_tree.links
-        turn = nodes.new("ShaderNodeMapRange")
-        turn.inputs["To Min"].default_value, turn.inputs["To Max"].default_value = 0.2, 0.8  # a half leaves the colours alone
-        links.new(nodes.new("ShaderNodeObjectInfo").outputs["Random"], turn.inputs["Value"])
-        hue = nodes.new("ShaderNodeHueSaturation")
-        links.new(turn.outputs["Result"], hue.inputs["Hue"])
-        links.new(nodes["Image Texture"].outputs["Color"], hue.inputs["Color"])
-        links.new(hue.outputs["Color"], nodes["Emission"].inputs["Color"])
-        covers[(path, strength)] = mat
+        covers[(path, strength)] = glow("stock-" + os.path.basename(path), (1, 1, 1, 1), strength, bpy.data.images.load(path, check_existing=True))
     return covers[(path, strength)]
 
 
 def small_case(name, path, location, yaw, lean=0.0):
     """A game case at a third of the display size: the stock on the shelves.
     `lean` tips it back; a quarter turn back lays it flat, cover up."""
-    body, _ = case(name, path, varied(path, 0.8))
+    body, _ = case(name, path, stock_cover(path, 0.8))
     body.scale = (0.3, 0.3, 0.3)
     body.location = location
     body.rotation_euler = (lean, 0, yaw)
@@ -382,7 +372,7 @@ def lightbox(name, side, y, z, width, height, path, frame):
     uv = mesh.uv_layers.new()
     for loop, coords in zip(uv.data, [(0, 0.42), (1, 0.42), (1, 0.72), (0, 0.72)]):
         loop.uv = coords
-    mesh.materials.append(varied(path, 0.9))
+    mesh.materials.append(stock_cover(path, 0.9))
     scene.collection.objects.link(bpy.data.objects.new(name, mesh))
 
 
@@ -477,7 +467,8 @@ def stock(side, y, seed, shelf, frame, led):
     numbers = iter(range(1000))
 
     def pick():
-        return decor[(seed * 7 + next(numbers) * 5) % len(decor)]
+        # Three drawings on from the last one, so neighbours on a shelf, and the rows above and below, never match.
+        return decor[(seed * 7 + next(numbers) * 3) % len(decor)]
 
     # Below the main shelf, in front of the stone: a plinth and a low shelf, six cases on each.
     block("plinth", (side * 1.84, side * 2.2), (y - 0.88, y + 0.88), (0.0, 0.1), shelf, 0.003)
@@ -603,7 +594,8 @@ def build_vault():
             block("niche-led", (side * 2.215, side * 2.235), (y - 0.86, y + 0.86), (NICHE_Z[1] - 0.02, NICHE_Z[1]), led["violet"], 0)
             lamp("niche-light", (side * 2.42, y, NICHE_Z[1] - 0.03), SOFT, 45, 0.25, 1.3)
             # The case on the shelf, where the blockout has it.
-            body, _ = case(f"gallery-{bay}-{index}", gallery[(bay * 2 + index) % len(gallery)])
+            # Its cover is chosen so that the next bay, and the case across the aisle, show different ones.
+            body, _ = case(f"gallery-{bay}-{index}", gallery[(bay * 3 + index * 4) % len(gallery)])
             body.location = (side * (HALF_WIDTH - 0.28), y, 1.7)
             body.rotation_euler = (0, 0, -side * math.radians(62))
             dress(body, upright, pane, led["soft"])
@@ -666,7 +658,7 @@ LENGTH, HALF_WIDTH, HEIGHT = 30.0, 2.2, 4.0
 BAYS = 11  # one case on each wall per bay
 BAY = 2.5
 gallery = options["gallery"]
-decor = options.get("decor") or gallery  # drawings for the stock on the shelves: covers with their lettering taken out
+decor = options.get("decor") or gallery  # drawings for the stock on the shelves
 
 if VAULT:
     CASE = brushed("case", linear("#3a3840"), 0.34, "z")  # the hero cases too are metal in this look

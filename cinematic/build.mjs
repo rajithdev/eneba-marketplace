@@ -5,6 +5,7 @@
 //   node cinematic/build.mjs --samples        a few frames at the final size, in several encodings, to measure real file sizes
 //   node cinematic/build.mjs --lookdev        five stills of the "vault" look beside the blockout, and a check that the last frame is unchanged
 //   node cinematic/build.mjs --lookdev --reference   the vault look as material for a video model: stills and the whole move, covers without lettering
+//   node cinematic/build.mjs --artwork        the shop's own cover illustrations (cinematic/artwork.mjs) as pictures, and a contact sheet of them
 //   node cinematic/build.mjs --api=http://localhost:8000
 //
 // What it does, in order:
@@ -25,6 +26,7 @@ import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { covers as illustrations } from './artwork.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
@@ -67,6 +69,38 @@ function withoutLettering() {
     execFileSync(CHROME, ['--headless=new', '--hide-scrollbars', '--window-size=600,800', '--default-background-color=00000000', `--screenshot=${png}`, `file://${bare}`], { stdio: 'ignore' })
   }
   return (path) => join(dir, path.split('/').pop())
+}
+
+// The shop's illustrations as pictures, best first (see artwork.mjs).
+function artwork() {
+  // --art-folder=<folder> uses the pictures in that folder instead (3:4 PNG or JPEG, best first by name).
+  const folder = flag('art-folder')
+  if (folder) return readdirSync(folder).filter((name) => /\.(png|jpe?g)$/i.test(name)).sort().map((name) => join(folder, name))
+  const dir = join(build, 'artwork')
+  mkdirSync(dir, { recursive: true })
+  return illustrations.map((cover, index) => {
+    const name = `${String(index + 1).padStart(2, '0')}-${cover.name}`
+    const svg = join(dir, `${name}.svg`)
+    const png = join(dir, `${name}.png`)
+    if (!existsSync(svg) || readFileSync(svg, 'utf8') !== cover.svg || !existsSync(png)) {
+      writeFileSync(svg, cover.svg)
+      execFileSync(CHROME, ['--headless=new', '--hide-scrollbars', '--window-size=600,800', '--default-background-color=00000000', `--screenshot=${png}`, `file://${svg}`], { stdio: 'ignore' })
+    }
+    return png
+  })
+}
+
+if (process.argv.includes('--artwork')) {
+  const pictures = artwork()
+  const review = join(root, 'design-review', 'cinematic', 'artwork')
+  mkdirSync(review, { recursive: true })
+  // Five across, in ranking order, a little space between them.
+  execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...pictures.flatMap((picture) => ['-i', picture]), '-filter_complex',
+    `${pictures.map((_, index) => `[${index}]format=rgb24,scale=360:480,pad=372:492:6:6:white[c${index}]`).join(';')};${pictures.map((_, index) => `[c${index}]`).join('')}xstack=inputs=${pictures.length}:layout=${pictures.map((_, index) => `${(index % 5) * 372}_${Math.floor(index / 5) * 492}`).join('|')}`,
+    '-pix_fmt', 'rgb24', join(review, 'contact-sheet.png')])
+  console.log(`${pictures.length} illustrations; contact sheet in design-review/cinematic/artwork/`)
+  for (const [index, cover] of illustrations.entries()) console.log(`  ${String(index + 1).padStart(2)}  ${cover.name.padEnd(18)} ${cover.theme}`)
+  process.exit(0)
 }
 
 // ---------------------------------------------------------------- 2. which products
@@ -161,12 +195,14 @@ if (lookdevOnly && referenceOnly) {
   // frames of the move itself (the first is its exact first frame), so
   // they and the video show one place from one camera.
   const bare = withoutLettering()
-  const dressed = { gallery: gallery.map(bare), decor: gallery.map(bare), slots: products.slice(0, layouts.wide.slots).map((product) => ({ ...product, texture: bare(product.texture) })) }
+  const art = artwork()
+  const dressed = { gallery: art.slice(0, 8), decor: art, slots: products.slice(0, layouts.wide.slots).map((product) => ({ ...product, texture: bare(product.texture) })) }
   const reference = join(build, VERSION, 'reference')
   mkdirSync(reference, { recursive: true })
   const clip = { ...layouts.wide, width: 1280, height: 720, frames: 120 }
   if (!process.argv.includes('--motion-only')) {
-    const stills = [['opening', 0], ['mid-corridor', 36], ['doorway', 67]]
+    const wanted = flag('stills') // for example --stills=opening
+    const stills = [['opening', 0], ['mid-corridor', 36], ['doorway', 67]].filter(([name]) => !wanted || wanted.split(',').includes(name))
     const out = render('vault reference stills', { ...clip, width: 1920, height: 1080 }, {
       folder: 'reference-stills',
       options: { ...dressed, format: 'PNG', look: 'vault', samples: 384, noise: 0.02, haze: Number(flag('haze', '0.003')), only: stills.map(([, frame]) => frame) },
@@ -200,7 +236,7 @@ if (lookdevOnly) {
   const blockout = render(`${name} blockout stills`, shape, { folder: `${name}-blockout`, options: { format: 'PNG', samples: 32, only } })
   const vault = render(`${name} vault stills`, shape, {
     folder: `${name}-vault`,
-    options: { format: 'PNG', look: 'vault', decor: gallery.map(withoutLettering()), samples: Number(flag('samples', '256')), noise: Number(flag('noise', '0.02')), haze: Number(flag('haze', '0')), only },
+    options: { format: 'PNG', look: 'vault', gallery: artwork().slice(0, 8), decor: artwork(), samples: Number(flag('samples', '256')), noise: Number(flag('noise', '0.02')), haze: Number(flag('haze', '0')), only },
   })
   const review = join(root, 'design-review', 'cinematic', 'lookdev', flag('label', name))
   rmSync(review, { recursive: true, force: true })
