@@ -4,6 +4,7 @@ The question is whether a video model kept the camera move and the layout that
 Blender decided. Nothing here judges beauty; that is done by looking at the
 pictures this writes. It measures what can be measured:
 
+  opening    whether the first frame is the reference's first frame
   timing     which reference frame each generated frame resembles most
   doorway    how long the doorway's top edge is (how far the camera got)
   flicker    brightness that jumps from frame to frame, and movement after
@@ -141,11 +142,11 @@ def panels(rgb):
     # A panel is whatever differs from the chamber behind it. The chamber is
     # most of the picture, so its colour is the picture's median colour.
     behind = np.median(rgb.reshape(-1, 3), axis=0)
-    mask = np.sqrt(((rgb.astype(np.float32) - behind) ** 2).sum(axis=2)) > 45
+    mask = np.sqrt(((rgb.astype(np.float32) - behind) ** 2).sum(axis=2)) > 28
     band = mask[int(h * 0.15):int(h * 0.80)]
     found = []
     for x0, x1 in runs(band.mean(axis=0) > 0.25, int(w * 0.03)):
-        rows = runs(mask[:, x0:x1 + 1].mean(axis=1) > 0.5, int(h * 0.05))
+        rows = runs(mask[:, x0:x1 + 1].mean(axis=1) > 0.3, int(h * 0.05))
         if not rows:
             continue
         y0, y1 = max(rows, key=lambda r: r[1] - r[0])
@@ -232,6 +233,13 @@ def main():
     ref, out = frames(ref_path, SMALL), frames(out_path, SMALL)
     report["frames_compared"] = [len(ref), len(out)]
     ref_edges, out_edges = [edges(f) for f in ref], [edges(f) for f in out]
+
+    # The very first frame: does the clip begin where the move begins?
+    report["opening"] = {
+        "outline_match_first_frame": round(alike(ref_edges[0], out_edges[0]), 3),
+        "colour_difference_first_frame": round(float(np.abs(ref[0].astype(np.float32) - out[0].astype(np.float32)).mean()), 1),
+        "outline_match_first_frame_against_reference_one_second_in": round(alike(ref_edges[24], out_edges[0]), 3),
+    }
 
     rows = timing(ref_edges, out_edges)
     moving = [r for r in rows if r["frame"] < HOLD_FROM]
