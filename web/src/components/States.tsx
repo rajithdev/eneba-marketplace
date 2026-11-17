@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { describeFailure } from '../lib/api'
 
 /** Grey blocks in the shape of the product grid, shown while it loads. */
 export function ProductGridSkeleton({ count = 8 }: { count?: number }) {
@@ -28,6 +29,22 @@ export function Notice({ title, children, tone = 'neutral' }: { title: string; c
       <h2 className={`text-xl font-extrabold ${tone === 'error' ? 'text-danger' : ''}`}>{title}</h2>
       {children && <div className="mt-3 flex flex-col items-center gap-4 text-muted">{children}</div>}
     </div>
+  )
+}
+
+/**
+ * "This could not be loaded", with the reason worded honestly (a server
+ * that is waking up is not described as broken, nor the reverse; see
+ * describeFailure) and a button to try again.
+ */
+export function LoadError({ title, error, retry }: { title: string; error: unknown; retry: () => void }) {
+  return (
+    <Notice title={title} tone="error">
+      <p>{describeFailure(error)}</p>
+      <button type="button" className={primaryButton} onClick={retry}>
+        Try again
+      </button>
+    </Notice>
   )
 }
 

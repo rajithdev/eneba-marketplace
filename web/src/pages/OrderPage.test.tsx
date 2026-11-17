@@ -277,7 +277,11 @@ describe('order history', () => {
   })
 
   it('says so when there are no orders yet', async () => {
-    mockApi((path) => (path === '/api/orders' ? { body: { data: [], meta: { current_page: 1, per_page: 10, total: 0, last_page: 1 } } } : { body: { data: null } }))
+    mockApi((path) =>
+      path === '/api/orders'
+        ? { body: { data: [], meta: { current_page: 1, per_page: 10, total: 0, last_page: 1 } } }
+        : { body: { data: { id: 1, name: 'Ada', email: 'ada@example.com' } } },
+    )
     renderAt('/orders')
 
     expect(await screen.findByRole('heading', { name: 'No orders yet' })).toBeInTheDocument()

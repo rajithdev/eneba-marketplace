@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { LineCover, LineTitle, PriceBreakdown } from '../components/OrderLines'
-import { Notice, primaryButton, secondaryButton } from '../components/States'
+import { SessionNotice } from '../components/SessionNotice'
+import { LoadError, Notice, primaryButton, secondaryButton } from '../components/States'
 import { ApiError } from '../lib/api'
+import { useSession } from '../lib/auth'
 import { cart, checkoutAttempt } from '../lib/cart'
-import { cancelOrder, fetchOrder, hasOrder, payOrder, shortId, statusLabels, type Order, type OrderResponse } from '../lib/checkout'
+import { cancelOrder, fetchOrder, hasOrder, orderKey, payOrder, shortId, statusLabels, type Order, type OrderResponse } from '../lib/checkout'
 import { formatDateTime, formatMoney } from '../lib/money'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { useSingleFlight } from '../lib/useSingleFlight'
@@ -24,9 +26,14 @@ import { useSingleFlight } from '../lib/useSingleFlight'
  */
 export function OrderPage() {
   const { id = '' } = useParams()
+  const session = useSession()
+  const userId = session.state === 'signed-in' ? session.user.id : null
+  // Asked for, and shown, only for a confirmed signed-in buyer. A 401 from
+  // this request ends the session for the whole app (see createQueryClient).
   const order = useQuery({
-    queryKey: ['order', id],
+    queryKey: orderKey(userId, id),
     queryFn: () => fetchOrder(id),
+    enabled: userId !== null,
     // While payment is awaited, look again now and then: the order may be
     // paid in another tab, or run out of time.
     refetchInterval: (query) => (query.state.data?.data.status === 'pending' ? 20_000 : false),
@@ -43,20 +50,15 @@ export function OrderPage() {
     checkoutAttempt.forget()
   }, [data])
 
-  if (order.isPending) return <p role="status" className="pt-14">Loading your order…</p>
-
-  if (order.error instanceof ApiError && order.error.status === 401) {
+  if (session.state !== 'signed-in') {
     return (
       <div className="pt-8">
-        <Notice title="Sign in to see this order">
-          <p>Orders are only shown to the account that placed them.</p>
-          <Link to={`/account?next=/orders/${id}`} className={primaryButton}>
-            Sign in
-          </Link>
-        </Notice>
+        <SessionNotice session={session} what="this order" next={`/orders/${id}`} />
       </div>
     )
   }
+
+  if (order.isPending) return <p role="status" className="pt-14">Loading your order…</p>
 
   if (order.error instanceof ApiError && order.error.status === 404) {
     return (
@@ -74,12 +76,7 @@ export function OrderPage() {
   if (!data) {
     return (
       <div className="pt-8">
-        <Notice title="The order could not be loaded" tone="error">
-          <p>The server may be starting up. This can take up to a minute.</p>
-          <button type="button" className={primaryButton} onClick={() => order.refetch()}>
-            Try again
-          </button>
-        </Notice>
+        <LoadError title="The order could not be loaded" error={order.error} retry={() => order.refetch()} />
       </div>
     )
   }
@@ -95,7 +92,7 @@ export function OrderPage() {
 
       <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6">
-          {data.status === 'pending' ? <Payment order={data} receivedAt={order.dataUpdatedAt} onExpired={order.refetch} /> : <Outcome order={data} />}
+          {data.status === 'pending' ? <Payment order={data} userId={session.user.id} receivedAt={order.dataUpdatedAt} onExpired={order.refetch} /> : <Outcome order={data} />}
           <Items order={data} />
         </div>
 
@@ -154,7 +151,7 @@ function useSecondsLeft(secondsAtAnswer: number, answeredAt: number) {
 }
 
 /** A pending order: the time left, the ways to pay, and the Pay button. */
-function Payment({ order, receivedAt, onExpired }: { order: Order; receivedAt: number; onExpired: () => void }) {
+function Payment({ order, userId, receivedAt, onExpired }: { order: Order; userId: number; receivedAt: number; onExpired: () => void }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [method, setMethod] = useState(order.payment_methods[0]?.value ?? '')
@@ -162,7 +159,7 @@ function Payment({ order, receivedAt, onExpired }: { order: Order; receivedAt: n
   const total = formatMoney(order.totals.total_cents, order.totals.currency)
 
   // Whatever order the server sends back is what the page shows next.
-  const show = (response: OrderResponse) => queryClient.setQueryData(['order', order.id], { data: response.data })
+  const show = (response: OrderResponse) => queryClient.setQueryData(orderKey(userId, order.id), { data: response.data })
   // A declined payment (402) or an order that can no longer be paid (409)
   // is an error status, but its body is the order: show it too.
   const showFromError = (error: unknown) => {

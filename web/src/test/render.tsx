@@ -1,8 +1,8 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { vi } from 'vitest'
-import { shouldRetry } from '../lib/api'
+import { createQueryClient } from '../lib/queryClient'
 import { routes } from '../routes'
 
 /**
@@ -11,12 +11,8 @@ import { routes } from '../routes'
  */
 export function renderAt(address: string) {
   const router = createMemoryRouter(routes, { initialEntries: [address] })
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      // The app's own retry rule, without the waiting between attempts.
-      queries: { retry: shouldRetry, retryDelay: 0 },
-    },
-  })
+  // The app's own client and rules, without the waiting between attempts.
+  const queryClient = createQueryClient({ retryDelay: 0 })
 
   render(
     <QueryClientProvider client={queryClient}>

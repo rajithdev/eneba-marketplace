@@ -1,7 +1,8 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { expect, it, vi } from 'vitest'
+import { createQueryClient } from '../lib/queryClient'
 import { AccountPage } from './AccountPage'
 
 function json(body: unknown, status = 200) {
@@ -9,7 +10,7 @@ function json(body: unknown, status = 200) {
 }
 
 function renderAccountPage(address = '/account') {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = createQueryClient({ retry: false })
 
   render(
     <QueryClientProvider client={queryClient}>

@@ -99,3 +99,23 @@ export function shouldRetry(failureCount: number, error: unknown): boolean {
 
   return !requestIsWrong && failureCount < 2
 }
+
+/**
+ * What to tell a visitor when a request failed through no fault of theirs.
+ *
+ * Two different things can be behind it, and they are not confused:
+ *
+ * - The server never answered in its own format: no response at all, or a
+ *   gateway's error page (502, 503, 504) in its place. On the free hosting
+ *   plan this is what a server that is still waking up looks like.
+ * - The server answered, in JSON, that it failed (500) or that requests are
+ *   arriving too fast (429). It is awake; waiting a minute is not the cure.
+ */
+export function describeFailure(error: unknown): string {
+  if (error instanceof ApiError && error.body !== null) {
+    if (error.status === 429) return 'Too many requests in a short time. Wait a moment and try again.'
+    if (![502, 503, 504].includes(error.status)) return 'The server reported an error. Please try again in a moment.'
+  }
+
+  return 'The server did not answer. On the free hosting plan it sleeps when idle and can take up to a minute to wake up.'
+}

@@ -136,6 +136,14 @@ export const placeOrder = (items: CartItem[], idempotencyKey: string) =>
     headers: { 'Idempotency-Key': idempotencyKey },
   })
 
+/**
+ * Where a buyer's orders are cached. The buyer's id is part of the name, so
+ * one account's orders can never be shown to another, whatever was left
+ * behind in the cache.
+ */
+export const orderKey = (userId: number | null, id: string) => ['order', userId, id]
+export const ordersKey = (userId: number | null, page: number) => ['orders', userId, page]
+
 export const fetchOrder = (id: string) => apiFetch<OrderResponse>(`/orders/${encodeURIComponent(id)}`)
 
 export const fetchOrders = (page: number) => apiFetch<OrderListResponse>(`/orders?page=${page}`)

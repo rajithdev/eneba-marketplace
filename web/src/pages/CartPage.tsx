@@ -6,7 +6,7 @@ import { Notice, primaryButton } from '../components/States'
 import { ApiError } from '../lib/api'
 import { useCurrentUser } from '../lib/auth'
 import { cart, checkoutAttempt, useCart, type CartItem } from '../lib/cart'
-import { isCartChanged, placeOrder, quoteCart, reconcile, type QuoteLine } from '../lib/checkout'
+import { isCartChanged, orderKey, placeOrder, quoteCart, reconcile, type QuoteLine } from '../lib/checkout'
 import { formatMoney } from '../lib/money'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { useSingleFlight } from '../lib/useSingleFlight'
@@ -53,15 +53,15 @@ export function CartPage() {
     mutationFn: startCheckout,
     onSuccess: (order) => {
       checkoutAttempt.startedOrder(order.id)
-      queryClient.setQueryData(['order', order.id], { data: order })
+      queryClient.setQueryData(orderKey(currentUser.data?.id ?? null, order.id), { data: order })
       navigate(`/orders/${order.id}`)
     },
     onError: (error) => {
       if (!(error instanceof ApiError)) return
       // The cart changed between looking and buying: show what changed.
       if (isCartChanged(error.body)) queryClient.setQueryData(['cart-quote', items], { data: error.body.quote })
-      // The session ended in the meantime.
-      if (error.status === 401) queryClient.setQueryData(['current-user'], null)
+      // A 401 (the session ended in the meantime) is handled for every
+      // request in one place: see createQueryClient.
     },
   })
 

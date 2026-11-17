@@ -1,9 +1,10 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
 import { Pagination } from '../components/Pagination'
-import { Notice, primaryButton } from '../components/States'
-import { ApiError } from '../lib/api'
-import { fetchOrders, shortId, statusLabels, type OrderSummary } from '../lib/checkout'
+import { SessionNotice } from '../components/SessionNotice'
+import { LoadError, Notice, primaryButton } from '../components/States'
+import { useSession } from '../lib/auth'
+import { fetchOrders, ordersKey, shortId, statusLabels, type OrderSummary } from '../lib/checkout'
 import { formatDateTime, formatMoney } from '../lib/money'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
@@ -12,7 +13,27 @@ export function OrdersPage() {
   useDocumentTitle('Your orders')
   const [params] = useSearchParams()
   const page = Math.max(1, Number.parseInt(params.get('page') ?? '1', 10) || 1)
-  const orders = useQuery({ queryKey: ['orders', page], queryFn: () => fetchOrders(page), placeholderData: keepPreviousData })
+  const session = useSession()
+  const userId = session.state === 'signed-in' ? session.user.id : null
+  // Asked for, and shown, only for a confirmed signed-in buyer. A 401 from
+  // this request ends the session for the whole app (see createQueryClient).
+  const orders = useQuery({
+    queryKey: ordersKey(userId, page),
+    queryFn: () => fetchOrders(page),
+    enabled: userId !== null,
+    // Changing page keeps the current list on screen until the next one
+    // arrives, but only ever this same buyer's list.
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[1] === userId ? previous : undefined),
+  })
+
+  if (session.state !== 'signed-in') {
+    return (
+      <div className="pt-8">
+        <h1 className="mb-6 text-3xl font-bold">Your orders</h1>
+        <SessionNotice session={session} what="your orders" next="/orders" />
+      </div>
+    )
+  }
 
   return (
     <div className="pt-8">
@@ -20,23 +41,7 @@ export function OrdersPage() {
 
       {orders.isPending && <p role="status">Loading your orders…</p>}
 
-      {orders.error instanceof ApiError && orders.error.status === 401 && (
-        <Notice title="Sign in to see your orders">
-          <p>Orders and their keys are only shown to the account that placed them.</p>
-          <Link to="/account?next=/orders" className={primaryButton}>
-            Sign in
-          </Link>
-        </Notice>
-      )}
-
-      {orders.isError && !(orders.error instanceof ApiError && orders.error.status === 401) && (
-        <Notice title="Your orders could not be loaded" tone="error">
-          <p>The server may be starting up. This can take up to a minute.</p>
-          <button type="button" className={primaryButton} onClick={() => orders.refetch()}>
-            Try again
-          </button>
-        </Notice>
-      )}
+      {orders.isError && !orders.data && <LoadError title="Your orders could not be loaded" error={orders.error} retry={() => orders.refetch()} />}
 
       {orders.data && orders.data.data.length === 0 && (
         <Notice title="No orders yet">
