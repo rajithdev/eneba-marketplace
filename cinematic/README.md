@@ -196,3 +196,16 @@ to look at. It needs only ffmpeg and the numpy inside Blender's Python:
 The one Seedance 2.5 test (17 November 2026) did not follow the camera
 closely enough to use; the frames on the site are Blender's. The report is
 kept with the review material, outside Git.
+
+## Trying other covers on the six cases
+
+For previews only. Published frames always show the covers of the products
+the backend returns, because the last frame has to become those products'
+cards.
+
+- `cinematic/prepare_covers.py <list.json> <out folder>` cuts supplied
+  pictures to 3:4 covers (900×1200) without stretching; the list names each
+  file and the part of it to keep.
+- `node cinematic/build.mjs --lookdev --chamber --hero-covers=<folder>`
+  renders three chamber frames at final quality for desktop and phone, with
+  the pictures in that folder on the cases, in name order.
