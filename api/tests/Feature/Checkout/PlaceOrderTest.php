@@ -335,4 +335,30 @@ class PlaceOrderTest extends TestCase
         $this->assertSame(OrderStatus::Pending, $first->fresh()->status);
         $this->assertSame(['available' => 0, 'reserved' => 2, 'sold' => 0], $this->keys($offer));
     }
+
+    public function test_a_buyer_whose_simultaneous_checkouts_keep_colliding_is_asked_to_try_again(): void
+    {
+        $offer = $this->offer(1000, keys: 2);
+        $buyer = User::factory()->create();
+        // "Another checkout of mine was created a moment ago, and I did not
+        // see it when I looked": what two requests at once do to each
+        // other. Here it happens on every attempt.
+        $this->app->bind(PlaceOrder::class, fn ($app) => new class($app->make(QuoteCart::class), $app->make(InventoryAllocator::class), $app->make(SettleOrder::class)) extends PlaceOrder
+        {
+            protected function giveUpEarlierOrders(User $user, string $idempotencyKey): void
+            {
+                // Sees nothing, as the request that lost the race did.
+            }
+        });
+        Order::factory()->for($buyer)->create();
+
+        $this->placeOrder($buyer, [$this->item($offer)])
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'checkout_in_progress')
+            ->assertJsonMissingPath('quote');
+
+        // Nothing was held for the refused request.
+        $this->assertSame(['available' => 2, 'reserved' => 0, 'sold' => 0], $this->keys($offer));
+        $this->assertSame(1, $buyer->orders()->count());
+    }
 }

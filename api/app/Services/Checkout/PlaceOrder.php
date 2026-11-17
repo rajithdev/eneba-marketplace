@@ -33,6 +33,7 @@ class PlaceOrder
      *
      * @throws CartChanged when the cart cannot be bought as the buyer saw it
      * @throws IdempotencyKeyReused when the key was used for a different cart
+     * @throws CheckoutInProgress when the buyer's own simultaneous checkouts collided
      */
     public function handle(User $user, array $items, string $idempotencyKey): Order
     {
@@ -45,78 +46,119 @@ class PlaceOrder
             return $this->sameCartOrFail($existing, $cartHash);
         }
 
-        // A buyer has one checkout in progress at a time. Starting another
-        // gives up the earlier ones, so their keys are free again: without
-        // this, a buyer who goes back and changes the cart could be told the
-        // last key is taken, by their own abandoned order.
+        // A buyer has one checkout in progress at a time, and the database
+        // enforces it (the orders_one_pending_per_user index). Starting
+        // another gives up the earlier ones first.
         //
-        // An order with this very key is not "an earlier one": it can only
-        // have been created, a moment ago, by another copy of this same
-        // request, and must be returned below, not cancelled.
+        // Two different checkouts of one buyer can still start at the same
+        // moment. Neither sees the other's order yet, so the slower one is
+        // refused by the index, having held nothing. It then does what it
+        // would have done had it arrived a moment later: gives up the order
+        // that beat it and tries once more. Losing a second time means the
+        // buyer is starting checkouts faster than they can be given up, and
+        // is told to try again.
+        for ($attempt = 1; ; $attempt++) {
+            $this->giveUpEarlierOrders($user, $idempotencyKey);
+
+            try {
+                return $this->create($user, $items, $cartHash, $idempotencyKey);
+            } catch (UniqueConstraintViolationException|CartChanged|OutOfStock $failure) {
+                // The same request may have arrived twice at once. If the
+                // other copy created the order, that order is this copy's
+                // answer too: whether this copy lost at the unique index, or
+                // found the keys already held (by that very order).
+                if ($existing = $this->find($user, $idempotencyKey)) {
+                    return $this->sameCartOrFail($existing, $cartHash);
+                }
+
+                if ($failure instanceof UniqueConstraintViolationException) {
+                    if ($attempt < 2) {
+                        continue;
+                    }
+
+                    throw new CheckoutInProgress;
+                }
+
+                // Another buyer took the keys between the quote and the
+                // reservation. Everything was rolled back; say what is left.
+                throw $failure instanceof OutOfStock ? new CartChanged($this->quotes->quote($items)) : $failure;
+            }
+        }
+    }
+
+    /**
+     * Cancel the buyer's other unpaid orders, so their keys are free again:
+     * without this, a buyer who goes back and changes the cart could be told
+     * the last key is taken, by their own abandoned order.
+     *
+     * An order with this very key is not "an earlier one": it can only have
+     * been created, a moment ago, by another copy of this same request, and
+     * must be returned to the caller, not cancelled.
+     *
+     * Protected so a test can stand in for "the other order was not there
+     * yet when this request looked".
+     */
+    protected function giveUpEarlierOrders(User $user, string $idempotencyKey): void
+    {
         $user->orders()->where('status', OrderStatus::Pending)->where('idempotency_key', '!=', $idempotencyKey)->get()
             ->each(fn (Order $order) => $this->settle->cancel($order));
+    }
 
-        try {
-            return DB::transaction(function () use ($user, $items, $cartHash, $idempotencyKey) {
-                $quote = $this->quotes->quote($items);
+    /**
+     * The order, its lines, its payment record and the held keys, in one
+     * transaction.
+     *
+     * @param  list<array{offer_id: int, quantity: int, unit_price_cents: int|null}>  $items
+     */
+    private function create(User $user, array $items, string $cartHash, string $idempotencyKey): Order
+    {
+        return DB::transaction(function () use ($user, $items, $cartHash, $idempotencyKey) {
+            $quote = $this->quotes->quote($items);
 
-                if (! $quote['ok']) {
-                    throw new CartChanged($quote);
-                }
-
-                $expiresAt = now()->addMinutes(config('checkout.reservation_minutes'));
-
-                // Created before any key is touched. If the same request is
-                // being handled twice at this very moment, the unique index
-                // on (user, idempotency key) makes the second one wait here
-                // and then fail, having reserved nothing.
-                $order = $user->orders()->create([
-                    'public_id' => (string) Str::uuid(),
-                    'status' => OrderStatus::Pending,
-                    'total_cents' => $quote['totals']['total_cents'],
-                    'currency' => $quote['totals']['currency'],
-                    'idempotency_key' => $idempotencyKey,
-                    'cart_hash' => $cartHash,
-                    'expires_at' => $expiresAt,
-                ]);
-
-                foreach ($quote['lines'] as $line) {
-                    $item = $order->items()->create([
-                        'offer_id' => $line['offer_id'],
-                        'product_id' => DB::table('offers')->where('id', $line['offer_id'])->value('product_id'),
-                        // Copied, so the receipt stays true if the product is
-                        // renamed or the price changes later.
-                        'product_name' => $line['product']['name'],
-                        'seller_name' => $line['seller']['name'],
-                        'unit_price_cents' => $line['unit_price']['amount_cents'],
-                        'original_unit_price_cents' => $line['unit_price']['original_amount_cents'],
-                        'quantity' => $line['quantity'],
-                    ]);
-
-                    $this->inventory->reserve($item, $expiresAt);
-                }
-
-                $order->payment()->create([
-                    'status' => PaymentStatus::Pending,
-                    'amount_cents' => $order->total_cents,
-                    'currency' => $order->currency,
-                ]);
-
-                return $order;
-            });
-        } catch (UniqueConstraintViolationException|CartChanged|OutOfStock $failure) {
-            // The same request may have arrived twice at once. If the other
-            // copy created the order, that order is this copy's answer too:
-            // whether this copy lost at the unique index, or found the keys
-            // already held (by that very order).
-            if ($existing = $this->find($user, $idempotencyKey)) {
-                return $this->sameCartOrFail($existing, $cartHash);
+            if (! $quote['ok']) {
+                throw new CartChanged($quote);
             }
 
-            // Another buyer took the keys between the quote and the
-            // reservation. Everything was rolled back; say what is left.
-            throw $failure instanceof OutOfStock ? new CartChanged($this->quotes->quote($items)) : $failure;
-        }
+            $expiresAt = now()->addMinutes(config('checkout.reservation_minutes'));
+
+            // Created before any key is touched. If the same request is
+            // being handled twice at this very moment, or the buyer started
+            // another checkout, a unique index makes the second one wait
+            // here and then fail, having reserved nothing.
+            $order = $user->orders()->create([
+                'public_id' => (string) Str::uuid(),
+                'status' => OrderStatus::Pending,
+                'total_cents' => $quote['totals']['total_cents'],
+                'currency' => $quote['totals']['currency'],
+                'idempotency_key' => $idempotencyKey,
+                'cart_hash' => $cartHash,
+                'expires_at' => $expiresAt,
+            ]);
+
+            foreach ($quote['lines'] as $line) {
+                $item = $order->items()->create([
+                    'offer_id' => $line['offer_id'],
+                    'product_id' => DB::table('offers')->where('id', $line['offer_id'])->value('product_id'),
+                    // Copied, so the receipt stays true if the product is
+                    // renamed or the price changes later.
+                    'product_name' => $line['product']['name'],
+                    'seller_name' => $line['seller']['name'],
+                    'unit_price_cents' => $line['unit_price']['amount_cents'],
+                    'original_unit_price_cents' => $line['unit_price']['original_amount_cents'],
+                    'quantity' => $line['quantity'],
+                ]);
+
+                $this->inventory->reserve($item, $expiresAt);
+            }
+
+            $order->payment()->create([
+                'status' => PaymentStatus::Pending,
+                'amount_cents' => $order->total_cents,
+                'currency' => $order->currency,
+            ]);
+
+            return $order;
+        });
     }
 
     /** Protected so a test can stand in for "the other copy had not saved its order yet". */

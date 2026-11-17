@@ -9,6 +9,7 @@ use App\Http\Resources\OrderResource;
 use App\Http\Resources\OrderSummaryResource;
 use App\Models\Order;
 use App\Services\Checkout\CartChanged;
+use App\Services\Checkout\CheckoutInProgress;
 use App\Services\Checkout\IdempotencyKeyReused;
 use App\Services\Checkout\PlaceOrder;
 use App\Services\Checkout\SettleOrder;
@@ -51,7 +52,8 @@ class OrderController extends Controller
      * Step 1: hold the keys and create a pending order.
      *
      * 201 a new order; 200 the order an identical earlier request created;
-     * 409 the cart changed (with the new quote, nothing held).
+     * 409 the cart changed (with the new quote, nothing held), or the
+     * buyer's own simultaneous checkouts collided (nothing held; try again).
      */
     public function store(PlaceOrderRequest $request, PlaceOrder $placeOrder): JsonResponse
     {
@@ -63,6 +65,8 @@ class OrderController extends Controller
                 'code' => 'cart_changed',
                 'quote' => $changed->quote,
             ], 409);
+        } catch (CheckoutInProgress $inProgress) {
+            return response()->json(['message' => $inProgress->getMessage(), 'code' => 'checkout_in_progress'], 409);
         } catch (IdempotencyKeyReused $reused) {
             return response()->json(['message' => $reused->getMessage(), 'code' => 'idempotency_key_reused'], 422);
         }

@@ -7,6 +7,7 @@ use App\Models\LicenseKey;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Checkout\CartChanged;
+use App\Services\Checkout\CheckoutInProgress;
 use App\Services\Checkout\PaymentGateway;
 use App\Services\Checkout\PlaceOrder;
 use App\Services\Checkout\SettleOrder;
@@ -96,6 +97,38 @@ class CheckoutConcurrencyTest extends TestCase
         // ...and its keys were held once.
         $this->assertSame(['available' => 0, 'reserved' => 2, 'sold' => 0], $this->keys($offer));
         $this->assertSame(OrderStatus::Pending, Order::sole()->status);
+    }
+
+    public function test_one_buyer_starting_six_different_checkouts_at_once_holds_keys_for_only_one(): void
+    {
+        // Six different offers with plenty of stock, six different
+        // idempotency keys: nothing but the one-checkout-per-buyer rule
+        // stands between this buyer and six orders holding keys at once.
+        $offers = collect(range(1, 6))->map(fn () => $this->offer(1000, keys: 5));
+        $buyer = User::factory()->create();
+
+        $results = $this->inParallel($offers->map(fn ($offer) => fn () => $this->tryToPlace(
+            $buyer->id, [$this->item($offer, 2)], (string) Str::uuid(),
+        ))->all());
+
+        // However the six interleaved, one order is left holding keys.
+        $pending = Order::where('status', OrderStatus::Pending)->get();
+        $this->assertCount(1, $pending, json_encode($results));
+        $this->assertSame(2, LicenseKey::where('status', 'reserved')->count(), json_encode($results));
+        $this->assertSame(2, LicenseKey::where('status', 'reserved')->whereIn('order_item_id', $pending->first()->items()->pluck('id'))->count());
+        $this->assertSame(28, LicenseKey::where('status', 'available')->count());
+
+        // Each request either got an order (which a later one may have
+        // cancelled, as starting a new checkout always does) or was told
+        // to try again. None failed in an uncontrolled way.
+        foreach ($results as $result) {
+            $this->assertTrue(
+                isset($result['order']) || ($result['exception'] ?? null) === CheckoutInProgress::class,
+                json_encode($results),
+            );
+        }
+        $this->assertContains($pending->first()->public_id, array_column($results, 'order'));
+        $this->assertSame(0, Order::whereNotIn('status', [OrderStatus::Pending, OrderStatus::Cancelled])->count());
     }
 
     public function test_pay_pressed_six_times_at_once_charges_once_and_delivers_once(): void
@@ -195,7 +228,32 @@ class CheckoutConcurrencyTest extends TestCase
             fn () => $this->tryToPlace($buyer->id, [$this->item($offer)], (string) Str::uuid()),
         ]);
 
-        $this->assertCount(1, array_filter(array_column($results, 'order')), json_encode($results));
+        // The slower request gives up the order that beat it and takes its
+        // place, as it would have a moment later. Either way the one key
+        // is held once, by the one order still in progress.
+        $this->assertSame(1, Order::where('status', OrderStatus::Pending)->count(), json_encode($results));
         $this->assertSame(['available' => 0, 'reserved' => 1, 'sold' => 0], $this->keys($offer));
+        $this->assertSame(Order::where('status', OrderStatus::Pending)->sole()->items()->sole()->id, LicenseKey::sole()->order_item_id);
+    }
+
+    public function test_adding_the_one_checkout_rule_first_gives_up_a_buyers_extra_unpaid_orders(): void
+    {
+        // The database as it could be just before this rule is deployed:
+        // one buyer with two unpaid orders, each holding a key.
+        $this->artisan('migrate:rollback', ['--step' => 1])->assertSuccessful();
+        [$older, $newer] = [$this->offer(1000, keys: 1), $this->offer(2000, keys: 1)];
+        [$buyer, $other] = User::factory()->count(2)->create()->all();
+        $first = app(PlaceOrder::class)->handle($buyer, [$this->item($older)], (string) Str::uuid());
+        $second = app(PlaceOrder::class)->handle($other, [$this->item($newer)], (string) Str::uuid());
+        DB::table('orders')->where('id', $second->id)->update(['user_id' => $buyer->id]);
+
+        $this->artisan('migrate')->assertSuccessful();
+
+        // The newest is kept; the older one is cancelled the proper way.
+        $this->assertSame(OrderStatus::Cancelled, $first->fresh()->status);
+        $this->assertSame('cancelled', $this->charge($first));
+        $this->assertSame(['available' => 1, 'reserved' => 0, 'sold' => 0], $this->keys($older));
+        $this->assertSame(OrderStatus::Pending, $second->fresh()->status);
+        $this->assertSame(['available' => 0, 'reserved' => 1, 'sold' => 0], $this->keys($newer));
     }
 }

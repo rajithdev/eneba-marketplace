@@ -36,6 +36,35 @@ class OrderSchemaTest extends TestCase
         $this->assertSame(2, Order::where('idempotency_key', 'attempt-1')->count());
     }
 
+    public function test_a_buyer_cannot_have_two_unpaid_orders_at_once(): void
+    {
+        $user = User::factory()->create();
+        Order::factory()->for($user)->create();
+
+        $this->assertViolatesConstraint(
+            'orders_one_pending_per_user',
+            fn () => Order::factory()->for($user)->create(),
+        );
+    }
+
+    public function test_the_one_unpaid_order_rule_counts_only_unpaid_orders_of_that_buyer(): void
+    {
+        $user = User::factory()->create();
+        // Any number of finished orders, then one unpaid one.
+        Order::factory()->for($user)->paid()->count(2)->create();
+        Order::factory()->for($user)->create(['status' => OrderStatus::Cancelled]);
+        $pending = Order::factory()->for($user)->create();
+        // Another buyer's unpaid order is not in the way.
+        Order::factory()->create();
+
+        // Once it is no longer unpaid, the next checkout can begin.
+        $pending->update(['status' => OrderStatus::Expired]);
+        Order::factory()->for($user)->create();
+
+        $this->assertSame(1, $user->orders()->where('status', OrderStatus::Pending)->count());
+        $this->assertSame(5, $user->orders()->count());
+    }
+
     public function test_order_status_must_be_a_known_value(): void
     {
         $order = Order::factory()->create();
