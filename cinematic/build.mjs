@@ -3,6 +3,8 @@
 //
 //   node cinematic/build.mjs                  the blockout, both layouts
 //   node cinematic/build.mjs --samples        a few frames at the final size, in several encodings, to measure real file sizes
+//   node cinematic/build.mjs --lookdev        five stills of the "vault" look beside the blockout, and a check that the last frame is unchanged
+//   node cinematic/build.mjs --lookdev --reference   the vault look as material for a video model: stills and the whole move, covers without lettering
 //   node cinematic/build.mjs --api=http://localhost:8000
 //
 // What it does, in order:
@@ -28,7 +30,8 @@ const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 const flag = (name, fallback) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback
 
-const VERSION = flag('version', 'v1-blockout')
+const lookdevOnly = process.argv.includes('--lookdev')
+const VERSION = flag('version', lookdevOnly ? 'v2-lookdev' : 'v1-blockout')
 const API = flag('api', 'http://localhost:8000')
 const BLENDER = flag('blender', '/Applications/Blender.app/Contents/MacOS/Blender')
 const CHROME = flag('chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
@@ -49,6 +52,22 @@ for (const file of readdirSync(coverDir).filter((name) => name.endsWith('.svg'))
 }
 const texture = (coverUrl) => join(textures, coverUrl.split('/').pop().replace('.svg', '.png'))
 console.log(`${readdirSync(textures).length} cover textures`)
+
+// The same covers with their lettering taken out, for pictures shown to a
+// video model: it redraws any lettering it sees as nonsense.
+function withoutLettering() {
+  const dir = join(build, 'textures-no-lettering')
+  mkdirSync(dir, { recursive: true })
+  for (const file of readdirSync(coverDir).filter((name) => name.endsWith('.svg'))) {
+    const png = join(dir, file.replace('.svg', '.png'))
+    if (existsSync(png) && statSync(png).mtimeMs > statSync(join(coverDir, file)).mtimeMs) continue
+    const bare = join(dir, file)
+    // Lettering, and the small labels (a pill with a word in it) that sit in a group of their own.
+    writeFileSync(bare, readFileSync(join(coverDir, file), 'utf8').replace(/<g\b[^>]*>\s*(?:<rect\b[^>]*\/>\s*)?(?:<text\b[\s\S]*?<\/text>\s*)+<\/g>/g, '').replace(/<text\b[\s\S]*?<\/text>/g, ''))
+    execFileSync(CHROME, ['--headless=new', '--hide-scrollbars', '--window-size=600,800', '--default-background-color=00000000', `--screenshot=${png}`, `file://${bare}`], { stdio: 'ignore' })
+  }
+  return (path) => join(dir, path.split('/').pop())
+}
 
 // ---------------------------------------------------------------- 2. which products
 
@@ -123,6 +142,85 @@ if (samplesOnly) {
       console.log(`  ${variant.name.padEnd(9)} average ${kilobytes(sum(each) / each.length).padStart(9)}   largest ${kilobytes(Math.max(...each)).padStart(9)}`)
     }
   }
+  process.exit(0)
+}
+
+if (lookdevOnly && referenceOnly) {
+  // The vault look as reference material for a video model. The stills are
+  // frames of the move itself (the first is its exact first frame), so
+  // they and the video show one place from one camera.
+  const bare = withoutLettering()
+  const dressed = { gallery: gallery.map(bare), slots: products.slice(0, layouts.wide.slots).map((product) => ({ ...product, texture: bare(product.texture) })) }
+  const reference = join(build, VERSION, 'reference')
+  mkdirSync(reference, { recursive: true })
+  const clip = { ...layouts.wide, width: 1280, height: 720, frames: 120 }
+  if (!process.argv.includes('--motion-only')) {
+    const stills = [['opening', 0], ['mid-corridor', 36], ['doorway', 67]]
+    const out = render('vault reference stills', { ...clip, width: 1920, height: 1080 }, {
+      folder: 'reference-stills',
+      options: { ...dressed, format: 'PNG', look: 'vault', samples: 384, noise: 0.02, haze: Number(flag('haze', '0.003')), only: stills.map(([, frame]) => frame) },
+    })
+    for (const [index, [name, frame]] of stills.entries()) cpSync(join(out, `f-${String(frame).padStart(3, '0')}.png`), join(reference, `still-${index + 1}-${name}.png`))
+    console.log(`stills: ${JSON.parse(readFileSync(join(out, 'layout.json'), 'utf8')).seconds.join(', ')} seconds each`)
+  }
+  if (!process.argv.includes('--stills-only')) {
+    // The whole move, quickly: enough rays for a clean moving picture, not for a still.
+    const out = render('vault motion reference', clip, { folder: 'reference-frames', options: { ...dressed, format: 'PNG', look: 'vault', samples: 48, noise: 0.05 } })
+    execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', '24', '-i', join(out, 'f-%03d.png'), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '14', '-movflags', '+faststart', join(reference, 'motion-vault.mp4')])
+    const seconds = JSON.parse(readFileSync(join(out, 'layout.json'), 'utf8')).seconds
+    console.log(`motion: ${seconds.length} frames, ${Math.round(sum(seconds))} seconds in all`)
+  }
+  for (const file of readdirSync(reference).sort()) console.log(`  ${file.padEnd(34)} ${kilobytes(statSync(join(reference, file)).size).padStart(10)}`)
+  process.exit(0)
+}
+
+if (lookdevOnly) {
+  // Look development: the same five moments of the move, drawn as the
+  // blockout and as the vault, side by side. Nothing is published.
+  //   --scale=0.5 --samples=64   a quick, rough pass while adjusting
+  //   --haze=0.008               air that scatters light in the corridor
+  //   --layout=narrow            the phone's picture instead of the desktop's
+  const name = flag('layout', 'wide')
+  const scale = Number(flag('scale', '1'))
+  const shape = { ...layouts[name], width: Math.round(layouts[name].width * scale), height: Math.round(layouts[name].height * scale) }
+  const beats = [0.02, 0.3, 0.56, 0.72, 1]
+  const only = beats.map((beat) => Math.round(beat * (shape.frames - 1)))
+  const file = (frame) => `f-${String(frame).padStart(3, '0')}.png`
+  const blockout = render(`${name} blockout stills`, shape, { folder: `${name}-blockout`, options: { format: 'PNG', samples: 32, only } })
+  const vault = render(`${name} vault stills`, shape, {
+    folder: `${name}-vault`,
+    options: { format: 'PNG', look: 'vault', samples: Number(flag('samples', '256')), noise: Number(flag('noise', '0.02')), haze: Number(flag('haze', '0')), only },
+  })
+  const review = join(root, 'design-review', 'cinematic', 'lookdev', flag('label', name))
+  rmSync(review, { recursive: true, force: true })
+  mkdirSync(review, { recursive: true })
+  const ffmpeg = (args) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args])
+  const pairs = []
+  for (const [index, beat] of beats.entries()) {
+    const pair = join(review, `${index + 1}-at-${Math.round(beat * 100)}.png`)
+    cpSync(join(vault, file(only[index])), join(review, `vault-${index + 1}-at-${Math.round(beat * 100)}.png`))
+    // Blockout on the left, vault on the right, a white line between them.
+    ffmpeg(['-i', join(blockout, file(only[index])), '-i', join(vault, file(only[index])), '-filter_complex', '[0]pad=iw+8:ih:0:0:white[left];[left][1]hstack', pair])
+    pairs.push(pair)
+  }
+  ffmpeg([...pairs.flatMap((pair) => ['-i', pair]), '-filter_complex', `${pairs.map((_, index) => `[${index}]scale=1800:-2,pad=iw:ih+8:0:0:white[row${index}]`).join(';')};${pairs.map((_, index) => `[row${index}]`).join('')}vstack=inputs=${pairs.length}`, join(review, 'all-five.png')])
+
+  // The handoff must not have moved: same case positions, and a last frame
+  // that is the blockout's last frame.
+  const pixels = (path) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', path, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 1 << 28 })
+  const [before, after] = [blockout, vault].map((dir) => JSON.parse(readFileSync(join(dir, 'layout.json'), 'utf8')))
+  const moved = Math.max(...before.slots.flatMap((slot, index) => ['x', 'y', 'w', 'h'].map((key) => Math.abs(slot[key] - after.slots[index][key]) * (key === 'x' || key === 'w' ? shape.width : shape.height))))
+  const [a, b] = [blockout, vault].map((dir) => pixels(join(dir, file(only.at(-1)))))
+  let worst = 0, different = 0
+  for (let i = 0; i < a.length; i += 3) {
+    const off = Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]))
+    if (off > worst) worst = off
+    if (off > 8) different += 1
+  }
+  console.log(`\ncase positions in the last frame moved by at most ${moved.toFixed(4)} px`)
+  console.log(`last frame against the blockout's: largest difference ${worst} of 255, ${((different / (a.length / 3)) * 100).toFixed(3)}% of pixels differ by more than 8`)
+  console.log(`vault: ${after.seconds.join(', ')} seconds a frame at ${shape.width}x${shape.height}`)
+  console.log(`stills in design-review/cinematic/lookdev/${flag('label', name)}/`)
   process.exit(0)
 }
 

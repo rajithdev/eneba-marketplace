@@ -64,6 +64,41 @@ little memory, the window is tablet-sized (640 to 1023 px) or the browser
 lacks what is needed. If the frames cannot be fetched, the block is simply
 shown; the pinned stretch is dropped if that can be done out of sight.
 
+## Looks: blockout and vault
+
+The scene script draws the same move in one of two looks. The camera
+route, the six hero cases and the last frame are the same code for both;
+only the surroundings differ.
+
+| | Blockout | Vault (`"look": "vault"`) |
+|---|---|---|
+| Renderer | EEVEE, about a second a frame | Cycles on the graphics processor |
+| Surfaces | flat colours | veined stone, brushed metal, glass panes, polished floor tiles |
+| Architecture | walls, pillars, glowing shelves | niches cut into the stone, metal shelves, framed cases on feet, a second shelf of small cases, a ledge under the ceiling, a bronze doorway, a chamber with side walls |
+| Light | glowing bars | neon tubes drawn at a brightness a picture can show, each with a hidden lamp beside it that gives the light the tube would |
+
+Three things keep the handoff to the page untouched in the vault look:
+
+- The chamber ends in the page's band colour, and its floor and walls stop
+  short of what the camera sees from its last position, so the last frame
+  is still the six cases on that colour and nothing else.
+- The hero cases are not dressed: no frame, glass or foot is added to them.
+- Colours are still written as given ("Standard"), with no film-like tone
+  curve, so the band colour in the picture equals the page's.
+
+```
+node cinematic/build.mjs --lookdev                          five stills, vault beside blockout, and the last-frame check
+node cinematic/build.mjs --lookdev --scale=0.5 --samples=64 a quick rough pass while adjusting
+node cinematic/build.mjs --lookdev --layout=narrow          the same for the phone's picture
+node cinematic/build.mjs --lookdev --reference              stills and the whole move for a video model, covers without lettering
+```
+
+The check printed at the end compares the case positions and the last
+frame with the blockout's. Stills go to `design-review/cinematic/lookdev/`
+and working files to `build/v2-lookdev/`; nothing is published to the site.
+The vault look is look development: the frames on the site are still the
+blockout's.
+
 ## Comparing a generated clip with the reference
 
 `compare.py` measures a clip from a video model against the Blender motion

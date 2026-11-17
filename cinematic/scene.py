@@ -20,11 +20,19 @@
 #   0.86 - 1.00  hold: nothing moves, the page fades the real cards in
 #
 # Units are metres, Z is up, the corridor runs along +Y.
+#
+# The same move can be dressed three ways (the "look" option):
+#   (none)    the blockout: flat shapes, drawn by EEVEE in about a second a frame
+#   true      the blockout with a polished floor
+#   "vault"   stone, brushed metal and glass under physically based light,
+#             drawn by Cycles. Only the surroundings differ: the camera
+#             route, the hero cases and the last frame are the same code.
 
 import json
 import math
 import os
 import sys
+import time
 
 import bmesh
 import bpy
@@ -34,6 +42,8 @@ from mathutils import Vector
 options = json.loads(sys.argv[sys.argv.index("--") + 1])
 PORTRAIT = options["height"] > options["width"]
 FRAMES = options["frames"]
+VAULT = options.get("look") == "vault"
+POLISHED = options.get("look") is True
 
 # ------------------------------------------------------------------ colours
 
@@ -64,6 +74,28 @@ scene.frame_start, scene.frame_end = 0, FRAMES - 1
 scene.view_settings.view_transform = "Standard"
 scene.view_settings.look = "None"
 
+if VAULT:
+    # Cycles follows light as it bounces, so reflections, soft shadows and
+    # the glow a lit surface throws on its neighbours come out on their own.
+    # It stops early where a part of the picture is already clean, and a
+    # denoiser removes the grain that is left.
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = options.get("samples", 256)
+    scene.cycles.use_adaptive_sampling = True
+    scene.cycles.adaptive_threshold = options.get("noise", 0.02)
+    scene.cycles.use_denoising = True
+    scene.cycles.max_bounces = 6
+    scene.cycles.caustics_reflective = scene.cycles.caustics_refractive = False
+    try:  # the graphics processor, where there is one Blender can use
+        preferences = bpy.context.preferences.addons["cycles"].preferences
+        preferences.compute_device_type = "METAL"
+        preferences.refresh_devices()
+        for device in preferences.devices:
+            device.use = device.type == "METAL"
+        scene.cycles.device = "GPU"
+    except Exception:
+        pass
+
 # The camera sees the page's band colour wherever there is nothing; the
 # surfaces are lit by a much dimmer version of it, so the corridor stays
 # dark and its own lights do the work.
@@ -74,7 +106,7 @@ seen = nodes["Background"]
 seen.inputs["Color"].default_value = BAND
 ambient = nodes.new("ShaderNodeBackground")
 ambient.inputs["Color"].default_value = BAND
-ambient.inputs["Strength"].default_value = 0.12
+ambient.inputs["Strength"].default_value = 0.02 if VAULT else 0.12  # the vault is closed in and lit by its own lamps
 is_camera = nodes.new("ShaderNodeLightPath")
 mix = nodes.new("ShaderNodeMixShader")
 links.new(is_camera.outputs["Is Camera Ray"], mix.inputs["Fac"])
@@ -111,24 +143,23 @@ def glow(name, colour, strength=1.0, image=None):
     return mat
 
 
-# "look": a better-lit version for stills that show intended appearance
-# (reflections in a polished floor); the frames for the page do not use it.
-LOOK = bool(options.get("look"))
-if LOOK:
+if POLISHED:
     try:
         scene.eevee.use_raytracing = True
     except Exception:
         pass
 
 WALL = material("wall", linear("#160a38"), roughness=0.55)
-FLOOR = material("floor", linear("#0f0728"), roughness=0.12 if LOOK else 0.3, metallic=0.6 if LOOK else 0.2)
+FLOOR = material("floor", linear("#0f0728"), roughness=0.12 if POLISHED else 0.3, metallic=0.6 if POLISHED else 0.2)
 PILLAR = material("pillar", linear("#241057"), roughness=0.4)
 CASE = material("case", linear("#0b0620"), roughness=0.35)
 STRIP = {"purple": glow("strip-purple", PURPLE, 2.0), "teal": glow("strip-teal", TEAL, 1.6), "yellow": glow("strip-yellow", YELLOW, 1.6)}
 
 
-def box(name, centre, size, mat):
-    """A box with real dimensions (no object scale, so children are not distorted)."""
+def box(name, centre, size, mat, bevel=0.0):
+    """A box with real dimensions (no object scale, so children are not distorted).
+    `bevel` rounds its edges by that many metres: no real edge is perfectly
+    sharp, and a rounded one catches a line of light."""
     mesh = bpy.data.meshes.new(name)
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
@@ -136,6 +167,8 @@ def box(name, centre, size, mat):
         vert.co.x *= size[0]
         vert.co.y *= size[1]
         vert.co.z *= size[2]
+    if bevel:
+        bmesh.ops.bevel(bm, geom=bm.edges[:], offset=min(bevel, min(size) / 4), segments=2, affect="EDGES", profile=0.5)
     bm.to_mesh(mesh)
     bm.free()
     mesh.materials.append(mat)
@@ -191,39 +224,377 @@ def area_light(name, location, colour, watts, size=1.2):
     obj.rotation_euler = (0, 0, 0)  # an area light shines down its -Z: straight at the floor
     scene.collection.objects.link(obj)
 
+# ------------------------------------------------------------------ the vault look: materials
+
+def surface(name):
+    """A new material, its shader, and the point being shaded in metres (so a
+    pattern runs on across neighbouring blocks instead of repeating on each)."""
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    return mat, nodes, links, nodes["Principled BSDF"], nodes.new("ShaderNodeNewGeometry").outputs["Position"]
+
+
+def clouds(nodes, links, position, scale, detail=6.0, stretch=None):
+    """Soft random variation between 0 and 1; `stretch` pulls it out into streaks."""
+    noise = nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = scale
+    noise.inputs["Detail"].default_value = detail
+    if stretch:
+        mapping = nodes.new("ShaderNodeMapping")
+        mapping.inputs["Scale"].default_value = stretch
+        links.new(position, mapping.inputs["Vector"])
+        position = mapping.outputs["Vector"]
+    links.new(position, noise.inputs["Vector"])
+    return noise.outputs[0]
+
+
+def spread(nodes, links, value, low, high):
+    """`value`, which hovers around a half, stretched to run from low to high."""
+    node = nodes.new("ShaderNodeMapRange")
+    node.inputs["From Min"].default_value, node.inputs["From Max"].default_value = 0.3, 0.7
+    node.inputs["To Min"].default_value, node.inputs["To Max"].default_value = low, high
+    links.new(value, node.inputs["Value"])
+    return node.outputs["Result"]
+
+
+def relief(nodes, links, bsdf, height, depth):
+    """Lets light catch a surface as if it rose and fell by `depth` metres, without changing its shape."""
+    bump = nodes.new("ShaderNodeBump")
+    bump.inputs["Distance"].default_value = depth
+    links.new(height, bump.inputs["Height"])
+    links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+
+
+def stone(name, dark, light, vein, polish, grain):
+    """Dark stone: two close tones in slow clouds, thin pale veins wandering
+    through it, a polish that is not quite even (`polish` is the smoothest
+    and roughest it gets) and a fine grain."""
+    mat, nodes, links, bsdf, position = surface(name)
+    tone = nodes.new("ShaderNodeValToRGB")
+    tone.color_ramp.elements[0].position, tone.color_ramp.elements[0].color = 0.3, dark
+    tone.color_ramp.elements[1].position, tone.color_ramp.elements[1].color = 0.7, light
+    links.new(clouds(nodes, links, position, 0.8), tone.inputs[0])
+    # A vein is the thin line along which a second, warped pattern crosses its own middle value.
+    warped = nodes.new("ShaderNodeTexNoise")
+    warped.inputs["Scale"].default_value, warped.inputs["Detail"].default_value, warped.inputs["Distortion"].default_value = 0.7, 5.0, 2.2
+    links.new(position, warped.inputs["Vector"])
+    line = nodes.new("ShaderNodeValToRGB")
+    for element, (at, colour) in zip(line.color_ramp.elements, ((0.495, (0, 0, 0, 1)), (0.5, (1, 1, 1, 1)))):
+        element.position, element.color = at, colour
+    after = line.color_ramp.elements.new(0.505)
+    after.color = (0, 0, 0, 1)
+    links.new(warped.outputs[0], line.inputs[0])
+    veined = nodes.new("ShaderNodeMix")
+    veined.data_type = "RGBA"
+    links.new(line.outputs["Color"], veined.inputs[0])
+    links.new(tone.outputs["Color"], veined.inputs[6])
+    veined.inputs[7].default_value = vein
+    links.new(veined.outputs[2], bsdf.inputs["Base Color"])
+    links.new(spread(nodes, links, clouds(nodes, links, position, 2.7), *polish), bsdf.inputs["Roughness"])
+    relief(nodes, links, bsdf, clouds(nodes, links, position, 150.0, 2.0), grain)
+    return mat
+
+
+def brushed(name, colour, roughness, along):
+    """Brushed metal: fine scratches all running along one axis, which is what
+    draws a reflection out into a soft streak across them."""
+    mat, nodes, links, bsdf, position = surface(name)
+    bsdf.inputs["Base Color"].default_value = colour
+    bsdf.inputs["Metallic"].default_value = 1.0
+    stretch = [260.0, 260.0, 260.0]
+    stretch["xyz".index(along)] = 1.2
+    scratches = clouds(nodes, links, position, 1.0, 3.0, tuple(stretch))
+    links.new(spread(nodes, links, scratches, roughness - 0.07, roughness + 0.09), bsdf.inputs["Roughness"])
+    relief(nodes, links, bsdf, scratches, 0.0002)
+    return mat
+
+
+def glass(name):
+    """A pane of clear glass: seen straight on it is nearly invisible, at a
+    glancing angle it mirrors the room. Light passes through it unbent, so
+    what stands behind it is lit as if the pane were not there."""
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    nodes.remove(nodes["Principled BSDF"])
+    clear = nodes.new("ShaderNodeBsdfTransparent")
+    mirror = nodes.new("ShaderNodeBsdfGlossy")
+    mirror.inputs["Roughness"].default_value = 0.02
+    glancing = nodes.new("ShaderNodeFresnel")
+    glancing.inputs["IOR"].default_value = 1.5
+    mix = nodes.new("ShaderNodeMixShader")
+    links.new(glancing.outputs[0], mix.inputs[0])
+    links.new(clear.outputs[0], mix.inputs[1])
+    links.new(mirror.outputs[0], mix.inputs[2])
+    links.new(mix.outputs[0], nodes["Material Output"].inputs["Surface"])
+    return mat
+
+
+def fade_to_band(mat, start, end):
+    """Between `start` and `end` along the corridor's axis the surface turns
+    into the page's band colour, so a floor can run out into the backdrop
+    without an edge."""
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    split = nodes.new("ShaderNodeSeparateXYZ")
+    links.new(nodes.new("ShaderNodeNewGeometry").outputs["Position"], split.inputs[0])
+    share = nodes.new("ShaderNodeMapRange")
+    share.inputs["From Min"].default_value, share.inputs["From Max"].default_value = start, end
+    links.new(split.outputs["Y"], share.inputs["Value"])
+    band = nodes.new("ShaderNodeEmission")
+    band.inputs["Color"].default_value = BAND
+    mix = nodes.new("ShaderNodeMixShader")
+    links.new(share.outputs["Result"], mix.inputs[0])
+    links.new(nodes["Principled BSDF"].outputs[0], mix.inputs[1])
+    links.new(band.outputs[0], mix.inputs[2])
+    links.new(mix.outputs[0], nodes["Material Output"].inputs["Surface"])
+
+
+def block(name, x, y, z, mat, bevel=0.004):
+    """A box given by where it starts and ends on each axis."""
+    centre = ((x[0] + x[1]) / 2, (y[0] + y[1]) / 2, (z[0] + z[1]) / 2)
+    return box(name, centre, (abs(x[1] - x[0]), abs(y[1] - y[0]), abs(z[1] - z[0])), mat, bevel)
+
+
+def lamp(name, location, colour, watts, across, along, up=False):
+    """A strip of light set deep in a recess: it lights the room, but neither
+    the camera nor a reflection ever shows the lamp itself, only what it
+    lights. `across` is its size across the corridor, `along` its size along it."""
+    data = bpy.data.lights.new(name, "AREA")
+    data.shape = "RECTANGLE"
+    data.size, data.size_y = across, along
+    data.color = colour[:3]
+    data.energy = watts
+    obj = bpy.data.objects.new(name, data)
+    obj.location = location
+    obj.rotation_euler = (math.pi if up else 0, 0, 0)  # an area light shines down unless turned over
+    obj.visible_camera = obj.visible_glossy = False
+    scene.collection.objects.link(obj)
+
+
+def dress(body, frame, pane, edge):
+    """What turns a gallery case into a display case: a metal frame around
+    its front with a hair of light along its inner edge, a pane of glass
+    before the cover, and a foot to stand on."""
+    y = -CASE_T / 2 - 0.012
+    parts = [box("case-foot", (0, 0, -CASE_H / 2 - 0.025), (0.36, 0.11, 0.05), frame, 0.004)]
+    for side in (-1, 1):
+        parts.append(box("case-frame", (side * (CASE_W / 2 - 0.009), y, 0), (0.018, 0.024, CASE_H), frame, 0.002))
+        parts.append(box("case-frame", (0, y, side * (CASE_H / 2 - 0.009)), (CASE_W, 0.024, 0.018), frame, 0.002))
+        parts.append(box("case-edge", (side * (CASE_W / 2 - 0.021), y - 0.011, 0), (0.005, 0.003, CASE_H - 0.036), edge))
+        parts.append(box("case-edge", (0, y - 0.011, side * (CASE_H / 2 - 0.021)), (CASE_W - 0.036, 0.003, 0.005), edge))
+    mesh = bpy.data.meshes.new("case-glass")
+    w, h, y = CASE_W / 2 - 0.018, CASE_H / 2 - 0.018, -CASE_T / 2 - 0.016
+    mesh.from_pydata([(-w, y, -h), (w, y, -h), (w, y, h), (-w, y, h)], [], [(0, 1, 2, 3)])
+    mesh.materials.append(pane)
+    parts.append(bpy.data.objects.new("case-glass", mesh))
+    scene.collection.objects.link(parts[-1])
+    for part in parts:
+        part.parent = body
+
+# ------------------------------------------------------------------ the vault look: architecture
+#
+# Seen from above, one side of the corridor (the other mirrors it):
+#
+#     centre line          WALL_X  BACK_X
+#         |   floor           |######|=|     ###  stone, in front
+#         |              +----|      |=|     =    brushed metal, behind
+#         |      shelf   |    niche  |=|
+#         |              +----|      |=|
+#         |                 [pilaster]#|=|
+#
+# Each bay is a niche cut into the stone, with a metal shelf standing out of
+# it and a glass-fronted case on the shelf. Light comes from neon tubes
+# (rectangles under the ceiling, a line along each shelf and niche, a frame
+# around the doorway) and from where a builder would hide it: above a ledge
+# under the ceiling, in the top of each niche, under each shelf and in a gap
+# at the foot of the wall.
+
+def build_vault():
+    WALL_X, BACK_X, OUTER_X = HALF_WIDTH, 2.62, 2.82
+    START, DOOR, DOOR_END = -6.25, LENGTH - 0.15, LENGTH + 0.3  # along the corridor; the doorway is 45 cm deep
+    NICHE_Z, NICHE_HALF = (0.55, 3.1), 0.9
+    GAP = 0.002  # half the joint between two slabs
+    ROOM_X, ROOM_Z, ROOM_END, FLOOR_END = 5.0, 5.4, 47.0, 42.5  # the chamber beyond the doorway
+
+    wall = stone("stone", linear("#2c2a34"), linear("#57526a"), linear("#6f6a7e"), (0.3, 0.55), 0.0008)
+    floor = stone("floor", linear("#0c0b11"), linear("#1f1d29"), linear("#2f2c3a"), (0.05, 0.14), 0.00015)
+    fade_to_band(floor, FLOOR_END - 4.5, FLOOR_END - 0.5)
+    upright = brushed("metal-upright", linear("#5a5664"), 0.3, "z")
+    lengthwise = brushed("metal-lengthwise", linear("#5a5664"), 0.3, "y")
+    backing = brushed("metal-backing", linear("#1d1c22"), 0.42, "z")
+    bronze = brushed("bronze", linear("#7a6248"), 0.32, "z")
+    overhead = material("overhead", linear("#17161d"), roughness=0.7)
+    pane = glass("glass")
+    SOFT = (0.62, 0.55, 1.0, 1.0)  # the white of the lamps: violet, not neutral
+    VIOLET = linear("#a03cff")  # the neon leans toward magenta; the page's own purple stays on the backdrop
+    GOLD = linear("#ffb02e")
+    # A tube brighter than this would be drawn as plain white or yellow; the
+    # light each one gives comes from a lamp placed beside it.
+    led = {
+        "violet": glow("led-violet", VIOLET, 2.2),
+        "teal": glow("led-teal", TEAL, 1.4),
+        "gold": glow("led-gold", GOLD, 1.4),
+        "soft": glow("led-soft", SOFT, 2.0),
+    }
+    joints = [START + BAY * i for i in range(15)] + [DOOR]  # where wall and ceiling panels meet
+    tiles = [START + BAY / 2 * i for i in range(29)] + [DOOR]  # the floor is laid in smaller tiles
+
+    # Floor, ceiling and the wall behind the camera.
+    block("bed", (-ROOM_X - 0.6, ROOM_X + 0.6), (START - 0.3, FLOOR_END), (-0.3, -0.1), overhead, 0)
+    for a, b in zip(tiles, tiles[1:]):
+        for x0, x1 in ((-OUTER_X, -1.1), (-1.1, 0.0), (0.0, 1.1), (1.1, OUTER_X)):
+            block("tile", (x0 + GAP, x1 - GAP), (a + GAP, b - GAP), (-0.1, 0.0), floor, 0.0015)
+    for a, b in zip(joints, joints[1:]):
+        block("ceiling", (-OUTER_X, OUTER_X), (a + GAP, b - GAP), (HEIGHT, HEIGHT + 0.1), overhead, 0.002)
+    for bay in range(BAYS):
+        # Over each bay hangs a rectangle of neon tube. A picture cannot show
+        # a tube as bright as it is, so a lamp beside it gives the light it would.
+        y = BAY * (bay + 1)
+        for side in (-1, 1):
+            block("ring", (side * 0.93, side * 0.97), (y - 0.65, y + 0.65), (HEIGHT - 0.07, HEIGHT - 0.03), led["violet"], 0)
+            block("ring", (-0.97, 0.97), (y + side * 0.63, y + side * 0.67), (HEIGHT - 0.07, HEIGHT - 0.03), led["violet"], 0)
+        lamp("ring-light", (0, y, HEIGHT - 0.08), VIOLET, 70, 1.8, 1.2)
+    block("end", (-OUTER_X, OUTER_X), (START - 0.2, START), (0.0, HEIGHT), wall, 0)
+
+    for side in (-1, 1):
+        def x(near, far):
+            return (side * near, side * far)
+
+        block("backing", x(BACK_X, OUTER_X), (START, DOOR), (0.0, HEIGHT), backing, 0)
+        for a, b in zip(joints, joints[1:]):
+            # Stone below and above the niches, one panel per bay.
+            block("dado", x(WALL_X, BACK_X), (a + GAP, b - GAP), (0.07, NICHE_Z[0]), wall)
+            block("frieze", x(WALL_X, BACK_X), (a + GAP, b - GAP), (NICHE_Z[1], HEIGHT), wall)
+            # The ledge under the ceiling, and the light lying on top of it.
+            block("ledge", x(WALL_X - 0.24, WALL_X), (a + GAP, b - GAP), (3.56, 3.62), lengthwise, 0.003)
+            lamp("ledge-light", (side * (WALL_X - 0.11), (a + b) / 2, 3.64), VIOLET, 90, 0.12, b - a - 0.1, up=True)
+        # The line of light in the gap at the foot of the wall.
+        block("foot-led", x(2.3, 2.32), (START, DOOR), (0.02, 0.045), led["violet"], 0)
+
+        # The stone between one niche and the next.
+        edge = START
+        for bay in range(BAYS + 1):
+            until = BAY * (bay + 1) - NICHE_HALF if bay < BAYS else DOOR
+            block("pier", x(WALL_X, BACK_X), (edge, until), NICHE_Z, wall)
+            edge = until + 2 * NICHE_HALF
+            # A pilaster stands out from each pier, with a strip of metal let into its face.
+            y = BAY * bay + BAY / 2
+            block("pilaster", x(WALL_X - 0.2, WALL_X), (y - 0.22, y + 0.22), (0.0, 3.56), wall, 0.006)
+            block("inlay", x(WALL_X - 0.206, WALL_X - 0.198), (y - 0.035, y + 0.035), (0.12, 3.44), upright, 0.002)
+
+    for bay in range(BAYS):
+        y = BAY * (bay + 1)
+        for index, side in enumerate((-1, 1)):
+            # The shelf: teal light along its front edge and from underneath.
+            block("shelf", (side * 1.62, side * BACK_X), (y - 0.74, y + 0.74), (1.0, 1.05), lengthwise, 0.003)
+            block("shelf-edge", (side * 1.612, side * 1.622), (y - 0.72, y + 0.72), (1.012, 1.032), led["teal"], 0)
+            block("shelf-led", (side * 1.66, side * 1.69), (y - 0.7, y + 0.7), (0.99, 1.0), led["teal"], 0)
+            lamp("shelf-light", (side * 1.95, y, 0.985), TEAL, 12, 0.5, 1.3)
+            # The niche: a line of violet along its head, and a soft light down its back.
+            block("niche-led", (side * 2.215, side * 2.235), (y - 0.86, y + 0.86), (NICHE_Z[1] - 0.02, NICHE_Z[1]), led["violet"], 0)
+            lamp("niche-light", (side * 2.42, y, NICHE_Z[1] - 0.03), SOFT, 28, 0.25, 1.3)
+            # The case on the shelf, where the blockout has it.
+            body, _ = case(f"gallery-{bay}-{index}", gallery[(bay * 2 + index) % len(gallery)])
+            body.location = (side * (HALF_WIDTH - 0.28), y, 1.7)
+            body.rotation_euler = (0, 0, -side * math.radians(62))
+            dress(body, upright, pane, led["soft"])
+            # A second, narrow shelf high in the niche, with four small cases facing the corridor.
+            block("high-shelf", (side * 2.24, side * BACK_X), (y - 0.86, y + 0.86), (2.5, 2.53), lengthwise, 0.002)
+            for place in range(4):
+                small, _ = case(f"small-{bay}-{index}-{place}", gallery[(bay * 8 + index * 4 + place + 5) % len(gallery)])
+                small.scale = (0.3, 0.3, 0.3)
+                small.location = (side * 2.36, y + (place - 1.5) * 0.4, 2.53 + CASE_H * 0.15)
+                small.rotation_euler = (0, 0, -side * math.radians(90))
+
+    # The doorway: a bronze frame with a line of warm light around its opening.
+    for side in (-1, 1):
+        block("jamb", (side * 2.0, side * OUTER_X), (DOOR, DOOR_END), (0.0, HEIGHT), bronze, 0.004)
+        block("door-led", (side * 2.03, side * 2.07), (DOOR - 0.012, DOOR), (0.03, 3.77), led["gold"], 0)
+    block("lintel", (-2.0, 2.0), (DOOR, DOOR_END), (3.8, HEIGHT + 0.1), bronze, 0.004)
+    block("door-led", (-2.07, 2.07), (DOOR - 0.012, DOOR), (3.73, 3.77), led["gold"], 0)
+    lamp("door-light", (0, DOOR - 0.3, 3.7), GOLD, 160, 3.6, 0.3)
+    block("threshold", (-2.0, 2.0), (DOOR + GAP, DOOR_END), (-0.1, 0.0), lengthwise, 0.002)
+
+    # The chamber. It is wider and taller than the corridor, and it ends in a
+    # wall of light the colour of the page's band. Nothing of it stands where
+    # the camera looks in its last position, so the last frame is the six
+    # cases on that colour and nothing else.
+    rows = [DOOR_END, 32.5, 35.0, 37.5, 40.0, FLOOR_END, 45.0, ROOM_END]
+    columns = [-5.5 + 1.1 * i for i in range(11)]
+    beyond = [DOOR_END + (FLOOR_END - DOOR_END) / 10 * i for i in range(11)]  # floor tiles, as far as the floor goes
+    for a, b in zip(beyond, beyond[1:]):
+        for x0, x1 in zip(columns, columns[1:]):
+            block("tile", (x0 + GAP, x1 - GAP), (a + GAP, b - GAP), (-0.1, 0.0), floor, 0.0015)
+    for a, b in zip(rows, rows[1:]):
+        for side in (-1, 1):
+            block("room-wall", (side * ROOM_X, side * (ROOM_X + 0.2)), (a + GAP, b - GAP), (0.0, ROOM_Z), wall)
+            # A slot of light up the wall at each joint.
+            block("room-led", (side * (ROOM_X - 0.012), side * ROOM_X), (a - 0.02, a + 0.02), (0.4, ROOM_Z - 0.4), led["violet"], 0)
+    for side in (-1, 1):
+        block("room-front", (side * OUTER_X, side * (ROOM_X + 0.2)), (LENGTH, DOOR_END), (0.0, ROOM_Z), wall, 0)
+        block("room-foot-led", (side * (ROOM_X - 0.03), side * ROOM_X), (DOOR_END, ROOM_END), (0.02, 0.05), led["teal"], 0)
+    block("room-front", (-OUTER_X, OUTER_X), (LENGTH, DOOR_END), (HEIGHT + 0.1, ROOM_Z), wall, 0)
+    block("room-ceiling", (-ROOM_X - 0.2, ROOM_X + 0.2), (LENGTH, ROOM_END), (ROOM_Z, ROOM_Z + 0.1), overhead, 0)
+    # Two rings of neon under the chamber's ceiling, gold inside violet, and the light they give.
+    for radius, colour in ((2.4, "gold"), (3.3, "violet")):
+        bpy.ops.mesh.primitive_torus_add(major_radius=radius, minor_radius=0.03, major_segments=96, minor_segments=8, location=(0, 37.0, ROOM_Z - 0.12))
+        bpy.context.object.data.materials.append(led[colour])
+    lamp("room-light", (0, 37.0, ROOM_Z - 0.2), SOFT, 500, 4.0, 4.0)
+    # The camera looks through this to the background, which is the same colour; it is here to light the room and to be reflected.
+    block("light-wall", (-ROOM_X, ROOM_X), (ROOM_END, ROOM_END + 0.05), (-2.0, ROOM_Z), glow("light-wall", BAND, 1.0), 0).visible_camera = False
+
+    # Haze: air that scatters a little light, so the far end of the corridor
+    # softens and the lamps glow into it. It stops at the doorway.
+    density = options.get("haze", 0)
+    if density:
+        haze = bpy.data.materials.new("haze")
+        haze.use_nodes = True
+        nodes, links = haze.node_tree.nodes, haze.node_tree.links
+        nodes.remove(nodes["Principled BSDF"])
+        air = nodes.new("ShaderNodeVolumePrincipled")
+        air.inputs["Density"].default_value = density
+        air.inputs["Anisotropy"].default_value = 0.3
+        links.new(air.outputs[0], nodes["Material Output"].inputs["Volume"])
+        block("haze", (-WALL_X, WALL_X), (START, DOOR), (0.0, HEIGHT), haze, 0)
+
 # ------------------------------------------------------------------ the corridor
 
 LENGTH, HALF_WIDTH, HEIGHT = 30.0, 2.2, 4.0
 BAYS = 11  # one case on each wall per bay
 BAY = 2.5
-
-box("floor", (0, LENGTH / 2 - 3, -0.05), (HALF_WIDTH * 2 + 0.4, LENGTH + 6, 0.1), FLOOR)
-box("ceiling", (0, LENGTH / 2 - 3, HEIGHT + 0.05), (HALF_WIDTH * 2 + 0.4, LENGTH + 6, 0.1), WALL)
-for side in (-1, 1):
-    box("wall", (side * (HALF_WIDTH + 0.1), LENGTH / 2 - 3, HEIGHT / 2), (0.2, LENGTH + 6, HEIGHT), WALL)
-    # One line of light where each wall meets the ceiling, and a fainter one at the floor.
-    box("ceiling-line", (side * (HALF_WIDTH - 0.06), LENGTH / 2 - 3, HEIGHT - 0.06), (0.05, LENGTH + 6, 0.05), STRIP["purple"])
-    box("floor-line", (side * (HALF_WIDTH - 0.04), LENGTH / 2 - 3, 0.03), (0.03, LENGTH + 6, 0.03), STRIP["purple"])
-
 gallery = options["gallery"]
-for bay in range(BAYS):
-    y = BAY * (bay + 1)
-    for index, side in enumerate((-1, 1)):
-        # Pillars between the bays give the corridor its rhythm.
-        box("pillar", (side * (HALF_WIDTH - 0.12), y - BAY / 2, HEIGHT / 2), (0.24, 0.3, HEIGHT), PILLAR)
-        # Each case stands off the wall, turned a little toward whoever walks in.
-        body, _ = case(f"gallery-{bay}-{index}", gallery[(bay * 2 + index) % len(gallery)])
-        body.location = (side * (HALF_WIDTH - 0.28), y, 1.7)
-        body.rotation_euler = (0, 0, -side * math.radians(62))
-        # A shelf of light under each case; teal on every third bay, never two accents together.
-        accent = "teal" if bay % 3 == 1 else "purple"
-        box("shelf", (side * (HALF_WIDTH - 0.2), y, 1.02), (0.36, 1.25, 0.03), STRIP[accent])
-    area_light(f"bay-light-{bay}", (0, y, HEIGHT - 0.3), PURPLE, 260, size=1.6)
 
-# The way out: a thin yellow frame around the end of the corridor.
-for x in (-HALF_WIDTH + 0.05, HALF_WIDTH - 0.05):
-    box("portal", (x, LENGTH, HEIGHT / 2), (0.06, 0.06, HEIGHT), STRIP["yellow"])
-box("portal", (0, LENGTH, HEIGHT - 0.05), (HALF_WIDTH * 2, 0.06, 0.06), STRIP["yellow"])
+if VAULT:
+    CASE = brushed("case", linear("#3a3840"), 0.34, "z")  # the hero cases too are metal in this look
+    build_vault()
+else:
+    box("floor", (0, LENGTH / 2 - 3, -0.05), (HALF_WIDTH * 2 + 0.4, LENGTH + 6, 0.1), FLOOR)
+    box("ceiling", (0, LENGTH / 2 - 3, HEIGHT + 0.05), (HALF_WIDTH * 2 + 0.4, LENGTH + 6, 0.1), WALL)
+    for side in (-1, 1):
+        box("wall", (side * (HALF_WIDTH + 0.1), LENGTH / 2 - 3, HEIGHT / 2), (0.2, LENGTH + 6, HEIGHT), WALL)
+        # One line of light where each wall meets the ceiling, and a fainter one at the floor.
+        box("ceiling-line", (side * (HALF_WIDTH - 0.06), LENGTH / 2 - 3, HEIGHT - 0.06), (0.05, LENGTH + 6, 0.05), STRIP["purple"])
+        box("floor-line", (side * (HALF_WIDTH - 0.04), LENGTH / 2 - 3, 0.03), (0.03, LENGTH + 6, 0.03), STRIP["purple"])
+
+    for bay in range(BAYS):
+        y = BAY * (bay + 1)
+        for index, side in enumerate((-1, 1)):
+            # Pillars between the bays give the corridor its rhythm.
+            box("pillar", (side * (HALF_WIDTH - 0.12), y - BAY / 2, HEIGHT / 2), (0.24, 0.3, HEIGHT), PILLAR)
+            # Each case stands off the wall, turned a little toward whoever walks in.
+            body, _ = case(f"gallery-{bay}-{index}", gallery[(bay * 2 + index) % len(gallery)])
+            body.location = (side * (HALF_WIDTH - 0.28), y, 1.7)
+            body.rotation_euler = (0, 0, -side * math.radians(62))
+            # A shelf of light under each case; teal on every third bay, never two accents together.
+            accent = "teal" if bay % 3 == 1 else "purple"
+            box("shelf", (side * (HALF_WIDTH - 0.2), y, 1.02), (0.36, 1.25, 0.03), STRIP[accent])
+        area_light(f"bay-light-{bay}", (0, y, HEIGHT - 0.3), PURPLE, 260, size=1.6)
+
+    # The way out: a thin yellow frame around the end of the corridor.
+    for x in (-HALF_WIDTH + 0.05, HALF_WIDTH - 0.05):
+        box("portal", (x, LENGTH, HEIGHT / 2), (0.06, 0.06, HEIGHT), STRIP["yellow"])
+    box("portal", (0, LENGTH, HEIGHT - 0.05), (HALF_WIDTH * 2, 0.06, 0.06), STRIP["yellow"])
 
 # ------------------------------------------------------------------ camera and hero cases
 
@@ -335,6 +706,7 @@ settings.color_mode = "RGB"
 settings.quality = options.get("quality", 75)
 
 wanted = options.get("only")  # a few chosen frames (for measuring sizes), or every frame
+seconds = []  # how long each frame took to draw
 for frame in (wanted if wanted is not None else range(FRAMES)):
     # First the frame number, then the pose: changing the frame makes
     # Blender re-apply recorded keyframes, which would undo a pose set before it.
@@ -345,7 +717,9 @@ for frame in (wanted if wanted is not None else range(FRAMES)):
     for hero in heroes:
         hero["body"].keyframe_insert("location"); hero["body"].keyframe_insert("rotation_euler")
     scene.render.filepath = os.path.join(out, f"f-{frame:03d}.{EXTENSION}")
+    started = time.time()
     bpy.ops.render.render(write_still=True)
+    seconds.append(round(time.time() - started, 1))
     # The same rendered picture saved at other settings, to compare file sizes.
     for variant in options.get("variants", []):
         settings.file_format, settings.quality = variant["format"], variant["quality"]
@@ -358,6 +732,7 @@ report = {
     "width": options["width"],
     "height": options["height"],
     "slots": [{"slug": slot["slug"], **front_rectangle(hero["front"])} for slot, hero in zip(slots, heroes)],
+    "seconds": seconds,
 }
 with open(os.path.join(out, "layout.json"), "w") as handle:
     json.dump(report, handle, indent=2)
