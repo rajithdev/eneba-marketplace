@@ -14,6 +14,7 @@ ordinary React block, backed by the API.
 | `scene.py` | The Blender scene, built entirely by script. The whole scene is a function of scroll progress (0 to 1), so every frame is repeatable and the last frame can be described exactly. |
 | `build.mjs` | Prepares cover textures, asks the API which products the deals block holds, runs Blender, writes the manifest and publishes frames to `web/public/cinematic/<version>/`. |
 | `measure.mjs` | Opens the site in Chrome at several window sizes and measures loading, memory, alignment and scroll smoothness, and records the scroll. |
+| `compare.py` | Measures a clip from a video model against the Blender motion reference it was made from. |
 | `build/` | Working files (not committed): rendered frames, `.blend` files, reference material. |
 | `web/src/cinematic/` | The page side: `layouts.ts` (which windows get the section, and its memory budgets), `fit.ts` (arithmetic), `sequence.ts` (frame loading and release), `stage.ts` (drawing), `CinematicDeals.tsx` (the block with its fallback). |
 | `web/public/cinematic/v1-blockout/` | The published frames of the current version and their manifest: the blockout at final frame size. |
@@ -62,3 +63,21 @@ reduced, data saving is on, the connection is slow, the device reports
 little memory, the window is tablet-sized (640 to 1023 px) or the browser
 lacks what is needed. If the frames cannot be fetched, the block is simply
 shown; the pinned stretch is dropped if that can be done out of sight.
+
+## Comparing a generated clip with the reference
+
+`compare.py` measures a clip from a video model against the Blender motion
+reference it was made from: how far the camera has come (by the size of
+the doorway), where the six panels end up against the positions exported
+for the cards, and flicker. It also writes strips and a side-by-side video
+to look at. It needs only ffmpeg and the numpy inside Blender's Python:
+
+```
+/Applications/Blender.app/Contents/Resources/5.3/python/bin/python3.13 -I \
+    cinematic/compare.py <reference.mp4> <generated.mp4> <out dir> \
+    web/public/cinematic/v1-blockout/manifest.json
+```
+
+The one Seedance 2.5 test (17 November 2026) did not follow the camera
+closely enough to use; the frames on the site are Blender's. The report is
+kept with the review material, outside Git.
