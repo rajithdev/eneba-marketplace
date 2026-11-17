@@ -26,7 +26,7 @@ import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { covers as illustrations } from './artwork.mjs'
+import { covers as illustrations, featured } from './artwork.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
@@ -71,35 +71,39 @@ function withoutLettering() {
   return (path) => join(dir, path.split('/').pop())
 }
 
-// The shop's illustrations as pictures, best first (see artwork.mjs).
+// The shop's illustrations as pictures (see artwork.mjs): the eight painted
+// ones for the large display cases, and the twenty that stock the shelves.
 function artwork() {
-  // --art-folder=<folder> uses the pictures in that folder instead (3:4 PNG or JPEG, best first by name).
-  const folder = flag('art-folder')
-  if (folder) return readdirSync(folder).filter((name) => /\.(png|jpe?g)$/i.test(name)).sort().map((name) => join(folder, name))
+  // --art-folder=<folder> uses the pictures in that folder for the large cases instead (3:4 PNG or JPEG, in name order).
   const dir = join(build, 'artwork')
   mkdirSync(dir, { recursive: true })
-  return illustrations.map((cover, index) => {
-    const name = `${String(index + 1).padStart(2, '0')}-${cover.name}`
+  const pictures = (list, prefix, size) => list.map((cover, index) => {
+    const name = `${prefix}-${String(index + 1).padStart(2, '0')}-${cover.name}`
     const svg = join(dir, `${name}.svg`)
     const png = join(dir, `${name}.png`)
     if (!existsSync(svg) || readFileSync(svg, 'utf8') !== cover.svg || !existsSync(png)) {
       writeFileSync(svg, cover.svg)
-      execFileSync(CHROME, ['--headless=new', '--hide-scrollbars', '--window-size=600,800', '--default-background-color=00000000', `--screenshot=${png}`, `file://${svg}`], { stdio: 'ignore' })
+      execFileSync(CHROME, ['--headless=new', '--hide-scrollbars', `--window-size=${size}`, '--default-background-color=00000000', `--screenshot=${png}`, `file://${svg}`], { stdio: 'ignore' })
     }
     return png
   })
+  const folder = flag('art-folder')
+  return {
+    large: folder ? readdirSync(folder).filter((name) => /\.(png|jpe?g)$/i.test(name)).sort().map((name) => join(folder, name)) : pictures(featured, 'large', '900,1200'),
+    stock: pictures(illustrations, 'stock', '600,800'),
+  }
 }
 
 if (process.argv.includes('--artwork')) {
-  const pictures = artwork()
+  const { large, stock } = artwork()
   const review = join(root, 'design-review', 'cinematic', 'artwork')
   mkdirSync(review, { recursive: true })
-  // Five across, in ranking order, a little space between them.
-  execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...pictures.flatMap((picture) => ['-i', picture]), '-filter_complex',
-    `${pictures.map((_, index) => `[${index}]format=rgb24,scale=360:480,pad=372:492:6:6:white[c${index}]`).join(';')};${pictures.map((_, index) => `[c${index}]`).join('')}xstack=inputs=${pictures.length}:layout=${pictures.map((_, index) => `${(index % 5) * 372}_${Math.floor(index / 5) * 492}`).join('|')}`,
-    '-pix_fmt', 'rgb24', join(review, 'contact-sheet.png')])
-  console.log(`${pictures.length} illustrations; contact sheet in design-review/cinematic/artwork/`)
-  for (const [index, cover] of illustrations.entries()) console.log(`  ${String(index + 1).padStart(2)}  ${cover.name.padEnd(18)} ${cover.theme}`)
+  const sheet = (pictures, across, [w, h], file) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...pictures.flatMap((picture) => ['-i', picture]), '-filter_complex',
+    `${pictures.map((_, index) => `[${index}]format=rgb24,scale=${w}:${h},pad=${w + 12}:${h + 12}:6:6:white[c${index}]`).join(';')};${pictures.map((_, index) => `[c${index}]`).join('')}xstack=inputs=${pictures.length}:layout=${pictures.map((_, index) => `${(index % across) * (w + 12)}_${Math.floor(index / across) * (h + 12)}`).join('|')}`,
+    '-pix_fmt', 'rgb24', join(review, file)])
+  sheet(large, 4, [450, 600], 'large-covers.png')
+  sheet(stock, 5, [360, 480], 'contact-sheet.png')
+  console.log(`${large.length} covers for the large cases, ${stock.length} for the shelves; sheets in design-review/cinematic/artwork/`)
   process.exit(0)
 }
 
@@ -196,7 +200,7 @@ if (lookdevOnly && referenceOnly) {
   // they and the video show one place from one camera.
   const bare = withoutLettering()
   const art = artwork()
-  const dressed = { gallery: art.slice(0, 8), decor: art, slots: products.slice(0, layouts.wide.slots).map((product) => ({ ...product, texture: bare(product.texture) })) }
+  const dressed = { gallery: art.large, decor: art.stock, slots: products.slice(0, layouts.wide.slots).map((product) => ({ ...product, texture: bare(product.texture) })) }
   const reference = join(build, VERSION, 'reference')
   mkdirSync(reference, { recursive: true })
   const clip = { ...layouts.wide, width: 1280, height: 720, frames: 120 }
@@ -236,7 +240,7 @@ if (lookdevOnly) {
   const blockout = render(`${name} blockout stills`, shape, { folder: `${name}-blockout`, options: { format: 'PNG', samples: 32, only } })
   const vault = render(`${name} vault stills`, shape, {
     folder: `${name}-vault`,
-    options: { format: 'PNG', look: 'vault', gallery: artwork().slice(0, 8), decor: artwork(), samples: Number(flag('samples', '256')), noise: Number(flag('noise', '0.02')), haze: Number(flag('haze', '0')), only },
+    options: { format: 'PNG', look: 'vault', gallery: artwork().large, decor: artwork().stock, samples: Number(flag('samples', '256')), noise: Number(flag('noise', '0.02')), haze: Number(flag('haze', '0')), only },
   })
   const review = join(root, 'design-review', 'cinematic', 'lookdev', flag('label', name))
   rmSync(review, { recursive: true, force: true })

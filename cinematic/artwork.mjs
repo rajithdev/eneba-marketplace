@@ -36,7 +36,7 @@ function kit() {
   return {
     extra,
     fill,
-    sky: (...stops) => `<rect width="600" height="800" fill="${fill(stops)}"/>`,
+    sky: (...stops) => `<rect x="-30" y="-30" width="660" height="860" fill="${fill(stops)}"/>`,
     stars: (seed, n, below = 500) => {
       const next = dice(seed)
       return Array.from({ length: n }, () => `<circle cx="${(next() * 600).toFixed(0)}" cy="${(next() * below).toFixed(0)}" r="${(0.5 + next() * 1.4).toFixed(1)}" fill="#fff" opacity="${(0.35 + next() * 0.65).toFixed(2)}"/>`).join('')
@@ -70,6 +70,43 @@ function kit() {
     },
     mist: (y, height, colour, opacity = 0.5) => `<rect x="-40" y="${y}" width="680" height="${height}" fill="${colour}" opacity="${opacity}" filter="url(#glow)"/>`,
     at: (x, y, scale, body, turn = 0) => `<g transform="translate(${x} ${y}) rotate(${turn}) scale(${scale})">${body}</g>`,
+
+    // ---- the pieces only the painted covers use
+
+    // Cloud, smoke, fog or nebula: soft random patches of one colour, fading out above and below.
+    cloud: (y, height, colour, { seed = 1, fine = 1, cut = 0.5, gain = 3, opacity = 1 } = {}) => {
+      const id = `c${(count += 1)}`
+      const [r, g, b] = [1, 3, 5].map((i) => (parseInt(colour.slice(i, i + 2), 16) / 255).toFixed(3))
+      extra.push(`<filter id="${id}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="${0.005 * fine} ${0.011 * fine}" numOctaves="5" seed="${seed}"/><feColorMatrix values="0 0 0 0 ${r}  0 0 0 0 ${g}  0 0 0 0 ${b}  ${gain} 0 0 0 ${-gain * cut}"/></filter>`,
+        `<mask id="m${id}"><rect x="-30" y="${y}" width="660" height="${height}" fill="${fill([[0, '#000'], [0.3, '#fff'], [0.7, '#fff'], [1, '#000']])}"/></mask>`)
+      return `<g mask="url(#m${id})" opacity="${opacity}"><rect x="-30" y="${y}" width="660" height="${height}" filter="url(#${id})"/></g>`
+    },
+    // A figure or machine lit from behind: a bright edge on the side the light comes from, a dark body, and a glow on it where light spills.
+    lit: (shape, body, edge, [dx, dy], spill = '') => {
+      const id = `s${(count += 1)}`
+      extra.push(`<clipPath id="${id}">${shape}</clipPath>`)
+      return `<g fill="${edge}">${shape}</g><g clip-path="url(#${id})"><g fill="${body}" transform="translate(${dx} ${dy})">${shape}</g>${spill}</g>`
+    },
+    // Shafts of light fanning out from one point.
+    rays: (cx, cy, length, colour, turns, opacity = 0.14) => `<g filter="url(#soft)" opacity="${opacity}">${turns.map(([angle, width]) => {
+      const point = (a) => `${(cx + length * Math.cos((a * Math.PI) / 180)).toFixed(0)},${(cy + length * Math.sin((a * Math.PI) / 180)).toFixed(0)}`
+      return `<path d="M${cx},${cy} L${point(angle - width)} L${point(angle + width)} Z" fill="${colour}"/>`
+    }).join('')}</g>`,
+    rain: (seed, n, colour, slant = 0.22) => {
+      const next = dice(seed)
+      return Array.from({ length: n }, () => {
+        const [x, y, l] = [next() * 700 - 50, next() * 800, 14 + next() * 34]
+        return `<path d="M${x.toFixed(0)},${y.toFixed(0)} l${(-l * slant).toFixed(0)},${l.toFixed(0)}" stroke="${colour}" stroke-width="${(0.8 + next()).toFixed(1)}" opacity="${(0.12 + next() * 0.3).toFixed(2)}"/>`
+      }).join('')
+    },
+    // Sparks, snow or dust: small bright specks, a few of them near and out of focus.
+    specks: (seed, n, colours, [top, bottom] = [0, 800]) => {
+      const next = dice(seed)
+      return Array.from({ length: n }, () => {
+        const near = next() < 0.18
+        return `<circle cx="${(next() * 600).toFixed(0)}" cy="${(top + next() * (bottom - top)).toFixed(0)}" r="${(near ? 5 + next() * 9 : 0.8 + next() * 2.2).toFixed(1)}" fill="${colours[Math.floor(next() * colours.length)]}" opacity="${(near ? 0.18 + next() * 0.2 : 0.5 + next() * 0.5).toFixed(2)}"${near ? ' filter="url(#soft)"' : ''}/>`
+      }).join('')
+    },
   }
 }
 
@@ -256,5 +293,157 @@ export const covers = [
     '<path d="M250,360 L80,820 M330,340 L260,820" stroke="#f8fafc" stroke-width="22" opacity="0.75" filter="url(#soft)"/>',
     k.at(300, 320, 1.9, jet(k.fill([[0, '#475569'], [1, '#0f172a']])) + '<path d="M0,-60 L7,-34 L-7,-34 Z" fill="#38bdf8"/>', 24),
     ...[[120, 250, 0.5, 30], [470, 430, 0.45, 18]].map(([x, y, s, r]) => k.at(x, y, s, jet('#1e293b'), r)),
+  ].join('')) },
+]
+
+// ------------------------------------------------------------------ the painted covers
+//
+// Eight covers for the large display cases, which the camera passes close
+// to. They are drawn the same way as the others, in code, but built up
+// like a painting: distance in layers with mist between them, clouds and
+// smoke from soft noise, figures lit from behind with a bright edge, light
+// in shafts, rain or sparks in the air, and finally the whole picture
+// pushed about a little and given the texture of brush and canvas.
+
+const paintDefs = `
+  <filter id="brush" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.011 0.016" numOctaves="1" seed="11" result="push"/><feDisplacementMap in="SourceGraphic" in2="push" scale="11" xChannelSelector="R" yChannelSelector="G"/></filter>
+  <filter id="strokes"><feTurbulence type="fractalNoise" baseFrequency="0.014 0.1" numOctaves="3" seed="5"/><feDiffuseLighting lighting-color="#ffffff" surfaceScale="2.4"><feDistantLight azimuth="225" elevation="55"/></feDiffuseLighting></filter>
+  <filter id="canvas"><feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="9"/><feDiffuseLighting lighting-color="#ffffff" surfaceScale="1.5"><feDistantLight azimuth="235" elevation="62"/></feDiffuseLighting></filter>`
+
+const paint = (make) => {
+  const k = kit()
+  const body = make(k)
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="900" height="1200"><defs>${defs}${paintDefs}${k.extra.join('')}</defs><g filter="url(#brush)">${body}</g><rect width="600" height="800" filter="url(#strokes)" style="mix-blend-mode:soft-light" opacity="0.2"/><rect width="600" height="800" filter="url(#canvas)" style="mix-blend-mode:soft-light" opacity="0.3"/><rect width="600" height="800" fill="url(#edges)"/><rect width="600" height="800" filter="url(#grain)"/></svg>`
+}
+
+// Shapes only (no colour), so the same outline can be filled, edged with light and used to clip.
+const shapes = {
+  // head and shoulders of a hooded figure, seen from in front; its feet would be at 0
+  hood: '<path d="M0,-330 C-70,-330 -100,-262 -92,-196 L-170,-150 C-214,-126 -226,-40 -240,160 L240,160 C226,-40 214,-126 170,-150 L92,-196 C100,-262 70,-330 0,-330 Z"/>',
+  dragon: '<path d="M-10,-10 C-60,-92 -152,-124 -204,-72 C-172,-68 -160,-48 -162,-26 C-136,-46 -112,-36 -106,-10 C-84,-32 -58,-22 -46,-2 C-34,-12 -22,-10 -12,0 Z"/><path d="M10,-10 C60,-92 152,-124 204,-72 C172,-68 160,-48 162,-26 C136,-46 112,-36 106,-10 C84,-32 58,-22 46,-2 C34,-12 22,-10 12,0 Z"/><path d="M-14,-6 C-4,-38 26,-42 46,-24 C66,-8 84,-2 110,-6 L130,-18 L125,-2 L146,4 L121,14 C96,24 70,20 50,10 C40,32 30,50 4,62 C-20,82 -60,98 -112,154 C-88,98 -60,66 -36,42 C-22,26 -18,12 -14,-6 Z"/><path d="M108,-8 L116,-36 L124,-8 Z M94,-6 L98,-28 L108,-6 Z"/>',
+  // an astronaut standing, seen from behind
+  astronaut: '<circle cx="0" cy="-226" r="32"/><rect x="-36" y="-198" width="72" height="92" rx="12"/><path d="M-48,-192 L48,-192 L54,-100 L-54,-100 Z"/><rect x="-70" y="-190" width="26" height="100" rx="13"/><rect x="44" y="-190" width="26" height="100" rx="13"/><path d="M-50,-106 L-6,-106 L-10,-6 L-54,-6 Z M6,-106 L50,-106 L54,-6 L10,-6 Z"/><rect x="-60" y="-14" width="54" height="16" rx="6"/><rect x="6" y="-14" width="54" height="16" rx="6"/>',
+  // a low, wide sports car seen from in front
+  car: '<path d="M-214,44 C-218,-4 -194,-30 -152,-40 L-98,-52 C-72,-98 -36,-110 0,-110 C36,-110 72,-98 98,-52 L152,-40 C194,-30 218,-4 214,44 L204,74 L-204,74 Z"/><path d="M-120,-54 L-140,-70 L-112,-66 Z M120,-54 L140,-70 L112,-66 Z"/>',
+  // a soldier walking toward us, rifle held across the body
+  soldier: '<path d="M-27,-300 C-30,-344 30,-344 27,-300 L31,-290 L-31,-290 Z"/><circle cx="0" cy="-292" r="21"/><path d="M-58,-268 L58,-268 L66,-208 L52,-138 L-52,-138 L-66,-208 Z"/><path d="M-58,-264 L-88,-248 L-100,-168 L-80,-118 L-58,-126 L-72,-172 L-62,-228 Z M58,-264 L90,-246 L96,-190 L64,-160 L52,-178 L74,-196 L62,-232 Z"/><path d="M-84,-124 L72,-198 L79,-184 L42,-166 L46,-150 L31,-146 L27,-158 L-77,-108 Z"/><path d="M-52,-140 L-4,-140 L-10,-8 L-50,-8 Z M4,-140 L52,-140 L52,-8 L12,-8 Z"/><rect x="-58" y="-14" width="52" height="16" rx="5"/><rect x="8" y="-14" width="52" height="16" rx="5"/>',
+  manor: '<path d="M-150,0 L-150,-170 L-110,-220 L-70,-170 L-70,-190 L0,-270 L70,-190 L70,-230 L96,-290 L122,-230 L122,-150 L160,-150 L160,0 Z"/><path d="M87,-290 L96,-360 L105,-290 Z"/><rect x="26" y="-262" width="16" height="50"/><rect x="-128" y="-236" width="14" height="40"/>',
+  // a walker with a hat and a pack, seen from behind
+  walker: '<ellipse cx="0" cy="-184" rx="46" ry="9"/><rect x="-20" y="-208" width="40" height="26" rx="6"/><circle cx="0" cy="-166" r="17"/><path d="M-26,-148 L26,-148 L30,-58 L-30,-58 Z"/><rect x="-22" y="-146" width="44" height="66" rx="8"/><path d="M-28,-60 L-4,-60 L-10,60 L-34,60 Z M4,-60 L28,-60 L38,60 L14,60 Z"/><path d="M26,-140 L58,-108 L52,-100 L22,-124 Z"/>',
+  mech: '<rect x="-30" y="-290" width="60" height="46" rx="7"/><path d="M-116,-238 L116,-238 L130,-174 L72,-162 L60,-46 L-60,-46 L-72,-162 L-130,-174 Z"/><rect x="-154" y="-228" width="44" height="174" rx="12"/><rect x="110" y="-228" width="44" height="174" rx="12"/><rect x="-164" y="-66" width="64" height="54" rx="9"/><rect x="100" y="-66" width="64" height="54" rx="9"/><path d="M-64,-50 L-10,-50 L-14,130 L-80,130 Z M10,-50 L64,-50 L80,130 L14,130 Z"/><path d="M-118,-238 L-150,-276 L-104,-262 Z M118,-238 L150,-276 L104,-262 Z"/>',
+}
+
+export const featured = [
+  { name: 'neon-rain', theme: 'cyberpunk', svg: paint((k) => [
+    k.sky([0, '#07021a'], [0.5, '#3b0a66'], [0.85, '#c2187a'], [1, '#ff5ea8']),
+    k.cloud(40, 420, '#ff2e97', { seed: 3, cut: 0.52, opacity: 0.5 }), k.cloud(0, 300, '#22d3ee', { seed: 8, cut: 0.56, opacity: 0.35 }),
+    `<g filter="url(#soft)" opacity="0.8">${k.skyline(11, 520, '#2a0f55', '#28e0ff', 380, 70)}</g>`, k.mist(420, 140, '#ff2e97', 0.3), k.skyline(23, 640, '#12062b', '#ff7ab6', 300, 90),
+    // signs: bars of neon, with nothing written on them
+    ...[[60, 150, 26, 230, '#28e0ff'], [500, 110, 30, 280, '#ff2e97'], [448, 240, 18, 150, '#ffd166'], [128, 300, 16, 120, '#ff2e97']].map(([x, y, w, h, c]) => `<rect x="${x - 10}" y="${y - 10}" width="${w + 20}" height="${h + 20}" rx="12" fill="${c}" opacity="0.5" filter="url(#glow)"/><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${c}"/><rect x="${x + w * 0.3}" y="${y + 8}" width="${w * 0.4}" height="${h - 16}" rx="3" fill="#fff" opacity="0.7"/>`),
+    k.mist(600, 160, '#ff2e97', 0.4), k.rain(5, 150, '#e0f2fe'),
+    k.at(300, 800, 1.18, k.lit(shapes.hood, k.fill([[0, '#24104a'], [0.5, '#0b0420'], [1, '#05020f']]), '#ff5ea8', [9, 4], '<path d="M236,-140 L250,170 L150,170 C190,60 200,-40 170,-150 Z" fill="#22d3ee" opacity="0.22" filter="url(#soft)"/>')
+      + '<path d="M0,-306 C-46,-306 -62,-256 -54,-208 C-22,-186 22,-186 54,-208 C62,-256 46,-306 0,-306 Z" fill="#020108"/><rect x="-40" y="-262" width="80" height="12" rx="6" fill="#67e8f9"/><rect x="-52" y="-272" width="104" height="32" rx="12" fill="#22d3ee" opacity="0.6" filter="url(#soft)"/><path d="M-30,-196 L-8,-150 M30,-196 L8,-150" stroke="#ff5ea8" stroke-width="3" opacity="0.5"/>'),
+    k.specks(41, 26, ['#ff7ab6', '#67e8f9', '#ffd166']),
+  ].join('')) },
+  { name: 'ember-wyrm', theme: 'fantasy', svg: paint((k) => [
+    k.sky([0, '#1f0a3a'], [0.4, '#9a3412'], [0.75, '#f59e0b'], [1, '#fde68a']),
+    k.orb(190, 430, 120, '#fffbeb', '#fbbf24', '#fdba74'), k.cloud(60, 420, '#fb7185', { seed: 4, cut: 0.5, opacity: 0.55 }), k.cloud(-20, 300, '#3b0764', { seed: 9, cut: 0.48, opacity: 0.6 }),
+    k.rays(190, 430, 620, '#fef3c7', [[-70, 5], [-40, 4], [-12, 6], [20, 4]], 0.16),
+    `<g filter="url(#soft)">${k.ridge(5, 560, 200, '#9a3412', 1)}</g>`, k.mist(500, 110, '#fed7aa', 0.45), k.ridge(9, 650, 190, '#5b1a0b', 1),
+    '<path d="M62,612 L62,500 L78,462 L94,500 L94,548 L124,548 L124,470 L146,420 L168,470 L168,548 L196,548 L196,506 L210,476 L224,506 L224,612 Z" fill="#2a0c05"/><rect x="138" y="500" width="14" height="22" fill="#fde047"/><rect x="74" y="526" width="9" height="14" fill="#fde047"/>',
+    k.mist(610, 90, '#fdba74', 0.4), k.ridge(14, 800, 170, '#1c0803', 1),
+    // the fire, then the dragon over it
+    '<path d="M430,330 C520,420 560,560 600,720 L470,700 C470,560 450,440 404,352 Z" fill="#fde047" opacity="0.85" filter="url(#soft)"/><path d="M430,330 C500,440 520,580 530,700" stroke="#fff7ed" stroke-width="26" fill="none" opacity="0.8" filter="url(#soft)"/>',
+    k.cloud(380, 380, '#f97316', { seed: 12, fine: 2.2, cut: 0.5, opacity: 0.7 }),
+    k.at(290, 300, 1.42, k.lit(shapes.dragon, k.fill([[0, '#3a1408'], [1, '#120502']]), '#fdba74', [-5, -6], '<circle cx="120" cy="30" r="46" fill="#f97316" opacity="0.4" filter="url(#soft)"/>') + '<circle cx="104" cy="-4" r="4" fill="#fef08a"/>', 14),
+    k.at(96, 770, 0.42, k.lit(shapes.soldier.split('<path d="M-84')[0], '#120502', '#fdba74', [-6, -3])),
+    k.specks(77, 60, ['#fde047', '#fb923c', '#fff7ed'], [250, 800]),
+  ].join('')) },
+  { name: 'last-horizon', theme: 'sci-fi', svg: paint((k) => [
+    k.sky([0, '#020617'], [0.55, '#1e1b4b'], [1, '#6d28d9']), k.stars(3, 220, 800),
+    k.cloud(-20, 520, '#c026d3', { seed: 6, cut: 0.52, opacity: 0.55 }), k.cloud(120, 460, '#0ea5e9', { seed: 15, cut: 0.55, opacity: 0.45 }),
+    k.light(410, 250, 230, '#38bdf8', 0.4), `<circle cx="410" cy="250" r="190" fill="${k.fill([[0, '#bae6fd'], [0.5, '#2563eb'], [1, '#0b1033']])}"/>`,
+    '<path d="M228,300 C300,250 520,180 610,190" stroke="#e0f2fe" stroke-width="3" opacity="0.5" fill="none"/><ellipse cx="410" cy="250" rx="310" ry="46" fill="none" stroke="#e0f2fe" stroke-width="14" opacity="0.75" transform="rotate(-16 410 250)"/><ellipse cx="410" cy="250" rx="268" ry="38" fill="none" stroke="#7dd3fc" stroke-width="5" opacity="0.6" transform="rotate(-16 410 250)"/>',
+    `<path d="M220,250 A190,190 0 0 1 600,250 A190,190 0 0 1 560,366 C470,330 330,330 250,352 A190,190 0 0 1 220,250 Z" fill="${k.fill([[0, '#bae6fd'], [0.5, '#2563eb'], [1, '#0b1033']])}"/>`,
+    k.orb(96, 150, 30, '#fecaca', '#7f1d1d', '#f87171'),
+    `<g filter="url(#soft)">${k.ridge(31, 610, 120, '#312e81', 1, 10)}</g>`, k.mist(560, 100, '#a78bfa', 0.4), k.ridge(33, 700, 130, '#1e1b4b', 1, 8),
+    '<path d="M470,560 l34,-12 l40,4 l-12,10 l-34,6 Z" fill="#e2e8f0"/><circle cx="472" cy="560" r="5" fill="#67e8f9"/><path d="M470,560 L330,600" stroke="#67e8f9" stroke-width="8" opacity="0.35" filter="url(#soft)"/>',
+    '<path d="M-30,830 L-30,690 C80,660 190,668 300,700 C400,726 520,700 630,720 L630,830 Z" fill="#0a0a23"/>', k.mist(700, 60, '#38bdf8', 0.25),
+    k.at(210, 706, 1.05, k.lit(shapes.astronaut, k.fill([[0, '#3b4a6b'], [0.6, '#141a33'], [1, '#070716']]), '#bae6fd', [-7, 5], '<path d="M30,-200 L70,-190 L70,-90 L44,-100 Z" fill="#38bdf8" opacity="0.2" filter="url(#soft)"/>') + '<circle cx="-18" cy="-150" r="5" fill="#f87171"/><circle cx="18" cy="-150" r="5" fill="#67e8f9"/>'),
+    k.specks(19, 30, ['#e0f2fe', '#c4b5fd'], [560, 800]),
+  ].join('')) },
+  { name: 'apex-night', theme: 'racing', svg: paint((k) => [
+    k.sky([0, '#03010c'], [0.45, '#1a0b3a'], [0.62, '#4c1d95'], [1, '#05020f']),
+    k.cloud(120, 340, '#f97316', { seed: 5, cut: 0.56, opacity: 0.35 }),
+    `<g filter="url(#soft)" opacity="0.85">${k.skyline(8, 470, '#150a35', '#ffd166', 260, 60)}</g>`,
+    k.specks(61, 46, ['#ffd166', '#ff5ea8', '#67e8f9', '#fff7ed'], [150, 470]),
+    // the road, wet, running to a point on the horizon
+    '<path d="M-30,830 L-30,470 L630,470 L630,830 Z" fill="#06030f"/>',
+    ...Array.from({ length: 22 }, (_, i) => `<path d="M300,450 L${-700 + i * 95},830" stroke="${i % 3 ? '#67e8f9' : '#ff5ea8'}" stroke-width="${2 + (i % 4)}" opacity="0.28" filter="url(#soft)"/>`),
+    '<path d="M300,470 L250,830 L350,830 Z" fill="#fde68a" opacity="0.1"/>',
+    k.rays(300, 462, 520, '#fde68a', [[155, 3], [25, 3]], 0.2),
+    // its reflection in the road, then the car
+    k.at(300, 742, 1.22, `<g transform="scale(1 -0.55)" opacity="0.45" filter="url(#soft)"><g fill="#7f1d1d">${shapes.car}</g><ellipse cx="-150" cy="-8" rx="46" ry="16" fill="#fef9c3"/><ellipse cx="150" cy="-8" rx="46" ry="16" fill="#fef9c3"/></g>`),
+    k.at(300, 590, 1.22, k.lit(shapes.car, k.fill([[0, '#ef4444'], [0.5, '#991b1b'], [1, '#1c0505']]), '#fecaca', [0, 5], '<path d="M-170,-34 C-60,-58 60,-58 170,-34 L150,-20 C50,-40 -50,-40 -150,-20 Z" fill="#fff" opacity="0.28"/><circle cx="-200" cy="10" r="40" fill="#ff5ea8" opacity="0.3" filter="url(#soft)"/><circle cx="200" cy="10" r="40" fill="#67e8f9" opacity="0.3" filter="url(#soft)"/>')
+      + `<path d="M-86,-56 C-64,-92 -32,-100 0,-100 C32,-100 64,-92 86,-56 Z" fill="${k.fill([[0, '#0f172a'], [1, '#475569']])}"/><path d="M-70,-62 C-50,-86 -24,-92 10,-92 L-30,-60 Z" fill="#fff" opacity="0.18"/><rect x="-74" y="8" width="148" height="40" rx="8" fill="#0a0408"/><path d="M-66,20 L66,20 M-66,32 L66,32" stroke="#3f1010" stroke-width="4"/><rect x="-204" y="52" width="60" height="34" rx="6" fill="#050308"/><rect x="144" y="52" width="60" height="34" rx="6" fill="#050308"/>`
+      + ['-150', '150'].map((x) => `<ellipse cx="${x}" cy="-8" rx="62" ry="30" fill="#fef9c3" opacity="0.55" filter="url(#glow)"/><ellipse cx="${x}" cy="-8" rx="36" ry="12" fill="#fffbeb"/><path d="M${x - 110},-8 L${+x + 110},-8 M${x},-52 L${x},36" stroke="#fffbeb" stroke-width="2.5" opacity="0.7"/>`).join('')),
+    k.rain(9, 170, '#e0f2fe', 0.5), k.specks(88, 18, ['#ff5ea8', '#67e8f9'], [500, 800]),
+  ].join('')) },
+  { name: 'black-echo', theme: 'action', svg: paint((k) => [
+    k.sky([0, '#0c0a09'], [0.4, '#7c2d12'], [0.7, '#f97316'], [1, '#fde68a']),
+    k.light(300, 420, 300, '#f97316', 0.7), k.orb(300, 440, 150, '#fffbeb', '#f97316', '#fdba74'),
+    k.cloud(180, 420, '#fde047', { seed: 21, fine: 1.8, cut: 0.48, opacity: 0.8 }), k.cloud(0, 470, '#1c1210', { seed: 14, fine: 1.2, cut: 0.44, gain: 4, opacity: 0.92 }),
+    k.rays(300, 430, 640, '#fef3c7', [[-120, 6], [-88, 4], [-58, 7], [-150, 4], [-25, 4]], 0.17),
+    `<g filter="url(#soft)">${k.skyline(91, 610, '#431407', '#fdba74', 200, 80)}</g>`, k.mist(540, 120, '#fb923c', 0.45), k.skyline(95, 700, '#170b07', '#fb923c', 120, 100),
+    ...[[112, 210, 0.9], [486, 160, 0.6]].map(([x, y, s]) => k.at(x, y, s, '<ellipse cx="0" cy="0" rx="50" ry="16" fill="#0c0a09"/><path d="M42,0 L104,-12 L104,-4 Z M-10,14 L-22,30 L26,30 L14,14 Z" fill="#0c0a09"/><ellipse cx="0" cy="-24" rx="84" ry="5" fill="#0c0a09" opacity="0.55"/><rect x="-3" y="-24" width="6" height="12" fill="#0c0a09"/>')),
+    k.mist(690, 120, '#fb923c', 0.35),
+    k.at(300, 800, 1.5, k.lit(shapes.soldier, k.fill([[0, '#4a2412'], [0.45, '#1c0d07'], [1, '#0b0605']]), '#fed7aa', [0, 5])),
+    k.specks(33, 80, ['#fde047', '#fb923c', '#fff7ed']),
+  ].join('')) },
+  { name: 'hollow-manor', theme: 'horror', svg: paint((k) => [
+    k.sky([0, '#010608'], [0.55, '#0b2e30'], [1, '#1b5e57']), k.stars(17, 60, 330),
+    k.light(380, 230, 230, '#99f6e4', 0.45), `<circle cx="380" cy="230" r="150" fill="${k.fill([[0, '#f8fafc'], [1, '#99f6e4']])}"/>`,
+    '<circle cx="330" cy="190" r="26" fill="#5eead4" opacity="0.25"/><circle cx="420" cy="270" r="36" fill="#5eead4" opacity="0.2"/><circle cx="410" cy="170" r="14" fill="#5eead4" opacity="0.25"/>',
+    k.cloud(60, 330, '#021316', { seed: 7, cut: 0.47, gain: 4, opacity: 0.85 }), k.cloud(200, 300, '#0f3d3e', { seed: 2, cut: 0.5, opacity: 0.6 }),
+    `<g filter="url(#soft)">${k.ridge(21, 600, 120, '#0a2a2b', 0)}</g>`, k.cloud(420, 260, '#99f6e4', { seed: 18, cut: 0.5, opacity: 0.35 }),
+    '<path d="M-30,830 L-30,660 C120,560 220,540 300,540 C380,540 480,560 630,660 L630,830 Z" fill="#031012"/>',
+    k.at(300, 552, 1.05, k.lit(shapes.manor, '#020809', '#5eead4', [-4, 4]) + '<rect x="-128" y="-140" width="26" height="40" fill="#fde047" opacity="0.9"/><rect x="-16" y="-196" width="32" height="50" fill="#fbbf24"/><rect x="86" y="-208" width="20" height="34" fill="#fde047" opacity="0.7"/><rect x="34" y="-110" width="24" height="36" fill="#fde047" opacity="0.35"/><rect x="-26" y="-84" width="52" height="84" fill="#010506"/>'),
+    k.light(300, 372, 46, '#fbbf24', 0.6),
+    ...[[-1, 96], [1, 504]].map(([s, x]) => `<g transform="translate(${x} 800) scale(${s} 1)"><path d="M0,0 C6,-150 -6,-250 -40,-330 M-14,-200 C-50,-240 -80,-250 -116,-250 M-22,-260 C-10,-310 6,-340 30,-370 M-36,-320 C-70,-350 -84,-380 -86,-420 M-80,-250 C-96,-280 -98,-300 -92,-326" stroke="#010506" stroke-width="16" fill="none" stroke-linecap="round"/></g>`),
+    '<path d="M300,800 C280,720 330,680 300,620 C286,590 300,570 300,552" stroke="#134e4a" stroke-width="34" fill="none" opacity="0.7" stroke-linecap="round"/>',
+    k.cloud(560, 280, '#ccfbf1', { seed: 23, fine: 0.8, cut: 0.48, opacity: 0.45 }),
+    k.at(316, 742, 0.36, k.lit(shapes.walker, '#010506', '#fdba74', [5, 2])), k.light(338, 716, 34, '#fb923c', 0.9), '<circle cx="338" cy="716" r="6" fill="#fff7ed"/>',
+    ...[[140, 170, 1], [220, 110, 0.7], [520, 360, 0.8], [90, 300, 0.6], [470, 90, 0.5]].map(([x, y, s]) => k.at(x, y, s, '<path d="M0,0 C-10,-16 -26,-14 -34,-2 C-26,-6 -20,-2 -16,6 C-10,0 -4,0 0,6 C4,0 10,0 16,6 C20,-2 26,-6 34,-2 C26,-14 10,-16 0,0 Z" fill="#010506"/>')),
+    // the gate we look through, near and out of focus
+    `<g filter="url(#soft)">${Array.from({ length: 9 }, (_, i) => `<path d="M${-10 + i * 78},830 L${-10 + i * 78},${690 - (i % 2) * 26} l-9,0 l9,-34 l9,34 l-9,0" stroke="#010405" stroke-width="13" fill="#010405"/>`).join('')}<rect x="-30" y="752" width="660" height="14" fill="#010405"/></g>`,
+  ].join('')) },
+  { name: 'lost-relic', theme: 'adventure', svg: paint((k) => [
+    k.sky([0, '#0e7490'], [0.4, '#5eead4'], [0.7, '#fde68a'], [1, '#fbbf24']),
+    k.orb(330, 250, 80, '#fffbeb', '#fde047', '#fef9c3'), k.cloud(60, 320, '#fff7ed', { seed: 31, cut: 0.52, opacity: 0.7 }),
+    k.rays(330, 250, 700, '#fef9c3', [[60, 5], [84, 4], [108, 6], [132, 4], [38, 4]], 0.22),
+    `<g filter="url(#soft)">${k.ridge(81, 520, 170, '#15803d', 0, 9)}</g>`, k.mist(450, 110, '#ecfdf5', 0.5), k.ridge(83, 600, 150, '#166534', 0, 8),
+    // the temple, and the water falling beside it
+    ...[0, 1, 2, 3, 4].map((i) => `<path d="M${214 + i * 22},${600 - i * 44} L${446 - i * 22},${600 - i * 44} L${436 - i * 22},${556 - i * 44} L${224 + i * 22},${556 - i * 44} Z" fill="${i % 2 ? '#a16207' : '#854d0e'}"/><path d="M${214 + i * 22},${600 - i * 44} L${224 + i * 22},${556 - i * 44} L${250 + i * 22},${556 - i * 44} L${244 + i * 22},${600 - i * 44} Z" fill="#fde68a" opacity="0.5"/>`),
+    '<path d="M314,600 L346,600 L340,380 L320,380 Z" fill="#422006"/><rect x="312" y="350" width="36" height="34" fill="#422006"/><rect x="322" y="358" width="16" height="26" fill="#fef08a"/>', k.light(330, 368, 30, '#fde047', 0.9),
+    '<path d="M470,470 C474,540 468,600 472,690" stroke="#ecfeff" stroke-width="20" fill="none" opacity="0.8" filter="url(#soft)"/><path d="M466,470 L466,690 M476,480 L478,690" stroke="#fff" stroke-width="3" opacity="0.7"/>', k.light(472, 690, 46, '#ecfeff', 0.7),
+    k.mist(610, 90, '#d1fae5', 0.5), k.ridge(85, 720, 110, '#14532d', 0, 7),
+    ...[[150, 300, 1], [176, 280, 0.8], [206, 306, 0.7], [420, 200, 0.6]].map(([x, y, s]) => k.at(x, y, s, '<path d="M-14,0 Q-7,-9 0,0 Q7,-9 14,0" stroke="#14532d" stroke-width="3" fill="none"/>')),
+    // the mouth of the cave we stand in
+    '<path fill-rule="evenodd" d="M-30,-30 L630,-30 L630,830 L-30,830 Z M64,150 C150,50 430,24 528,120 C590,210 596,430 566,580 C540,680 470,700 400,690 C330,720 250,712 190,690 C110,690 60,640 40,560 C10,420 10,240 64,150 Z" fill="#06100a"/>',
+    '<path d="M64,150 C150,50 430,24 528,120" stroke="#fde68a" stroke-width="5" fill="none" opacity="0.45" filter="url(#soft)"/>',
+    ...[[120, 60, 80], [250, 30, 120], [400, 44, 90], [500, 96, 60]].map(([x, y, l]) => `<path d="M${x},${y} C${x - 10},${y + l * 0.5} ${x + 14},${y + l * 0.8} ${x + 4},${y + l}" stroke="#14532d" stroke-width="7" fill="none" stroke-linecap="round"/>`),
+    k.at(432, 706, 0.74, k.lit(shapes.walker, '#040a06', '#fde68a', [6, 2])),
+    k.specks(27, 34, ['#fef9c3', '#d9f99d'], [120, 700]),
+  ].join('')) },
+  { name: 'iron-colossus', theme: 'sci-fi', svg: paint((k) => [
+    k.sky([0, '#060b16'], [0.5, '#1e293b'], [0.78, '#b45309'], [1, '#fdba74']),
+    k.cloud(-30, 420, '#0b1220', { seed: 13, cut: 0.45, gain: 4, opacity: 0.9 }), k.cloud(120, 380, '#fb923c', { seed: 26, cut: 0.55, opacity: 0.4 }),
+    '<path d="M150,-30 L180,90 L140,150 L196,260 L170,330" stroke="#e0f2fe" stroke-width="4" fill="none"/><path d="M150,-30 L180,90 L140,150 L196,260 L170,330" stroke="#bae6fd" stroke-width="22" fill="none" opacity="0.5" filter="url(#glow)"/>',
+    k.rays(300, 820, 900, '#fde68a', [[-112, 3], [-68, 3], [-90, 2]], 0.16),
+    `<g filter="url(#soft)">${k.skyline(41, 640, '#3b1c0c', '#fde68a', 150, 46)}</g>`, k.mist(580, 110, '#fb923c', 0.45),
+    k.at(300, 620, 1.3, k.lit(shapes.mech, k.fill([[0, '#2b3344'], [0.55, '#14151c'], [1, '#2a1509']]), '#fdba74', [0, -6])
+      + '<path d="M-100,-214 L100,-214 M-66,-150 L66,-150 M-56,-98 L56,-98 M-132,-150 L-132,-80 M132,-150 L132,-80 M-38,-20 L-42,110 M38,-20 L42,110" stroke="#fdba74" stroke-width="2" opacity="0.3"/><rect x="-21" y="-276" width="42" height="10" rx="3" fill="#67e8f9"/><rect x="-30" y="-284" width="60" height="26" rx="8" fill="#22d3ee" opacity="0.6" filter="url(#soft)"/><circle cx="0" cy="-178" r="17" fill="#a5f3fc"/><circle cx="0" cy="-178" r="40" fill="#22d3ee" opacity="0.5" filter="url(#soft)"/><circle cx="-132" cy="-212" r="6" fill="#f87171"/><circle cx="132" cy="-212" r="6" fill="#f87171"/>'),
+    k.skyline(47, 770, '#0b0503', '#fb923c', 110, 80), k.mist(660, 120, '#fb923c', 0.3),
+    k.rain(15, 190, '#e0f2fe', 0.35), k.specks(52, 30, ['#fde68a', '#fb923c'], [520, 800]),
   ].join('')) },
 ]

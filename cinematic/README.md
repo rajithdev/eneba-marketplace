@@ -102,20 +102,26 @@ blockout's.
 
 ## The shop's cover illustrations
 
-`artwork.mjs` draws twenty original game covers (600 by 800, the shape of a
-product card's cover) from shapes and gradients: science fiction, fantasy,
-racing, action, horror, adventure and cyberpunk. They carry no lettering
-and no logos, and nothing is taken from an existing game.
+`artwork.mjs` draws the shop's game covers (3:4, the shape of a product
+card's cover) in code: science fiction, fantasy, racing, action, horror,
+adventure and cyberpunk. They carry no lettering and no logos, and nothing
+is taken from an existing game. There are two sets:
 
-They are in ranking order. The first eight go on the large display cases,
-chosen so that neighbouring bays and the two sides of the aisle differ;
-all twenty stock the shelves, three drawings apart from one case to the
-next so that neighbours never match. The six cases the animation ends on
-are not part of this: they keep the real products' covers.
+- **Eight painted covers** for the large display cases, which the camera
+  passes close to. They are built up like a painting: distance in layers
+  with mist between them, clouds and smoke from soft noise, figures lit
+  from behind with a bright edge, shafts of light, rain or sparks, and a
+  brush-and-canvas texture over the whole picture. Neighbouring bays and
+  the two sides of the aisle never show the same one.
+- **Twenty flat posters** that stock the shelves, three drawings apart
+  from one case to the next so that neighbours never match.
+
+The six cases the animation ends on are not part of this: they keep the
+real products' covers.
 
 ```
-node cinematic/build.mjs --artwork                      the pictures and a contact sheet
-node cinematic/build.mjs --lookdev --art-folder=<dir>   use the pictures in a folder instead (3:4, best first by name)
+node cinematic/build.mjs --artwork                      the pictures and two contact sheets
+node cinematic/build.mjs --lookdev --art-folder=<dir>   use the pictures in a folder on the large cases instead (3:4, in name order)
 ```
 
 ## Comparing a generated clip with the reference
