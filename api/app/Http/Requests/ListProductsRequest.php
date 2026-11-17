@@ -7,6 +7,7 @@ use App\Enums\ProductSort;
 use App\Support\SearchTerm;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The query string of GET /api/products.
@@ -29,6 +30,11 @@ class ListProductsRequest extends FormRequest
 
     public const MAX_PER_PAGE = 48;
 
+    /** The largest amount the price column (a 32-bit integer) can hold. */
+    public const MAX_PRICE_CENTS = 2147483647;
+
+    private const SLUG = '/^[a-z0-9-]+$/';
+
     /**
      * "steam,xbox-live" becomes ["steam", "xbox-live"] before validation.
      * A filter that is present but empty ("platform=") becomes an empty list,
@@ -36,6 +42,13 @@ class ListProductsRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        // A query string that is not valid UTF-8 cannot be compared in the
+        // database or quoted back in an error message, so it is refused
+        // here, before any rule looks at it.
+        if (! mb_check_encoding($this->query(), 'UTF-8')) {
+            throw ValidationException::withMessages(['query' => 'The address contains characters that are not valid text.']);
+        }
+
         foreach (['platform', 'region', 'type'] as $filter) {
             if ($this->has($filter) && ! is_array($this->input($filter))) {
                 $this->merge([
@@ -52,13 +65,14 @@ class ListProductsRequest extends FormRequest
             // Free text. Cleaned up by SearchTerm; empty means "no search".
             'q' => ['sometimes', 'nullable', 'string', 'max:'.SearchTerm::MAX_LENGTH],
             'platform' => ['sometimes', 'array', 'max:20'],
-            'platform.*' => ['string', Rule::exists('platforms', 'slug')],
+            // "bail": only something shaped like a slug is looked up.
+            'platform.*' => ['bail', 'string', 'regex:'.self::SLUG, Rule::exists('platforms', 'slug')],
             'region' => ['sometimes', 'array', 'max:20'],
-            'region.*' => ['string', Rule::exists('regions', 'slug')],
-            'type' => ['sometimes', 'array'],
+            'region.*' => ['bail', 'string', 'regex:'.self::SLUG, Rule::exists('regions', 'slug')],
+            'type' => ['sometimes', 'array', 'max:20'],
             'type.*' => [Rule::enum(GameType::class)],
-            'min_price' => ['sometimes', 'nullable', 'integer', 'min:0'],
-            'max_price' => ['sometimes', 'nullable', 'integer', 'min:0', Rule::when($this->filled('min_price'), 'gte:min_price')],
+            'min_price' => ['sometimes', 'nullable', 'integer', 'between:0,'.self::MAX_PRICE_CENTS],
+            'max_price' => ['sometimes', 'nullable', 'integer', 'between:0,'.self::MAX_PRICE_CENTS, Rule::when($this->filled('min_price'), 'gte:min_price')],
             'sort' => ['sometimes', 'nullable', Rule::enum(ProductSort::class)],
             'page' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'nullable', 'integer', 'between:1,'.self::MAX_PER_PAGE],
@@ -69,8 +83,8 @@ class ListProductsRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'platform.*.exists' => 'Unknown platform ":input".',
-            'region.*.exists' => 'Unknown region ":input".',
+            'platform.*' => 'Unknown platform ":input".',
+            'region.*' => 'Unknown region ":input".',
             'type.*' => 'Unknown product type ":input".',
             'max_price.gte' => 'The maximum price must not be lower than the minimum price.',
         ];

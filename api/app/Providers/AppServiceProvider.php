@@ -73,10 +73,16 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(30)->by('user:'.$request->user()?->id),
         ]);
 
-        RateLimiter::for('auth', fn (Request $request) => [
-            Limit::perMinute(10)->by('claimed:'.ClientAddress::claimed($request)),
-            Limit::perMinute(60)->by('edge:'.ClientAddress::edge($request)),
-            Limit::perMinute(10)->by('email:'.strtolower((string) $request->input('email'))),
-        ]);
+        RateLimiter::for('auth', function (Request $request) {
+            // This runs before validation, so the email may be anything a
+            // caller sent, a list included. Only text can name an account.
+            $email = $request->input('email');
+
+            return [
+                Limit::perMinute(10)->by('claimed:'.ClientAddress::claimed($request)),
+                Limit::perMinute(60)->by('edge:'.ClientAddress::edge($request)),
+                Limit::perMinute(10)->by('email:'.(is_string($email) ? strtolower($email) : '')),
+            ];
+        });
     }
 }
