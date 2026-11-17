@@ -198,7 +198,7 @@ def cover_material(path):
     return covers[path]
 
 
-def case(name, cover_path):
+def case(name, cover_path, cover=None):
     """A game case whose front (the side facing -Y until it is turned) shows a cover. Returns (body, front)."""
     body = box(name, (0, 0, 0), (CASE_W, CASE_T, CASE_H), CASE)
     mesh = bpy.data.meshes.new(name + "-front")
@@ -207,7 +207,7 @@ def case(name, cover_path):
     uv = mesh.uv_layers.new()
     for loop, coords in zip(uv.data, [(0, 0), (1, 0), (1, 1), (0, 1)]):
         loop.uv = coords
-    mesh.materials.append(cover_material(cover_path))
+    mesh.materials.append(cover or cover_material(cover_path))
     front = bpy.data.objects.new(name + "-front", mesh)
     front.parent = body
     scene.collection.objects.link(front)
@@ -345,6 +345,47 @@ def neon(name, colour, shown, true):
     return mat
 
 
+def varied(path, strength):
+    """A cover as stock on a shelf wears it: the same drawing, with its
+    colours turned a different way round the colour wheel on every object,
+    so thirty drawings fill a shop without two neighbours looking alike."""
+    if (path, strength) not in covers:
+        mat = glow("stock-" + os.path.basename(path), (1, 1, 1, 1), strength, bpy.data.images.load(path, check_existing=True))
+        nodes, links = mat.node_tree.nodes, mat.node_tree.links
+        turn = nodes.new("ShaderNodeMapRange")
+        turn.inputs["To Min"].default_value, turn.inputs["To Max"].default_value = 0.2, 0.8  # a half leaves the colours alone
+        links.new(nodes.new("ShaderNodeObjectInfo").outputs["Random"], turn.inputs["Value"])
+        hue = nodes.new("ShaderNodeHueSaturation")
+        links.new(turn.outputs["Result"], hue.inputs["Hue"])
+        links.new(nodes["Image Texture"].outputs["Color"], hue.inputs["Color"])
+        links.new(hue.outputs["Color"], nodes["Emission"].inputs["Color"])
+        covers[(path, strength)] = mat
+    return covers[(path, strength)]
+
+
+def small_case(name, path, location, yaw, lean=0.0):
+    """A game case at a third of the display size: the stock on the shelves.
+    `lean` tips it back; a quarter turn back lays it flat, cover up."""
+    body, _ = case(name, path, varied(path, 0.8))
+    body.scale = (0.3, 0.3, 0.3)
+    body.location = location
+    body.rotation_euler = (lean, 0, yaw)
+    return body
+
+
+def lightbox(name, side, y, z, width, height, path, frame):
+    """A lit picture panel on the wall, facing the aisle: a wide slice of a cover drawing in a metal frame."""
+    x = side * (HALF_WIDTH - 0.022)
+    block(name + "-frame", (side * (HALF_WIDTH - 0.02), side * HALF_WIDTH), (y - width / 2 - 0.02, y + width / 2 + 0.02), (z - 0.02, z + height + 0.02), frame, 0.003)
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata([(x, y - width / 2, z), (x, y + width / 2, z), (x, y + width / 2, z + height), (x, y - width / 2, z + height)], [], [(0, 1, 2, 3)])
+    uv = mesh.uv_layers.new()
+    for loop, coords in zip(uv.data, [(0, 0.42), (1, 0.42), (1, 0.72), (0, 0.72)]):
+        loop.uv = coords
+    mesh.materials.append(varied(path, 0.9))
+    scene.collection.objects.link(bpy.data.objects.new(name, mesh))
+
+
 def fade_to_band(mat, start, end):
     """Between `start` and `end` along the corridor's axis the surface turns
     into the page's band colour, so a floor can run out into the backdrop
@@ -418,11 +459,53 @@ def dress(body, frame, pane, edge):
 #         |                 [pilaster]#|=|
 #
 # Each bay is a niche cut into the stone, with a metal shelf standing out of
-# it and a glass-fronted case on the shelf. Light comes from neon tubes
+# it and a glass-fronted case on the shelf. Around that case the niche is
+# stocked like a shop: rows of small cases below the shelf, beside the case
+# and above it, a pile of them on the shelf, a lit picture panel over the
+# niche. Everything stands at the walls, no nearer the middle than the
+# shelves' front edge, so the aisle the camera travels is as wide as before.
+# Light comes from neon tubes
 # (rectangles under the ceiling, a line along each shelf and niche, a frame
 # around the doorway) and from where a builder would hide it: above a ledge
 # under the ceiling, in the top of each niche, under each shelf and in a gap
 # at the foot of the wall.
+
+def stock(side, y, seed, shelf, frame, led):
+    """Fills one niche with products. `seed` is different for every niche, so no two are stocked alike."""
+    facing = -side * math.radians(90)  # toward the aisle
+    back = math.radians(-8)  # leaning back a little, as cases do on a shop shelf
+    numbers = iter(range(1000))
+
+    def pick():
+        return decor[(seed * 7 + next(numbers) * 5) % len(decor)]
+
+    # Below the main shelf, in front of the stone: a plinth and a low shelf, six cases on each.
+    block("plinth", (side * 1.84, side * 2.2), (y - 0.88, y + 0.88), (0.0, 0.1), shelf, 0.003)
+    block("plinth-led", (side * 1.832, side * 1.84), (y - 0.86, y + 0.86), (0.03, 0.05), led["gold"], 0)
+    block("low-shelf", (side * 1.84, side * 2.2), (y - 0.88, y + 0.88), (0.5, 0.52), shelf, 0.002)
+    block("low-shelf-led", (side * 1.832, side * 1.84), (y - 0.86, y + 0.86), (0.503, 0.517), led["violet"], 0)
+    for z in (0.1, 0.52):
+        for place in range(6):
+            small_case("stock", pick(), (side * 1.95, y + (place - 2.5) * 0.29, z + 0.18), facing, back)
+    # On the main shelf: a case at each end of the niche's back, and one above each on a ledge of its own.
+    for along in (-0.7, 0.7):
+        small_case("stock", pick(), (side * 2.42, y + along, 1.05 + 0.18), facing)
+        block("ledge", (side * 2.3, side * 2.62), (y + along - 0.17, y + along + 0.17), (1.7, 1.72), shelf, 0.002)
+        small_case("stock", pick(), (side * 2.42, y + along, 1.72 + 0.18), facing)
+    # A pile of cases lying on the near end of the shelf, none quite square to the next.
+    for layer in range(3 + seed % 3):
+        turn = math.radians((seed * 13 + layer * 29) % 30 - 15)
+        small_case("stock", pick(), (side * 1.82, y - 0.58, 1.05 + 0.0105 + layer * 0.021), facing + turn, -math.pi / 2)
+    # At the far end, a small block of lit acrylic, as shops stand among their stock.
+    block("acrylic", (side * 1.74, side * 1.9), (y + 0.5, y + 0.66), (1.05, 1.21), led[("gold", "violet", "teal")[seed % 3] + "-dim"], 0.006)
+    # High in the niche: a narrow shelf with a line of gold along it and six cases.
+    block("high-shelf", (side * 2.24, side * 2.62), (y - 0.88, y + 0.88), (2.5, 2.53), shelf, 0.002)
+    block("high-shelf-led", (side * 2.232, side * 2.24), (y - 0.86, y + 0.86), (2.505, 2.525), led["gold"], 0)
+    for place in range(6):
+        small_case("stock", pick(), (side * 2.36, y + (place - 2.5) * 0.29, 2.53 + 0.18), facing, back)
+    # Over the niche, on the stone: a lit picture panel.
+    lightbox("panel", side, y, 3.2, 1.5, 0.3, pick(), frame)
+
 
 def build_vault():
     WALL_X, BACK_X, OUTER_X = HALF_WIDTH, 2.62, 2.82
@@ -450,6 +533,9 @@ def build_vault():
         "teal": neon("led-teal", TEAL, 1.4, 10.0),
         "gold": neon("led-gold", GOLD, 1.4, 12.0),
         "soft": neon("led-soft", SOFT, 2.0, 6.0),
+        "violet-dim": glow("acrylic-violet", VIOLET, 0.8),
+        "teal-dim": glow("acrylic-teal", TEAL, 0.6),
+        "gold-dim": glow("acrylic-gold", GOLD, 0.7),
     }
     joints = [START + BAY * i for i in range(15)] + [DOOR]  # where wall and ceiling panels meet
     tiles = [START + BAY / 2 * i for i in range(29)] + [DOOR]  # the floor is laid in smaller tiles
@@ -469,6 +555,13 @@ def build_vault():
             block("ring", (side * 0.93, side * 0.97), (y - 0.65, y + 0.65), (HEIGHT - 0.07, HEIGHT - 0.03), led["violet"], 0)
             block("ring", (-0.97, 0.97), (y + side * 0.63, y + side * 0.67), (HEIGHT - 0.07, HEIGHT - 0.03), led["violet"], 0)
         lamp("ring-light", (0, y, HEIGHT - 0.08), VIOLET, 120, 1.8, 1.2)
+    # A track of small spotlights along each side of the ceiling, turned toward the shelves.
+    for side in (-1, 1):
+        block("track", (side * 1.42, side * 1.46), (START, DOOR), (HEIGHT - 0.04, HEIGHT - 0.015), backing, 0)
+        for spot in range(BAYS * 2):
+            can = block("spot", (side * 1.39, side * 1.49), (1.9 + BAY / 2 * spot - 0.05, 1.9 + BAY / 2 * spot + 0.05), (HEIGHT - 0.2, HEIGHT - 0.05), backing, 0.01)
+            can.rotation_euler = (0, side * math.radians(-28), 0)
+            box("spot-lens", (0, 0, -0.077), (0.07, 0.07, 0.004), led["soft"]).parent = can
     block("end", (-OUTER_X, OUTER_X), (START - 0.2, START), (0.0, HEIGHT), wall, 0)
 
     for side in (-1, 1):
@@ -496,6 +589,7 @@ def build_vault():
             y = BAY * bay + BAY / 2
             block("pilaster", x(WALL_X - 0.2, WALL_X), (y - 0.22, y + 0.22), (0.0, 3.56), wall, 0.006)
             block("inlay", x(WALL_X - 0.206, WALL_X - 0.198), (y - 0.035, y + 0.035), (0.12, 3.44), upright, 0.002)
+            block("pilaster-led", x(WALL_X - 0.21, WALL_X - 0.206), (y - 0.012, y + 0.012), (0.3, 3.3), led["teal" if bay % 2 else "violet"], 0)
 
     for bay in range(BAYS):
         y = BAY * (bay + 1)
@@ -513,13 +607,7 @@ def build_vault():
             body.location = (side * (HALF_WIDTH - 0.28), y, 1.7)
             body.rotation_euler = (0, 0, -side * math.radians(62))
             dress(body, upright, pane, led["soft"])
-            # A second, narrow shelf high in the niche, with four small cases facing the corridor.
-            block("high-shelf", (side * 2.24, side * BACK_X), (y - 0.86, y + 0.86), (2.5, 2.53), lengthwise, 0.002)
-            for place in range(4):
-                small, _ = case(f"small-{bay}-{index}-{place}", gallery[(bay * 8 + index * 4 + place + 5) % len(gallery)])
-                small.scale = (0.3, 0.3, 0.3)
-                small.location = (side * 2.36, y + (place - 1.5) * 0.4, 2.53 + CASE_H * 0.15)
-                small.rotation_euler = (0, 0, -side * math.radians(90))
+            stock(side, y, bay * 2 + index, lengthwise, upright, led)
 
     # The doorway: a bronze frame with a line of warm light around its opening.
     for side in (-1, 1):
@@ -578,6 +666,7 @@ LENGTH, HALF_WIDTH, HEIGHT = 30.0, 2.2, 4.0
 BAYS = 11  # one case on each wall per bay
 BAY = 2.5
 gallery = options["gallery"]
+decor = options.get("decor") or gallery  # drawings for the stock on the shelves: covers with their lettering taken out
 
 if VAULT:
     CASE = brushed("case", linear("#3a3840"), 0.34, "z")  # the hero cases too are metal in this look

@@ -161,7 +161,7 @@ if (lookdevOnly && referenceOnly) {
   // frames of the move itself (the first is its exact first frame), so
   // they and the video show one place from one camera.
   const bare = withoutLettering()
-  const dressed = { gallery: gallery.map(bare), slots: products.slice(0, layouts.wide.slots).map((product) => ({ ...product, texture: bare(product.texture) })) }
+  const dressed = { gallery: gallery.map(bare), decor: gallery.map(bare), slots: products.slice(0, layouts.wide.slots).map((product) => ({ ...product, texture: bare(product.texture) })) }
   const reference = join(build, VERSION, 'reference')
   mkdirSync(reference, { recursive: true })
   const clip = { ...layouts.wide, width: 1280, height: 720, frames: 120 }
@@ -200,7 +200,7 @@ if (lookdevOnly) {
   const blockout = render(`${name} blockout stills`, shape, { folder: `${name}-blockout`, options: { format: 'PNG', samples: 32, only } })
   const vault = render(`${name} vault stills`, shape, {
     folder: `${name}-vault`,
-    options: { format: 'PNG', look: 'vault', samples: Number(flag('samples', '256')), noise: Number(flag('noise', '0.02')), haze: Number(flag('haze', '0')), only },
+    options: { format: 'PNG', look: 'vault', decor: gallery.map(withoutLettering()), samples: Number(flag('samples', '256')), noise: Number(flag('noise', '0.02')), haze: Number(flag('haze', '0')), only },
   })
   const review = join(root, 'design-review', 'cinematic', 'lookdev', flag('label', name))
   rmSync(review, { recursive: true, force: true })

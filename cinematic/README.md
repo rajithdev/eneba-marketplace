@@ -75,6 +75,7 @@ only the surroundings differ.
 | Renderer | EEVEE, about a second a frame | Cycles on the graphics processor |
 | Surfaces | flat colours | veined stone, brushed metal, glass panes, polished floor tiles |
 | Architecture | walls, pillars, glowing shelves | niches cut into the stone, metal shelves, framed cases on feet, a second shelf of small cases, a ledge under the ceiling, a bronze doorway, a chamber with side walls |
+| Stock | none | every niche stocked like a shop: rows of small cases below, beside and above the display case, a pile of them on the shelf, a lit picture panel over the niche, spotlights on ceiling tracks. The stock wears the project's own cover drawings with the lettering taken out and the colours turned, and stands no nearer the middle than the shelves' front edge |
 | Light | glowing bars | neon tubes drawn at a brightness a picture can show, each with a hidden lamp beside it that gives the light the tube would |
 
 Three things keep the handoff to the page untouched in the vault look:
