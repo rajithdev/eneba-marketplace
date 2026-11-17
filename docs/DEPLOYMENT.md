@@ -274,6 +274,40 @@ the bearer-token fix, and the frontend changes.
 | `make verify` against the public site | 97 of 97, including the new section 12 (bearer tokens ignored, a write without the CSRF token refused, malformed filters answered 422) |
 | The site in a browser, signed out, at 1440 and 375 px wide | homepage, store by category, product, cart, account, order history and an unknown address: no console errors, no broken images, no sideways scroll |
 
+### Final deployment (2026-11-17)
+
+One correction followed the release review and was deployed as commit
+`e0a0409`: a checkout that lost the race to another checkout of the same
+buyer used to cancel the order that had won. It now cancels nothing (see
+"One buyer's checkouts overlap" in `ARCHITECTURE.md`). Commits after
+`e0a0409` change only this record, the verification script and the
+conversation log; no application code.
+
+| Check | Result |
+|---|---|
+| Backend tests, frontend tests, style and type checks | 278 and 149 passed |
+| `make prod-check` (the production build, locally, including a purchase) | 121 of 121 |
+| `make audit` | passed |
+| Deploy | `/api/health` reported `e0a0409`; the frontend's files are the ones a build of that commit produces |
+| `make verify` against the public site | 100 of 100 |
+
+The checkout checks that ran against the live site, each with one
+throwaway account and ending with every key back on sale:
+
+| Sent | Answered | Afterwards |
+|---|---|---|
+| The same request three times at once (one key) | 201, 200, 200 | one order |
+| The same cart from two more tabs (new keys) while that order is unpaid | 200, 200, both with that order | that order, still unpaid |
+| The same cart from three tabs at once (three keys), no order in progress | 201, 200, 200, all with one order | one unpaid order |
+| Two different carts at once | 201 and 409 `checkout_in_progress` | one unpaid order: the accepted one |
+
+The last row can also legitimately answer 201 twice, when the two requests
+do not overlap and the later one replaces the earlier as a changed cart
+does; the check accepts either, and fails on two unpaid orders or on an
+accepted order that is no longer the unpaid one. The overlap itself is
+forced, not left to timing, in the two-connection tests
+(`CheckoutConcurrencyTest`).
+
 ### Cold start, observed
 
 On 2026-11-17 the first request after the API had slept took 25 seconds

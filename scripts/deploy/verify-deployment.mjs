@@ -623,11 +623,57 @@ heading('10. Cart and checkout')
     const retry = await post(`/api/orders/${order?.id}/pay`, { payment_method: 'test_card_approved' })
     check('A declined order cannot be paid again', retry.status === 402 && retry.json?.data?.status === 'failed', `HTTP ${retry.status}`)
 
-    const second = await post('/api/orders', { items: [item] }, { 'idempotency-key': newKey() })
+    // Three tabs start the same checkout at the same moment, each under its
+    // own key, while the buyer has no order in progress. Whichever is saved
+    // first is the checkout; the others must be given it, not replace it.
+    const tabs = await Promise.all([1, 2, 3].map(() => post('/api/orders', { items: [item] }, { 'idempotency-key': newKey() })))
+    const second = tabs.find((reply) => reply.status === 201) ?? tabs[0]
     check('The keys of a declined order are back on sale at once', second.status === 201, `HTTP ${second.status}`)
+    const secondNow = await request('GET', `/api/orders/${second.json?.data?.id}`)
+    check(
+      'The same cart checked out from three tabs at the same moment is one order, still unpaid and untouched',
+      tabs.every((reply) => reply.status === 200 || reply.status === 201) &&
+        tabs.filter((reply) => reply.status === 201).length === 1 &&
+        new Set(tabs.map((reply) => reply.json?.data?.id)).size === 1 &&
+        secondNow.json?.data?.status === 'pending',
+      tabs.map((reply) => reply.status).join(', '),
+    )
 
-    const cancelled = await post(`/api/orders/${second.json?.data?.id}/cancel`)
-    const latePayment = await post(`/api/orders/${second.json?.data?.id}/pay`, { payment_method: 'test_card_approved' })
+    // Two different carts at the same moment. Either they overlap, and the
+    // one saved second is refused having held nothing; or they do not, and
+    // the later one, which could see the earlier, replaces it as a changed
+    // cart does. What must never happen: two unpaid orders, or a refused
+    // request cancelling the order that was accepted.
+    let current = second
+    const elsewhere = []
+    for (const candidate of candidates.filter((entry) => entry.slug !== product.slug).slice(0, 6)) {
+      const other = (await offersInStock(candidate.slug))[0]
+      if (other) elsewhere.push({ offer_id: other.id, quantity: 1, unit_price_cents: other.price.amount_cents })
+      if (elsewhere.length === 2) break
+    }
+    if (elsewhere.length === 2) {
+      const race = await Promise.all(elsewhere.map((entry) => post('/api/orders', { items: [entry] }, { 'idempotency-key': newKey() })))
+      const accepted = race.filter((reply) => reply.status === 201)
+      const refused = race.filter((reply) => reply.status === 409 && reply.json?.code === 'checkout_in_progress')
+      const statuses = await Promise.all(accepted.map(async (reply) => (await request('GET', `/api/orders/${reply.json.data.id}`)).json?.data?.status))
+      const unpaid = ((await request('GET', '/api/orders')).json?.data ?? []).filter((entry) => entry.status === 'pending')
+      check(
+        'Two different carts sent at the same moment leave exactly one unpaid order, and a refused one cancels nothing',
+        accepted.length >= 1 &&
+          accepted.length + refused.length === 2 &&
+          statuses.filter((status) => status === 'pending').length === 1 &&
+          statuses.every((status) => status === 'pending' || status === 'cancelled') &&
+          unpaid.length === 1 &&
+          accepted.some((reply) => reply.json.data.id === unpaid[0].id),
+        `${race.map((reply) => reply.status).join(', ')}; ${unpaid.length} unpaid`,
+      )
+      current = accepted.find((reply) => reply.json.data.id === unpaid[0]?.id) ?? second
+    } else {
+      console.log('  (fewer than three products in stock, so the two-carts-at-once check was skipped)')
+    }
+
+    const cancelled = await post(`/api/orders/${current.json?.data?.id}/cancel`)
+    const latePayment = await post(`/api/orders/${current.json?.data?.id}/pay`, { payment_method: 'test_card_approved' })
     check('A cancelled order is cancelled and can no longer be paid for', cancelled.json?.data?.status === 'cancelled' && latePayment.status === 409 && latePayment.json?.data?.status === 'cancelled', `HTTP ${cancelled.status}, then ${latePayment.status}`)
 
     const stillThere = await post('/api/cart/quote', { items: [item] })
