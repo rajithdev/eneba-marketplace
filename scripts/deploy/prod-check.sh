@@ -71,4 +71,4 @@ sleep 1
 kill -0 "$PROXY_PID" 2>/dev/null || { echo "The stand-in did not start."; exit 1; }
 
 echo "== Verifying"
-node scripts/deploy/verify-deployment.mjs "${FRONTEND_URL}" --behind-https-proxy --api-origin="http://localhost:${API_PORT}"
+node scripts/deploy/verify-deployment.mjs "${FRONTEND_URL}" --behind-https-proxy --api-origin="http://localhost:${API_PORT}" --purchase

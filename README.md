@@ -5,11 +5,11 @@ assignment: a store with filters and search, a homepage assembled from
 backend-defined blocks, product pages comparing offers from several sellers,
 and a checkout that delivers a digital key.
 
-**Status: deployed.** Sign-up and sign-in work end to end. The store (filters,
-sorting, pagination), typo-tolerant search (header suggestions and store
-results) and product pages (seller offers, other platforms and regions) are
-live on a seeded catalog. Cart and checkout, and the block-based homepage,
-are still to come.
+**Status: deployed.** Sign-up and sign-in, the store (filters, sorting,
+pagination), typo-tolerant search, product pages (seller offers, other
+platforms and regions), and the purchase flow (cart, checkout with a
+simulated payment, key delivery, order history) work end to end on a seeded
+catalog. The block-based homepage is still to come.
 
 | | |
 |---|---|
@@ -115,6 +115,28 @@ Things a reviewer should know are deliberate, approximate or not done yet.
   prices to the data files and adds anything missing. It never changes a key
   that exists, a sales count, or whether an offer is switched on. A game
   removed from the data files is not removed from a deployed database.
+
+**Cart and checkout**
+
+- Payment is simulated. There is no card form: the buyer picks one of three
+  test cards with a fixed outcome (approved, declined, insufficient funds).
+  No money moves and no real keys are sold; the keys are made-up codes.
+- The cart is kept in the browser, not on the server: it does not follow a
+  buyer to another device, and signing out does not empty it.
+- Keys are held for 10 minutes once checkout starts. There is no background
+  worker on the free tier, so overdue orders are settled by the next request
+  that looks at stock or orders (`php artisan orders:expire` exists for a
+  host with cron). Search suggestions and the filter counts skip that step,
+  so they can show an expired hold as "sold out" until the next page load.
+- A buyer has one checkout in progress at a time: starting another cancels
+  the earlier unpaid order. One order holds at most 10 of an offer and 20
+  different offers.
+- One payment attempt per order. After a decline the buyer checks out again,
+  which creates a new order.
+- There are no refunds, invoices, taxes, emails or seller payouts, and a
+  paid order cannot be cancelled.
+- With a real payment provider the expiry clean-up would call the provider
+  from inside ordinary page requests; it should move to a scheduled job.
 
 **Search**
 

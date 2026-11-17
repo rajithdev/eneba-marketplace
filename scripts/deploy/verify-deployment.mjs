@@ -25,7 +25,7 @@ import https from 'node:https'
 
 const [baseArg, ...flags] = process.argv.slice(2)
 if (!baseArg) {
-  console.error('Usage: verify-deployment.mjs <base-url> [--behind-https-proxy] [--api-origin=<url>] [--expect-commit=<sha>] [--identity-only]')
+  console.error('Usage: verify-deployment.mjs <base-url> [--behind-https-proxy] [--api-origin=<url>] [--expect-commit=<sha>] [--identity-only] [--purchase]')
   process.exit(2)
 }
 const base = new URL(baseArg)
@@ -507,6 +507,122 @@ heading('9. Search')
 
   const tooLong = await searchStore('a'.repeat(81))
   check('Overlong search text is rejected', tooLong.status === 422, `HTTP ${tooLong.status}`)
+}
+
+heading('10. Cart and checkout')
+{
+  // Signed in as the account from section 6. Everything here ends with the
+  // keys back on sale (a declined payment, a cancelled order), so running it
+  // against the live site uses up no stock. The one check that really buys a
+  // key runs only with --purchase (the local production check passes it).
+  const post = (path, body, headers = {}) => request('POST', path, { body, headers: { ...xsrfHeader(), ...headers } })
+  const newKey = () => crypto.randomUUID()
+
+  const signedIn = await post('/api/auth/login', { email, password })
+  check('Signed in again as the test buyer', signedIn.status === 200, `HTTP ${signedIn.status}`)
+  const looksLikeAKey = /\b[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}\b/
+
+  const product = (await request('GET', '/api/products?per_page=48')).json?.data?.find((candidate) => candidate.in_stock)
+  const offer = (await request('GET', `/api/products/${product?.slug}`)).json?.data?.offers?.find((candidate) => candidate.in_stock)
+  check('There is an offer in stock to test with', Boolean(offer), product?.name ?? 'no product in stock')
+
+  if (offer) {
+    const item = { offer_id: offer.id, quantity: 1, unit_price_cents: offer.price.amount_cents }
+    const dearer = { ...item, unit_price_cents: item.unit_price_cents + 1 }
+
+    const quote = await post('/api/cart/quote', { items: [{ offer_id: offer.id, quantity: 1 }] })
+    const line = quote.json?.data?.lines?.[0]
+    check(
+      'The server prices the cart: name, seller and total come from its own data',
+      quote.status === 200 && quote.json.data.ok && line.product.name === product.name && line.seller.name === offer.seller.name && quote.json.data.totals.total_cents === offer.price.amount_cents,
+      `HTTP ${quote.status}`,
+    )
+
+    const stale = await post('/api/cart/quote', { items: [dearer] })
+    check('A price other than the one the buyer was shown is flagged', stale.json?.data?.ok === false && stale.json.data.lines[0].issues.includes('price_changed'))
+
+    const guest = await request('POST', '/api/orders', { body: { items: [item] }, cookies: new Map(), asFrontend: false, headers: { 'idempotency-key': newKey() } })
+    check('A signed-out caller cannot place an order', guest.status === 401, `HTTP ${guest.status}`)
+
+    const noKey = await post('/api/orders', { items: [item] })
+    check('An order without an Idempotency-Key is refused', noKey.status === 422, `HTTP ${noKey.status}`)
+
+    const wrongPrice = await post('/api/orders', { items: [dearer] }, { 'idempotency-key': newKey() })
+    check('An order at a price that has changed is refused, with the new quote', wrongPrice.status === 409 && wrongPrice.json?.code === 'cart_changed' && wrongPrice.json.quote.lines[0].unit_price.amount_cents === offer.price.amount_cents, `HTTP ${wrongPrice.status}`)
+
+    // The same request three times at the same moment.
+    const key = newKey()
+    const copies = await Promise.all([1, 2, 3].map(() => post('/api/orders', { items: [item] }, { 'idempotency-key': key })))
+    const order = copies[0].json?.data
+    check(
+      'The same order request sent three times at once creates one order',
+      copies.every((copy) => copy.status === 200 || copy.status === 201) && new Set(copies.map((copy) => copy.json?.data?.id)).size === 1 && copies.filter((copy) => copy.status === 201).length === 1,
+      copies.map((copy) => copy.status).join(', '),
+    )
+    check('The order is pending, with a deadline and ways to pay', order?.status === 'pending' && order.expires_in_seconds > 0 && order.payment_methods.length > 0)
+    check('No license key is shown before payment', Boolean(order) && order.items.every((entry) => entry.keys.length === 0) && !looksLikeAKey.test(copies[0].text))
+
+    const reused = await post('/api/orders', { items: [{ ...item, quantity: 2 }] }, { 'idempotency-key': key })
+    check('The same key with a different cart is refused', reused.status === 422 && reused.json?.code === 'idempotency_key_reused', `HTTP ${reused.status}`)
+
+    const outsider = await request('GET', `/api/orders/${order?.id}`, { cookies: new Map(), asFrontend: false })
+    check('The order cannot be read without being signed in as its buyer', outsider.status === 401, `HTTP ${outsider.status}`)
+
+    const unknown = await request('GET', `/api/orders/${newKey()}`)
+    check('An order id that does not exist is "not found"', unknown.status === 404, `HTTP ${unknown.status}`)
+
+    const badMethod = await post(`/api/orders/${order?.id}/pay`, { payment_method: '4111111111111111' })
+    check('Only the listed test payment methods are accepted', badMethod.status === 422, `HTTP ${badMethod.status}`)
+
+    // A declined payment, pressed three times at once.
+    const declines = await Promise.all([1, 2, 3].map(() => post(`/api/orders/${order?.id}/pay`, { payment_method: 'test_card_declined' })))
+    check(
+      'A declined payment answers 402 every time, with the order failed and no key',
+      declines.every((reply) => reply.status === 402 && reply.json?.data?.status === 'failed' && reply.json.data.payment.status === 'failed' && !looksLikeAKey.test(reply.text)),
+      declines.map((reply) => reply.status).join(', '),
+    )
+
+    const retry = await post(`/api/orders/${order?.id}/pay`, { payment_method: 'test_card_approved' })
+    check('A declined order cannot be paid again', retry.status === 402 && retry.json?.data?.status === 'failed', `HTTP ${retry.status}`)
+
+    const second = await post('/api/orders', { items: [item] }, { 'idempotency-key': newKey() })
+    check('The keys of a declined order are back on sale at once', second.status === 201, `HTTP ${second.status}`)
+
+    const cancelled = await post(`/api/orders/${second.json?.data?.id}/cancel`)
+    const latePayment = await post(`/api/orders/${second.json?.data?.id}/pay`, { payment_method: 'test_card_approved' })
+    check('A cancelled order is cancelled and can no longer be paid for', cancelled.json?.data?.status === 'cancelled' && latePayment.status === 409 && latePayment.json?.data?.status === 'cancelled', `HTTP ${cancelled.status}, then ${latePayment.status}`)
+
+    const stillThere = await post('/api/cart/quote', { items: [item] })
+    check('After a declined and a cancelled order the offer is still in stock', stillThere.json?.data?.ok === true)
+
+    if (flags.includes('--purchase')) {
+      const bought = await post('/api/orders', { items: [item] }, { 'idempotency-key': newKey() })
+      const payments = await Promise.all([1, 2, 3].map(() => post(`/api/orders/${bought.json?.data?.id}/pay`, { payment_method: 'test_card_approved' })))
+      const keys = payments.map((reply) => JSON.stringify(reply.json?.data?.items?.map((entry) => entry.keys)))
+      check(
+        'An approved payment, pressed three times at once, delivers one key once',
+        payments.every((reply) => reply.status === 200 && reply.json?.data?.status === 'paid') && new Set(keys).size === 1 && payments[0].json.data.items[0].keys.length === 1 && looksLikeAKey.test(payments[0].json.data.items[0].keys[0]),
+        payments.map((reply) => reply.status).join(', '),
+      )
+
+      const again = await request('GET', `/api/orders/${bought.json?.data?.id}`)
+      check('The buyer can read the key again later', again.status === 200 && JSON.stringify(again.json?.data?.items?.map((entry) => entry.keys)) === keys[0])
+
+      const withoutSession = await request('GET', `/api/orders/${bought.json?.data?.id}`, { cookies: new Map(), asFrontend: false })
+      check('Nobody else can read a paid order or its key', withoutSession.status === 401 && !looksLikeAKey.test(withoutSession.text), `HTTP ${withoutSession.status}`)
+    } else {
+      console.log('  (a real purchase would use up a seeded key; that check runs only with --purchase, as "make prod-check" does)')
+    }
+
+    const history = await request('GET', '/api/orders')
+    check(
+      'The order history lists this buyer\'s orders and never a key',
+      history.status === 200 && history.json?.data?.some((entry) => entry.id === order?.id) && !history.text.includes('"keys"') && !looksLikeAKey.test(history.text),
+      `${history.json?.meta?.total} orders`,
+    )
+  }
+
+  await post('/api/auth/logout')
 }
 
 // --------------------------------------------------------------- summary ---

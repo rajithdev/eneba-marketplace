@@ -55,11 +55,13 @@ offers           id, product_id, seller_id, price_cents, original_price_cents,
 license_keys     id, offer_id, code, status, order_item_id, reserved_until, sold_at
 users            id, name, email, password            (plus Laravel's sessions table)
 orders           id, public_id, user_id, status, total_cents, currency,
-                 idempotency_key, failure_reason, paid_at
+                 idempotency_key, cart_hash, failure_reason, expires_at, paid_at
 order_items      id, order_id, offer_id, product_id, product_name, seller_name,
-                 unit_price_cents, quantity
-payments         id, order_id, provider, provider_reference, status,
+                 unit_price_cents, original_unit_price_cents, quantity
+payments         id, order_id, provider, provider_reference, status, method,
                  amount_cents, currency, failure_code
+simulated_charges id, reference, status, amount_cents, currency, method,
+                 failure_code      (the simulated payment provider's own records)
 homepage_blocks  id, type, title, position, config, is_active
 banners          id, title, subtitle, image_url, link_url, cta_label, position, is_active
 ```
@@ -109,6 +111,8 @@ test in `api/tests/Feature/Schema`.
 | A price is positive; a "was" price is not below the current price | check constraints |
 | The same checkout attempt cannot create two orders | unique `(user_id, idempotency_key)` |
 | An order is charged at most once | unique `payments.order_id` |
+| An order is paid exactly when it has a payment time | check constraint `orders_paid_at_check` |
+| The payment provider decides a charge reference once | unique `simulated_charges.reference` |
 | A key is available, reserved or sold, and each state is internally consistent (for example, a sold key always belongs to an order line) | check constraint `license_keys_state_check` |
 | A key code exists once | unique `code` |
 | A game is sold at most once per platform and region | unique `(game_id, platform_id, region_id)` |
@@ -124,6 +128,22 @@ with the catalog:
 2. A `payments` table was added instead of payment columns on `orders`.
 3. `games` was split out of `products` (see above). Done as a new migration,
    not by editing the first ones, because those had already run in production.
+
+And with the checkout, after reviewing the order tables against what the
+flow needs (again as a new migration):
+
+4. `orders` gained `expires_at` (the deadline was only on the keys, so
+   "which unpaid orders are overdue" could not be asked directly) and
+   `cart_hash` (so a reused idempotency key with a different cart is refused
+   instead of silently answered with the old order).
+5. Orders and payments gained a `cancelled` status. An unpaid order's
+   payment was never attempted, so calling it "failed" would be wrong.
+6. `simulated_charges` was added: the gateway needs a memory of its own to
+   answer the same reference the same way twice.
+7. The plan to let the next buyer's allocation take back overdue keys
+   directly was dropped as unsafe: if the first buyer had in fact been
+   charged and only the bookkeeping crashed, their keys would have been
+   sold twice. See "The rule that makes it safe" below.
 
 ## Catalog API (Built)
 
@@ -184,65 +204,156 @@ limit of computing prices on read; storing the best price on the product
 (and keeping it in sync when offers or keys change) is the step to take if
 the catalog ever grows that large.
 
-## Checkout and key delivery (Planned; schema and locking proof Built)
+## Cart, checkout and key delivery (Built)
 
-Requirements: handle concurrent purchases, duplicate requests and failures
-mid-way correctly; keep simulated payment separate from inventory allocation.
+Requirements: concurrent purchases, duplicate requests and failures mid-way
+are handled correctly; simulated payment is separate from inventory
+allocation; the backend is the authority on prices, stock, payment status
+and who owns a key.
 
-### Three steps, two short transactions
+### The cart
+
+The cart lives in the browser (`localStorage`), so guests can use it. An
+item is a seller's **offer**, not a product: the buyer chose that seller at
+that price. Adding the same offer again raises its quantity.
+
+Nothing in the browser's cart is trusted. `POST /api/cart/quote` (open to
+guests) takes offer ids and quantities and answers with names, sellers,
+current prices, how many can be bought, the totals, and per line what is
+wrong, if anything:
+
+| Issue | Meaning |
+|---|---|
+| `unavailable` | the offer is gone, switched off or sold out |
+| `insufficient_stock` | fewer keys are left than were asked for |
+| `quantity_limited` | more than one order may hold (10 per offer) |
+| `price_changed` | the price is not the one the buyer was last shown |
+
+The cart page shows each issue in words and the buyer must accept the
+updated cart before checking out. Placing an order runs the same quote
+again inside the transaction, so an order is never placed at a price or
+quantity the buyer did not see.
+
+### States
+
+An order says who owns the keys; its payment says where the money is.
 
 ```
-1. Reserve   (one DB transaction)   re-price the cart from current offers,
-                                    lock and reserve the keys, create the order
-                                    and its payment row, both "pending"
-2. Charge    (no transaction open)  ask the payment gateway to charge
-3. Finalise  (one DB transaction)   success: keys -> sold, payment -> succeeded,
-                                             order -> paid
-                                    decline: keys -> available, payment and
-                                             order -> failed
+order     pending ──> paid         payment succeeded, keys sold to the buyer
+             ├──────> failed       payment declined, keys back on sale
+             ├──────> expired      not paid before the deadline, keys back on sale
+             └──────> cancelled    given up by the buyer, keys back on sale
+
+payment   pending ──> succeeded | failed | cancelled (never charged, never will be)
+
+key       available ──reserve──> reserved ──confirm──> sold
+                                    └──────release──> available
 ```
 
-The first proposal ran everything in a single transaction. That is simpler,
-but it holds database row locks while waiting for a payment call, and it
-cannot represent "the money moved but the order was not saved". Splitting it
-costs a `reserved` state and a timeout, and buys correct behaviour in every
-failure below.
+No state is ever left once reached, except `pending` and `reserved`.
+`SettleOrder` is the only code that moves an order out of `pending`.
+The database enforces what it can: the status values, "paid exactly when
+`paid_at` is set", one payment per order, one order per buyer and
+idempotency key, and the three consistent shapes of a key row.
 
-### Separate responsibilities
+### Three steps, two requests
+
+```
+POST /api/orders              1. Reserve   one transaction: re-price the cart,
+                                           create the pending order and payment,
+                                           hold the keys until the deadline
+                                           (10 minutes)
+
+POST /api/orders/{id}/pay     2. Charge    no transaction open: ask the gateway
+                              3. Record    one transaction: lock the order row,
+                                           then keys, payment and order change
+                                           together
+```
+
+Step 1 and steps 2 to 3 are separate requests so that a reservation is a
+real, visible thing: the buyer sees the order with a countdown, chooses how
+to pay, and can leave. No database lock is ever held while waiting for the
+gateway.
 
 | Class | Knows about | Does not know about |
 |---|---|---|
+| `QuoteCart` | offers, prices, stock | orders, payments |
 | `InventoryAllocator` | keys: reserve, confirm, release | payments |
-| `PaymentGateway` (interface) and `SimulatedPaymentGateway` | charging an amount against a reference | keys, orders |
-| `PlaceOrder` | the sequence of the three steps | how either of the above works inside |
+| `PaymentGateway` (interface), `SimulatedPaymentGateway` | charging or cancelling a reference | orders, keys |
+| `PlaceOrder` | step 1 | how a payment works |
+| `SettleOrder` | steps 2 and 3, expiry, recovery | how keys are chosen |
 
-The simulated gateway accepts documented test card numbers (one succeeds, one
-is declined) and never stores card data. A real provider would be another
-implementation of the same interface.
+### The rule that makes it safe
+
+**The gateway decides a reference once.** The reference is the order's
+public id. The first `charge` or `cancel` for it fixes the outcome; every
+later call, of either kind, returns that same outcome and does nothing.
+(In the simulated gateway this is a unique index and
+`INSERT ... ON CONFLICT DO NOTHING`; real providers offer the same through
+idempotency keys and cancellable payments.)
+
+**An order leaves `pending` only on the gateway's recorded decision.** Keys
+are released only after the gateway has confirmed that no money can move
+(declined or cancelled), and sold only after it confirmed that money did.
+So expiry does not simply take an overdue order's keys back: it first
+cancels the reference at the gateway. If the buyer was charged a moment
+earlier, the cancel loses, the gateway says "charged", and the order is
+completed as paid instead.
+
+The simulated gateway has no card form. The buyer picks one of three test
+cards with fixed outcomes (approved, declined, insufficient funds), so no
+card data is ever asked for or stored.
 
 ### What happens when things go wrong
 
 | Situation | Outcome |
 |---|---|
-| Two buyers want the last key at the same moment | Step 1 selects keys with `FOR UPDATE SKIP LOCKED`. One transaction locks the key; the other skips it, finds none, and returns "out of stock" (HTTP 409) without waiting. |
-| Double click, browser retry, or network retry | The browser sends the same `Idempotency-Key` for one checkout attempt. The unique constraint lets only one order exist; the repeat request returns that order's current result instead of charging again. |
-| Price or stock changed since the cart was loaded | Step 1 re-prices from the database. If the total differs from what the buyer saw, nothing is reserved and the response carries the new quote (HTTP 409). |
-| Payment declined | Step 3 releases the keys and marks the order failed (HTTP 402). Stock is back immediately. |
-| Server dies after reserving, before the payment result | The order stays pending. The reservation expires after `reserved_until` (15 minutes); expired reservations are released the next time stock for that offer is allocated, so no background worker is needed on the free tier. |
-| Payment succeeded but step 3 failed | Retrying with the same idempotency key finds the pending order and asks the gateway again using the same reference; the gateway returns the original charge rather than charging twice, and step 3 runs again. If the reservation has expired and the keys are gone, the charge is refunded and the order marked failed. |
+| Two buyers want the last key at the same moment | Keys are selected with `FOR UPDATE SKIP LOCKED`: one transaction locks the key, the other skips it, finds too few and is told so (HTTP 409 with a fresh quote) without waiting. |
+| Double click, retry, or the same request twice at once | The browser sends one `Idempotency-Key` per cart. The unique index lets one order exist; every copy of the request gets that order. The same key with a different cart is refused (422). |
+| "Pay" pressed several times | The page shares the one request in flight; if several arrive anyway, each asks the gateway about the same reference (one charge), then waits for the order row lock and finds the order already settled. |
+| Price or stock changed since the cart was shown | Step 1 re-prices from the database. Nothing is reserved and the answer carries the new quote (409). |
+| Payment declined | Keys released, order failed, payment failed (402). Stock is back immediately. Trying again is a new order. |
+| Buyer never pays | The order expires at its deadline: reference cancelled at the gateway, keys released, order expired. |
+| Buyer goes back and changes the cart | Starting another checkout cancels the buyer's earlier pending order first, so they are never blocked by their own reservation; a quote counts keys held by the buyer's own pending order as available to them. |
+| Crash after step 1 | A pending order with held keys. The buyer can still pay until the deadline; otherwise it expires as above. |
+| Crash after the charge, before recording it | The gateway knows. The next touch records it: the buyer retrying, the buyer opening the order, or the expiry clean-up (whose cancel loses to the charge). The buyer gets the keys even if they never come back. |
+| Crash while recording | The transaction rolls back completely. Same as the previous row. |
+| Pay and cancel (or expiry) at the same moment | The gateway reference is decided once, so exactly one wins, and every request reports that same result. |
+
+There is no refund state because the case that would need one (charged, but
+the keys were given to someone else) cannot arise: an order's keys are
+never released while a charge for it could still succeed.
+
+### Expiry without a background worker
+
+The free hosting tier runs no scheduler. Requests that show or take stock
+(product list and page, cart quote, orders) first settle overdue orders
+(`ReleaseExpiredReservations`): one small indexed query when there is
+nothing to do, which is nearly always. Opening an order settles that order.
+`php artisan orders:expire` does the same for a host that has cron.
+
+### Who can see what
+
+Every order route needs a signed-in user and looks the order up through
+that user's own orders, by a random public id: someone else's order answers
+"not found", exactly like one that does not exist. License keys appear in
+one place only, the single-order response, and only once the order is paid.
+The order history, quotes and pending orders never contain a key.
 
 ### Tests
 
-Built now, in `KeyLockingTest`: two real database connections prove that
-simultaneous buyers are never given the same key and that the last key goes to
-exactly one of them.
+PostgreSQL integration tests (`tests/Feature/Checkout`) cover: quotes and
+each issue; placing orders, snapshots, idempotency and its payload check;
+approved, declined, late and cancelled payments; who may read what; and
+every crash point above, including a failure injected half way through
+step 3. `CheckoutConcurrencyTest` runs real parallel processes, each with
+its own database connection: eight buyers for three keys, the same request
+six times at once, "Pay" six times at once, pay against cancel, opposite
+lock orders, and one buyer starting two checkouts.
 
-Planned with the checkout increment: successful purchase delivers the right
-keys; two concurrent checkouts for the last key (real parallel processes);
-duplicate request returns one order and one charge; declined payment releases
-keys; expired reservation is reclaimed; crash between charge and finalise
-recovers on retry; price change is rejected; a buyer cannot read another
-buyer's order or keys.
+The frontend tests cover the cart store, revalidation notices, the order
+page in each state, duplicate presses, the countdown, and signed-out
+visitors. `make prod-check` buys a key through the production build.
 
 ## Authentication (Built; awaiting proof on the deployed site)
 
