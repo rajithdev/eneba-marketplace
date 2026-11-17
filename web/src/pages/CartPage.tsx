@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { Link, useNavigate } from 'react-router'
 import { LineCover, LineTitle, PriceBreakdown } from '../components/OrderLines'
 import { PriceTag } from '../components/PriceTag'
-import { Notice, pageTitle, pageTop, primaryButton, secondaryButton, sectionTitle } from '../components/States'
+import { Notice, pageTitle, pageTop, primaryButton, raised, secondaryButton, sectionTitle, Spinner, surface } from '../components/States'
 import { ApiError, describeFailure } from '../lib/api'
 import { useSession } from '../lib/auth'
 import { cart, checkoutAttempt, useCart, type CartItem } from '../lib/cart'
@@ -113,7 +113,7 @@ export function CartPage() {
           </p>
         </div>
 
-        <section aria-label="Order summary" className="self-start bg-panel p-5">
+        <section aria-label="Order summary" className={`self-start p-5 lg:sticky lg:top-4 ${raised}`}>
           <h2 className={`mb-4 ${sectionTitle}`}>Summary</h2>
 
           {data ? (
@@ -142,6 +142,7 @@ export function CartPage() {
               </>
             ) : session.state === 'signed-in' ? (
               <button type="button" className={`${primaryButton} w-full`} disabled={!data || busy} onClick={() => checkout.mutate()}>
+                {checkout.isPending && <Spinner />}
                 {checkout.isPending ? 'Reserving your keys…' : 'Proceed to checkout'}
               </button>
             ) : session.state === 'checking' ? (
@@ -182,9 +183,12 @@ function CartLine({ item, line, disabled }: { item: CartItem; line: QuoteLine | 
   const max = line?.max_quantity ?? item.quantity
 
   return (
-    <li className="bg-card p-3 sm:p-4">
-      <div className="flex gap-3 sm:gap-4">
-        <LineCover url={line?.product?.cover_image_url ?? null} dimmed={unavailable} />
+    <li className={`p-3 sm:p-4 ${surface}`}>
+      {/* On a phone the price sits under the name, so the name keeps the full width; beside it from a tablet up. */}
+      <div className="grid grid-cols-[60px_1fr] gap-x-3 gap-y-2 sm:grid-cols-[60px_1fr_auto] sm:gap-x-4">
+        <div className="row-span-2 sm:row-span-1">
+          <LineCover url={line?.product?.cover_image_url ?? null} dimmed={unavailable} />
+        </div>
 
         <div className="min-w-0 flex-1">
           {line?.product ? (
@@ -203,7 +207,7 @@ function CartLine({ item, line, disabled }: { item: CartItem; line: QuoteLine | 
           </p>
         </div>
 
-        <div className="shrink-0 text-right">{line?.unit_price && !unavailable && <PriceTag price={line.unit_price} />}</div>
+        <div className="sm:text-right">{line?.unit_price && !unavailable && <PriceTag price={line.unit_price} />}</div>
       </div>
 
       {line && <LineIssues item={item} line={line} />}

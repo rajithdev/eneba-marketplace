@@ -4,10 +4,14 @@ import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from 'react-rou
 import { useSession } from '../lib/auth'
 import { cartCount, useCart } from '../lib/cart'
 import { fetchFilters } from '../lib/catalog'
+import { Icon } from './Icon'
 import { SearchBox } from './SearchBox'
 
+// An icon with its word beside it; on a phone the icon alone (the link
+// keeps its name for screen readers through aria-label).
 const navLink = ({ isActive }: { isActive: boolean }) =>
-  `px-2 py-2 text-sm font-extrabold hover:text-accent sm:px-3 ${isActive ? 'text-accent' : 'text-white'}`
+  `flex min-h-11 items-center gap-2 px-2 text-sm font-semibold hover:text-accent sm:px-3 ${isActive ? 'text-accent' : 'text-white'}`
+const navWord = 'hidden md:inline'
 
 const footerLink = 'hover:text-accent hover:underline'
 
@@ -18,7 +22,7 @@ export function AppShell() {
   const categories = useCategories()
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col overflow-x-clip">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-accent focus:px-3 focus:py-2 focus:font-extrabold focus:text-black"
@@ -28,48 +32,58 @@ export function AppShell() {
 
       <header className="bg-page">
         {/* One row on wide screens; on narrow ones the search drops to its own row. */}
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-3 px-4 py-4 sm:gap-x-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 md:gap-x-8 md:py-4">
           {/* A text wordmark: Eneba's logo is theirs and is not copied. */}
-          <Link to="/" className="text-xl font-black tracking-tight sm:text-2xl">
+          <Link to="/" className="text-2xl font-black tracking-tight md:text-[28px]">
             key<span className="text-accent">market</span>
           </Link>
-          <div className="order-last w-full md:order-none md:w-auto md:flex-1">
+          <div className="order-last w-full md:order-none md:w-auto md:max-w-2xl md:flex-1">
             <SearchBox />
           </div>
           <nav aria-label="Main" className="ml-auto flex items-center">
             <NavLink to="/cart" className={navLink} aria-label={inCart === 0 ? 'Cart, empty' : `Cart, ${inCart} ${inCart === 1 ? 'item' : 'items'}`}>
-              Cart
-              {inCart > 0 && (
-                <span aria-hidden="true" className="ml-1.5 inline-block min-w-5 bg-accent px-1 text-center text-xs text-black">
-                  {inCart}
-                </span>
-              )}
+              <span className="relative">
+                <Icon name="cart" className="size-6" />
+                {inCart > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-2 -top-2 min-w-[18px] rounded-full bg-accent px-1 text-center text-[11px] font-extrabold leading-[18px] text-black"
+                  >
+                    {inCart}
+                  </span>
+                )}
+              </span>
+              <span className={navWord}>Cart</span>
             </NavLink>
             {/* A signed-in buyer sees their orders and their own name here. */}
             {session.state === 'signed-in' && (
-              <NavLink to="/orders" className={navLink}>
-                Orders
+              <NavLink to="/orders" className={navLink} aria-label="Orders">
+                <Icon name="orders" className="size-6" />
+                <span className={navWord}>Orders</span>
               </NavLink>
             )}
             <NavLink
               to="/account"
               className={navLink}
-              aria-label={session.state === 'signed-in' ? `Account, signed in as ${session.user.name}` : undefined}
+              aria-label={session.state === 'signed-in' ? `Account, signed in as ${session.user.name}` : 'Account'}
             >
-              {session.state === 'signed-in' ? <span className="inline-block max-w-16 truncate align-bottom sm:max-w-28">{session.user.name}</span> : 'Account'}
+              <Icon name="user" className="size-6" />
+              <span className={navWord}>
+                {session.state === 'signed-in' ? <span className="inline-block max-w-28 truncate align-bottom">{session.user.name}</span> : 'Account'}
+              </span>
             </NavLink>
           </nav>
         </div>
 
-        <nav aria-label="Categories" className="border-y border-line/50 bg-card/40">
+        <nav aria-label="Categories" className="bg-band">
           {/* Scrolls sideways on a narrow screen, without drawing a scrollbar. */}
-          <ul className="mx-auto flex max-w-7xl overflow-x-auto px-2 text-sm font-extrabold [scrollbar-width:none] sm:px-1">
+          <ul className="mx-auto flex max-w-7xl overflow-x-auto px-2 text-[15px] font-semibold [scrollbar-width:none] sm:px-1">
             {categories.map((category) => (
               <li key={category.to} className="shrink-0">
                 <Link
                   to={category.to}
                   aria-current={category.current ? 'page' : undefined}
-                  className={`block px-2 py-2.5 hover:text-accent sm:px-3 ${category.current ? 'text-accent' : 'text-white'}`}
+                  className={`block border-b-2 px-2 py-3 hover:text-white sm:px-3 ${category.current ? 'border-accent text-white' : 'border-transparent text-muted'}`}
                 >
                   {category.label}
                 </Link>
@@ -85,7 +99,7 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <footer className="bg-card text-sm text-muted">
+      <footer className="border-t border-line/60 bg-card text-sm text-muted">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-[2fr_1fr_1fr]">
           <div>
             <p className="text-xl font-black tracking-tight text-white">

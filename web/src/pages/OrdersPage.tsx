@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
 import { Pagination } from '../components/Pagination'
 import { SessionNotice } from '../components/SessionNotice'
-import { LoadError, Notice, pageTitle, pageTop, primaryButton } from '../components/States'
+import { LoadError, Notice, pageTitle, pageTop, primaryButton, surface } from '../components/States'
 import { useSession } from '../lib/auth'
 import { fetchOrders, ordersKey, shortId, statusLabels, type OrderSummary } from '../lib/checkout'
 import { formatDateTime, formatMoney } from '../lib/money'
@@ -73,7 +73,7 @@ const statusColours: Record<string, string> = {
 
 function OrderRow({ order }: { order: OrderSummary }) {
   return (
-    <li className="bg-card p-4">
+    <li className={`p-4 ${surface}`}>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div>
           <Link to={`/orders/${order.id}`} className="text-lg font-extrabold hover:text-accent">

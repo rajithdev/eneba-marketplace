@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { OfferTable } from '../components/OfferTable'
 import { PriceTag } from '../components/PriceTag'
-import { LoadError, Notice, pageTitle, pageTop, primaryButton, secondaryButton, sectionTitle } from '../components/States'
+import { LoadError, Notice, pageTitle, pageTop, primaryButton, raised, secondaryButton, sectionTitle } from '../components/States'
 import { VariantList } from '../components/VariantList'
 import { ApiError } from '../lib/api'
 import { cart, useCart } from '../lib/cart'
@@ -72,8 +72,14 @@ function ProductView({ product }: { product: ProductDetail }) {
         <span aria-current="page">{product.game.title}</span>
       </nav>
 
-      <div className="grid gap-6 md:grid-cols-[220px_1fr] lg:grid-cols-[220px_1fr_340px]">
-        <div className="mx-auto w-44 md:mx-0 md:w-full">
+      {/*
+        On a phone: a small cover beside the title, then straight to the
+        price and "Add to cart", then the details. The details come first
+        in the page's own order (and on wider screens); `order` only moves
+        what a phone shows, and nothing in them takes keyboard focus.
+      */}
+      <div className="grid grid-cols-[104px_1fr] gap-x-4 gap-y-5 md:grid-cols-[220px_1fr] md:gap-6 lg:grid-cols-[220px_1fr_340px]">
+        <div className="order-1 md:order-none">
           {product.cover_image_url && (
             <img
               src={product.cover_image_url}
@@ -85,22 +91,24 @@ function ProductView({ product }: { product: ProductDetail }) {
           )}
         </div>
 
-        <div>
-          <h1 className={pageTitle}>{product.name}</h1>
+        <div className="contents md:block">
+          <h1 className={`order-2 self-center md:order-none ${pageTitle}`}>{product.name}</h1>
 
-          <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-4 md:grid-cols-2 xl:grid-cols-4">
+          <dl className="order-4 col-span-2 grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-4 md:order-none md:mt-5 md:grid-cols-2 xl:grid-cols-4">
             <Fact term="Platform" value={product.platform.name} />
             <Fact term="Region" value={product.region.name} highlight />
             <Fact term="Type" value={typeLabels[product.type] ?? product.type} />
             <Fact term="Released" value={product.release_date ? formatDate(product.release_date) : 'Not applicable'} />
           </dl>
 
-          {product.game.description && <p className="mt-6 max-w-prose leading-relaxed text-muted">{product.game.description}</p>}
+          {product.game.description && (
+            <p className="order-5 col-span-2 max-w-prose leading-relaxed text-muted md:order-none md:mt-6">{product.game.description}</p>
+          )}
         </div>
 
         {/* The buy box: the best price, where it comes from, and how many alternatives there are. */}
-        <section aria-label="Best offer" className="self-start bg-panel p-5 md:col-span-2 lg:col-span-1">
-          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">{best ? 'Best offer' : 'Availability'}</p>
+        <section aria-label="Best offer" className={`order-3 col-span-2 self-start p-5 md:order-none lg:sticky lg:top-4 lg:col-span-1 ${raised}`}>
+          <p className={`text-xs font-extrabold uppercase tracking-wide ${best ? 'text-accent' : 'text-muted'}`}>{best ? 'Best offer' : 'Availability'}</p>
           <div className="mt-2">
             <PriceTag price={product.price} size="large" />
           </div>
@@ -121,7 +129,7 @@ function ProductView({ product }: { product: ProductDetail }) {
           )}
           {best && (
             <>
-              <button type="button" className={`${primaryButton} mt-5 w-full`} onClick={() => addToCart(best)}>
+              <button type="button" className={`${primaryButton} mt-5 h-12 w-full text-base`} onClick={() => addToCart(best)}>
                 Add to cart
               </button>
               <p role="status" className="mt-2 min-h-5 text-sm">
@@ -152,7 +160,7 @@ function ProductView({ product }: { product: ProductDetail }) {
       )}
 
       <section id="offers" aria-labelledby="offers-heading" className="mt-10 scroll-mt-4">
-        <h2 id="offers-heading" className={`mb-1 ${sectionTitle}`}>
+        <h2 id="offers-heading" className={`mb-2 ${sectionTitle}`}>
           Offers from sellers
         </h2>
         <OfferTable offers={product.offers} inCart={inCart} onAdd={addToCart} />
@@ -179,8 +187,8 @@ function Fact({ term, value, highlight = false }: { term: string; value: string;
 
 function ProductSkeleton() {
   return (
-    <div role="status" aria-label="Loading product" className="grid animate-pulse gap-6 pt-[68px] md:grid-cols-[220px_1fr]">
-      <div className="mx-auto aspect-[3/4] w-44 bg-card md:w-full" />
+    <div role="status" aria-label="Loading product" className="grid animate-pulse grid-cols-[104px_1fr] gap-x-4 gap-y-5 pt-[68px] md:grid-cols-[220px_1fr] md:gap-6">
+      <div className="aspect-[3/4] w-full bg-card" />
       <div className="space-y-4">
         <div className="h-8 w-3/4 bg-card" />
         <div className="h-4 w-1/2 bg-card" />

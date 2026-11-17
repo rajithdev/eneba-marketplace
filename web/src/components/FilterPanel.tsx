@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { FiltersResponse } from '../lib/catalog'
 import { formatMoney } from '../lib/money'
-import { smallSecondaryButton } from './States'
+import { smallSecondaryButton, surface } from './States'
 import { centsToEuros, eurosToCents, selected, withToggled, withValue, type ListFilter } from '../lib/storeParams'
 
 interface Props {
@@ -65,7 +65,7 @@ function CheckboxGroup(props: {
   const chosen = selected(props.params, props.filter)
 
   return (
-    <fieldset className="bg-card">
+    <fieldset className={surface}>
       <legend className={`${groupTitle} float-left w-full`}>{props.title}</legend>
       <ul className="clear-both space-y-1 p-3">
         {props.items.map((item) => (
@@ -102,7 +102,7 @@ function PriceRange({ options, params, onChange }: Props) {
   const field = 'h-10 w-full min-w-0 border border-line bg-page px-2 text-sm text-white placeholder:text-muted'
 
   return (
-    <form onSubmit={apply} className="bg-card">
+    <form onSubmit={apply} className={surface}>
       <fieldset>
         <legend className={`${groupTitle} float-left w-full`}>Price range ({currency})</legend>
         <div className="clear-both space-y-3 p-3">

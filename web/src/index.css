@@ -8,10 +8,18 @@
  * Components use these names, never raw colour values.
  *
  * Eneba's typeface (Metropolis) is not bundled; it is used if the visitor has
- * it, otherwise the system's sans-serif.
+ * it. Otherwise Avenir Next where it exists (Apple devices), the closest
+ * geometric face a system ships with, then the system's own sans-serif.
+ *
+ * The two heaviest weights are one step lighter than their names. Eneba
+ * sets titles and prices at 800 in its own typeface; a system font at 800
+ * or 900 is far blacker than that (Segoe UI has nothing between 700 and
+ * 900), and made every label shout. 700 and 800 give the same hierarchy.
  */
 @theme {
   --color-page: #4618ac;
+  /* The page colour under 25% black, as eneba.com shades its category bar. */
+  --color-band: #341281;
   --color-panel: #5825cc;
   --color-card: #1f0a4d;
   --color-line: #6f47d6;
@@ -21,13 +29,32 @@
   --color-region: #3ddcb1;
   --color-deal: #9cf03a;
   --color-danger: #ffb3b3;
-  --font-sans: Metropolis, 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: Metropolis, 'Avenir Next', 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-weight-extrabold: 700;
+  --font-weight-black: 800;
 }
 
 @layer base {
   body {
     background-color: var(--color-page);
     color: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Everything that reacts to the pointer changes colour at one speed. */
+  a,
+  button,
+  input,
+  select {
+    transition:
+      color 150ms,
+      background-color 150ms,
+      border-color 150ms;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: #000;
   }
 
   /* One visible focus style everywhere, for keyboard users. */

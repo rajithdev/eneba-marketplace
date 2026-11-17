@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import type { Banner, HomepageBlock } from '../lib/homepage'
 import { PriceTag } from './PriceTag'
 import { ProductCard } from './ProductCard'
-import { pageTitle, primaryButton } from './States'
+import { pageTitle, primaryButton, raised, smallSecondaryButton, surface } from './States'
 
 /*
  * One component per type of homepage block. Each draws whatever the API
@@ -20,17 +20,17 @@ function Block({ block, label, className = '', children }: { block: HomepageBloc
     <section
       aria-labelledby={block.title ? headingId : undefined}
       aria-label={block.title ? undefined : label}
-      className={`mt-10 first:mt-6 ${className}`}
+      className={`mt-12 first:mt-6 ${className}`}
     >
       {(block.title || block.link) && (
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
           {block.title && (
             <h2 id={headingId} className={pageTitle}>
               {block.title}
             </h2>
           )}
           {block.link && (
-            <Link to={block.link.url} className="py-2 text-sm font-extrabold underline hover:text-accent">
+            <Link to={block.link.url} className={smallSecondaryButton}>
               {block.link.label}
             </Link>
           )}
@@ -50,7 +50,7 @@ export function HeroBlock({ block }: { block: HomepageBlock }) {
   return (
     <Block block={block} label="Highlights">
       <div className={`grid gap-3 sm:gap-4 ${others.length > 0 ? 'lg:grid-cols-[2fr_1fr]' : ''}`}>
-        <div className="relative flex min-h-[300px] items-center overflow-hidden bg-panel sm:min-h-[380px]">
+        <div className="relative flex min-h-[300px] items-center overflow-hidden border border-line bg-panel sm:min-h-[400px]">
           {main.image_url && (
             <img
               src={main.image_url}
@@ -88,7 +88,7 @@ export function HeroBlock({ block }: { block: HomepageBlock }) {
 /** A smaller banner: the whole tile is one link. */
 function BannerTile({ banner }: { banner: Banner }) {
   return (
-    <Link to={banner.link_url} className="group flex h-full min-h-[150px] items-center gap-4 overflow-hidden bg-card p-5 hover:bg-panel">
+    <Link to={banner.link_url} className={`group flex h-full min-h-[150px] items-center gap-4 overflow-hidden p-5 ${surface} hover:border-region`}>
       {banner.image_url && <img src={banner.image_url} alt="" width={600} height={800} className="h-28 w-[84px] shrink-0 -rotate-3 object-cover shadow-xl" />}
       <span className="min-w-0">
         <span className="block text-xl font-black leading-tight group-hover:text-accent">{banner.title}</span>
@@ -108,7 +108,7 @@ export function BestSellersBlock({ block }: { block: HomepageBlock }) {
       <ol className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
         {products.map((product, index) => (
           <li key={product.slug}>
-            <Link to={`/product/${product.slug}`} className="group flex h-full items-center gap-3 bg-card p-3 hover:bg-panel sm:gap-4">
+            <Link to={`/product/${product.slug}`} className={`group flex h-full items-center gap-3 p-3 sm:gap-4 ${surface} hover:border-region`}>
               <span aria-hidden="true" className="w-9 shrink-0 text-center text-4xl font-black text-accent sm:w-11 sm:text-5xl">
                 {index + 1}
               </span>
@@ -131,21 +131,26 @@ export function BestSellersBlock({ block }: { block: HomepageBlock }) {
   )
 }
 
+// A darker band behind a block, from one edge of the window to the other
+// (the page's content is narrower; the band is drawn by a pseudo-element
+// as wide as the screen, and the shell clips what would stick out).
+const band = 'relative isolate py-10 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:bg-band'
+
 /** Discounted products on a band of their own, each under its discount. */
 export function DealsBlock({ block }: { block: HomepageBlock }) {
   const products = block.data.products ?? []
 
   return (
-    <Block block={block} label="Deals" className="-mx-4 bg-card px-4 py-8 sm:mx-0 sm:px-6">
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
+    <Block block={block} label="Deals" className={band}>
+      <ul className={cardRow}>
         {products.map((product) => (
           <li key={product.slug} className="flex flex-col">
             {product.price?.discount_percent != null && (
-              <p className="bg-deal py-1 text-center text-lg font-black text-black">
+              <p className="bg-deal py-1 text-center text-base font-black text-black">
                 <span className="sr-only">Save </span>−{product.price.discount_percent}%
               </p>
             )}
-            <div className="flex-1 ring-1 ring-line">
+            <div className="flex-1">
               <ProductCard product={product} headingLevel="h3" />
             </div>
           </li>
@@ -163,33 +168,45 @@ export function FeaturedBlock({ block }: { block: HomepageBlock }) {
 
   return (
     <Block block={block} label="Featured">
-      <Link to={`/product/${spotlight.slug}`} className="group flex items-center gap-4 bg-panel p-4 hover:bg-line sm:gap-8 sm:p-6">
-        {spotlight.cover_image_url && (
-          <img src={spotlight.cover_image_url} alt="" width={600} height={800} className="h-auto w-28 shrink-0 object-cover shadow-2xl sm:w-48" />
-        )}
-        <span className="flex min-w-0 flex-1 flex-col gap-2 sm:gap-3">
-          <h3 className="text-xl font-black leading-tight group-hover:underline sm:text-4xl">{spotlight.name}</h3>
-          <span className="block text-sm">
-            {spotlight.platform.name} · <span className="font-extrabold uppercase text-region">{spotlight.region.name}</span>
-          </span>
-          <span className="mt-1 block sm:mt-3">
-            <PriceTag price={spotlight.price} size="large" label="From" />
-            <span className="mt-1 block text-sm text-muted">
-              {spotlight.offers_count} {spotlight.offers_count === 1 ? 'offer' : 'offers'} to compare
+      {/*
+        On a desktop the same six columns as the deals above, the first
+        product taking two of them. The list of the rest is laid out by
+        this grid too ("contents"); its role is stated because some
+        browsers forget a list is a list once it has no box of its own.
+      */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-6">
+        <div className="col-span-2 sm:col-span-4 lg:col-span-2">
+          <Link to={`/product/${spotlight.slug}`} className={`group flex h-full items-center gap-4 p-4 sm:gap-6 sm:p-6 ${raised} hover:border-region`}>
+            {spotlight.cover_image_url && (
+              <img src={spotlight.cover_image_url} alt="" width={600} height={800} className="h-auto w-28 shrink-0 object-cover shadow-2xl sm:w-40" />
+            )}
+            <span className="flex min-w-0 flex-1 flex-col gap-2">
+              <h3 className="text-xl font-black leading-tight group-hover:underline sm:text-2xl">{spotlight.name}</h3>
+              <span className="block text-sm">
+                {spotlight.platform.name} · <span className="font-extrabold uppercase text-region">{spotlight.region.name}</span>
+              </span>
+              <span className="mt-1 block sm:mt-3">
+                <PriceTag price={spotlight.price} size="large" label="From" />
+                <span className="mt-1 block text-sm text-muted">
+                  {spotlight.offers_count} {spotlight.offers_count === 1 ? 'offer' : 'offers'} to compare
+                </span>
+              </span>
             </span>
-          </span>
-        </span>
-      </Link>
-
-      {rest.length > 0 && (
-        <ul className="mt-3 grid grid-cols-2 gap-3 sm:mt-4 sm:grid-cols-4 sm:gap-4">
-          {rest.map((product) => (
-            <li key={product.slug}>
-              <ProductCard product={product} headingLevel="h3" />
-            </li>
-          ))}
-        </ul>
-      )}
+          </Link>
+        </div>
+        {rest.length > 0 && (
+          <ul role="list" className="contents">
+            {rest.map((product) => (
+              <li key={product.slug}>
+                <ProductCard product={product} headingLevel="h3" />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </Block>
   )
 }
+
+/** A row of product cards on the homepage: two to a row on a phone, three on a tablet, six on a desktop. */
+const cardRow = 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6'

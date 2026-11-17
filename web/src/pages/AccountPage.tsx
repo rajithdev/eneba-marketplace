@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
-import { LoadError, pageTitle, pageTop, primaryButton, secondaryButton } from '../components/States'
+import { LoadError, pageTitle, pageTop, primaryButton, secondaryButton, Spinner, surface } from '../components/States'
 import { ApiError, describeFailure } from '../lib/api'
 import { useLogin, useLogout, useRegister, useSession, type User } from '../lib/auth'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
@@ -53,7 +53,7 @@ function SignedIn({ user }: { user: User }) {
   const logout = useLogout()
 
   return (
-    <section aria-label="Your account" className="bg-card p-6">
+    <section aria-label="Your account" className={`p-6 ${surface}`}>
       <p className="text-xl font-bold">{user.name}</p>
       <p className="mt-1 text-muted">
         Signed in as <strong className="text-white">{user.email}</strong>
@@ -95,7 +95,7 @@ function SignInOrUp() {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4 bg-card p-6">
+    <form onSubmit={submit} className={`flex flex-col gap-4 p-6 ${surface}`}>
       {mode === 'register' && <Field label="Name" name="name" type="text" autoComplete="name" errors={errors.name} />}
       <Field label="Email" name="email" type="email" autoComplete="email" errors={errors.email} />
       <Field
@@ -113,6 +113,7 @@ function SignInOrUp() {
       )}
 
       <button type="submit" className={primaryButton} disabled={action.isPending}>
+        {action.isPending && <Spinner />}
         {mode === 'login' ? (action.isPending ? 'Signing in…' : 'Sign in') : action.isPending ? 'Creating your account…' : 'Create account'}
       </button>
 

@@ -5,6 +5,7 @@ import { fetchSuggestions } from '../lib/catalog'
 import { formatMoney } from '../lib/money'
 import { storeSearchPath } from '../lib/storeParams'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
+import { Icon } from './Icon'
 
 /** Wait this long after the last keystroke before asking for suggestions. */
 const DEBOUNCE_MS = 250
@@ -128,10 +129,12 @@ export function SearchBox() {
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
       }}
     >
-      <div className="flex">
+      {/* One bordered field, as on eneba.com: the glass, the text, the button. */}
+      <div className="flex h-12 items-center border border-white/70 bg-black/15 focus-within:border-accent hover:border-white">
         <label htmlFor={`${listId}-input`} className="sr-only">
           Search products
         </label>
+        <Icon name="search" className="ml-3 hidden size-5 text-muted sm:block" />
         <input
           id={`${listId}-input`}
           type="search"
@@ -151,10 +154,11 @@ export function SearchBox() {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          className="h-11 w-full min-w-0 border border-line bg-panel px-3 text-white placeholder:text-muted"
+          className="h-full w-full min-w-0 bg-transparent px-3 text-white placeholder:text-muted"
         />
-        <button type="submit" className="h-11 shrink-0 bg-accent px-4 text-sm font-extrabold text-black hover:bg-accent-strong">
-          Search
+        <button type="submit" className="flex h-full shrink-0 items-center gap-2 bg-accent px-4 text-sm font-extrabold text-black hover:bg-accent-strong">
+          <Icon name="search" className="size-5 sm:hidden" />
+          <span className="sr-only sm:not-sr-only">Search</span>
         </button>
       </div>
 

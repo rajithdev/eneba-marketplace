@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { LineCover, LineTitle, PriceBreakdown } from '../components/OrderLines'
 import { SessionNotice } from '../components/SessionNotice'
-import { LoadError, Notice, pageTitle, pageTop, primaryButton, secondaryButton, sectionTitle } from '../components/States'
+import { LoadError, Notice, pageTitle, pageTop, primaryButton, raised, secondaryButton, sectionTitle, Spinner, surface } from '../components/States'
 import { ApiError } from '../lib/api'
 import { useSession } from '../lib/auth'
 import { cart, checkoutAttempt } from '../lib/cart'
@@ -96,7 +96,7 @@ export function OrderPage() {
           <Items order={data} />
         </div>
 
-        <section aria-label="Order summary" className="self-start bg-panel p-5">
+        <section aria-label="Order summary" className={`self-start p-5 lg:sticky lg:top-4 ${raised}`}>
           <h2 className={`mb-4 ${sectionTitle}`}>Summary</h2>
           <PriceBreakdown totals={data.totals} totalLabel={data.status === 'paid' ? 'Paid' : 'Total'} />
           <dl className="mt-5 space-y-2 border-t border-line pt-4 text-sm">
@@ -193,7 +193,7 @@ function Payment({ order, userId, receivedAt, onExpired }: { order: Order; userI
   const unexpected = failure !== null && !(failure instanceof ApiError && hasOrder(failure.body))
 
   return (
-    <section aria-labelledby="payment-heading" className="bg-card p-5">
+    <section aria-labelledby="payment-heading" className={`p-5 ${surface}`}>
       <h1 id="payment-heading" className={pageTitle}>
         Complete your payment
       </h1>
@@ -232,6 +232,7 @@ function Payment({ order, userId, receivedAt, onExpired }: { order: Order; userI
 
       <div className="mt-5 flex flex-wrap gap-3">
         <button type="button" className={`${primaryButton} min-w-48`} disabled={busy || !method} onClick={() => pay.mutate()}>
+          {pay.isPending && <Spinner />}
           {pay.isPending ? 'Processing payment…' : `Pay ${total}`}
         </button>
         <button type="button" className={secondaryButton} disabled={busy} onClick={() => cancel.mutate()}>
@@ -295,7 +296,7 @@ function Items({ order }: { order: Order }) {
       </h2>
       <ul className="space-y-2">
         {order.items.map((item) => (
-          <li key={item.offer_id} className="bg-card p-3 sm:p-4">
+          <li key={item.offer_id} className={`p-3 sm:p-4 ${surface}`}>
             <div className="flex gap-3 sm:gap-4">
               <LineCover url={item.product.cover_image_url} />
               <div className="min-w-0 flex-1">
