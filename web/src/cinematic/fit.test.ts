@@ -63,9 +63,20 @@ describe('placing the frame', () => {
 
 describe('what is on screen', () => {
   it('shows only the frame during the travel and only the cards at the end', () => {
-    expect(phases(0.3, true)).toEqual({ settle: 0, frameAlpha: 1, cardsAlpha: 0 })
+    expect(phases(0.3, true)).toEqual({ settle: 0, frameAlpha: 1, cardsAlpha: 0, rounding: 0 })
     expect(phases(1, true).cardsAlpha).toBe(1)
     expect(phases(1, false)).toMatchObject({ frameAlpha: 0, cardsAlpha: 1 })
+  })
+
+  it('keeps the cases solid and in place while the cards appear over them, and rounds their corners first', () => {
+    for (let progress = 0; progress <= 1; progress += 0.01) {
+      const { settle, frameAlpha, cardsAlpha, rounding } = phases(progress, true)
+      expect(frameAlpha).toBe(1) // the covers never fade or swap
+      if (cardsAlpha > 0) expect(settle).toBe(1) // nothing appears before the cases have landed
+      expect(rounding).toBeGreaterThanOrEqual(cardsAlpha) // corners are rounded ahead of the cards
+    }
+    expect(phases(0.86, true).rounding).toBe(0)
+    expect(phases(1, true)).toMatchObject({ cardsAlpha: 1, rounding: 1 })
   })
 
   it('in a dissolve, never shows the cases and the cards at full strength together', () => {

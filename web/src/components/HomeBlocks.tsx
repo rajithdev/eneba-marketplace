@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { Banner, HomepageBlock } from '../lib/homepage'
+import { DealCard } from './DealCard'
 import { PriceTag } from './PriceTag'
 import { ProductCard } from './ProductCard'
 import { pageTitle, primaryButton, raised, smallSecondaryButton, surface } from './States'
@@ -136,23 +137,16 @@ export function BestSellersBlock({ block }: { block: HomepageBlock }) {
 // as wide as the screen, and the shell clips what would stick out).
 const band = 'relative isolate py-10 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:bg-band'
 
-/** Discounted products on a band of their own, each under its discount. */
+/** Discounted products on a band of their own, each on a card that shows its discount and buys it. */
 export function DealsBlock({ block }: { block: HomepageBlock }) {
   const products = block.data.products ?? []
 
   return (
     <Block block={block} label="Deals" className={band}>
-      <ul className={cardRow}>
+      <ul className={dealRow}>
         {products.map((product) => (
-          <li key={product.slug} className="flex flex-col">
-            {product.price?.discount_percent != null && (
-              <p className="bg-deal py-1 text-center text-base font-black text-black">
-                <span className="sr-only">Save </span>−{product.price.discount_percent}%
-              </p>
-            )}
-            <div className="flex-1">
-              <ProductCard product={product} headingLevel="h3" />
-            </div>
+          <li key={product.slug}>
+            <DealCard product={product} headingLevel="h3" />
           </li>
         ))}
       </ul>
@@ -208,5 +202,11 @@ export function FeaturedBlock({ block }: { block: HomepageBlock }) {
   )
 }
 
-/** A row of product cards on the homepage: two to a row on a phone, three on a tablet, six on a desktop. */
-const cardRow = 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6'
+/**
+ * The deals row: two cards to a row on a phone, three on a tablet, six on
+ * a desktop. On a desktop the space between cards is a share of the row's
+ * width (16px of 1248px) instead of a fixed 16px. The row then keeps its proportions at every desktop width, which is
+ * what lets the scroll section's cases land exactly on the covers whether
+ * the window is 1024px wide or 1440px.
+ */
+const dealRow = 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6 lg:gap-x-[1.2821%]'

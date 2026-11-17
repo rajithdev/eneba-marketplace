@@ -45,7 +45,7 @@ for f in ${2:-$B/hero-covers}/*.png; do
 done
 
 python3 - "$L" "$OUT" "$i" "$3" <<'PY'
-import json, os, sys
+import json, os, subprocess, sys
 L, out, narrow_frames = sys.argv[1], sys.argv[2], int(sys.argv[3])
 slugs = [slug for slug in sys.argv[4].split(",") if slug]
 def layout(name, frames):
@@ -53,7 +53,11 @@ def layout(name, frames):
     size = sum(os.path.getsize(f"{out}/{name}/{f}") for f in os.listdir(f"{out}/{name}"))
     for index, slot in enumerate(made["slots"]):
         if slugs: slot["slug"] = slugs[index]
-    return {"frames": frames, "width": made["width"], "height": made["height"], "path": name + "/f-{frame}.jpg", "bytes": size, "travel": 0.86, "slots": made["slots"]}
+    # The colour at the top middle of each frame: the chamber's wall, which the grade darkens until it lets go.
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-framerate", "24", "-i", f"{out}/{name}/f-%03d.jpg", "-vf", "crop=24:24:(iw-24)/2:12,scale=1:1:flags=area", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], check=True, capture_output=True).stdout
+    backdrops = ["#%02x%02x%02x" % tuple(raw[i * 3:i * 3 + 3]) for i in range(frames)]
+    backdrops[-1] = "#341281"  # the last frame is the page's own colour, exactly
+    return {"frames": frames, "width": made["width"], "height": made["height"], "path": name + "/f-{frame}.jpg", "bytes": size, "travel": 0.86, "slots": made["slots"], "backdrops": backdrops}
 layouts = {"wide": layout("wide", 120)}
 if narrow_frames:
     layouts["narrow"] = layout("narrow", narrow_frames)

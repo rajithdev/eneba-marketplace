@@ -197,11 +197,41 @@ try {
       execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', '30', '-i', join(frames, '%04d.jpg'), '-vf', `scale=${width}:-2`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-movflags', '+faststart', join(outDir, `${size.name}-${name}.mp4`)])
       rmSync(frames, { recursive: true, force: true })
     }
+    // The finished row, and the same with the pointer over the second card.
+    await scrollTo(at(1), 900)
+    entry.overflowPx = await evaluate(`document.documentElement.scrollWidth - innerWidth`)
+    entry.cards = await evaluate(`[...document.querySelector('main canvas').nextElementSibling.querySelectorAll('li')].map((item) => { const at = item.getBoundingClientRect(); const image = item.querySelector('img').getBoundingClientRect(); return { width: Math.round(at.width * 10) / 10, height: Math.round(at.height * 10) / 10, cover: [Math.round(image.width * 100) / 100, Math.round(image.height * 100) / 100], button: item.querySelector('button')?.textContent.trim() } })`)
+    writeFileSync(join(outDir, `${size.name}-top-deals.png`), await capture('png'))
+    if (!size.mobile) {
+      const second = await evaluate(`(() => { const at = document.querySelector('main canvas').nextElementSibling.querySelectorAll('li')[1].getBoundingClientRect(); return [at.left + at.width / 2, at.top + at.height / 2] })()`)
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: second[0], y: second[1] })
+      await sleep(500)
+      writeFileSync(join(outDir, `${size.name}-top-deals-hover.png`), await capture('png'))
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+    }
+
     await record('forward', 0.5, 1.03, 0.0035)
     await record('very-slow', 0.84, 1.0, 0.0005)
     await record('reverse', 1.03, 0.5, 0.0035)
     await record('handoff', 0.68, 1.0, 0.002)
   }
+  // With reduced motion: no pinned stage, the row as an ordinary part of the page.
+  report.reducedMotion = {}
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
+  for (const size of SIZES) {
+    await send('Emulation.setDeviceMetricsOverride', { width: size.width, height: size.height, deviceScaleFactor: size.scale, mobile: size.mobile })
+    await send('Page.navigate', { url: `${base}/?cinematic-debug` })
+    await until(`document.querySelectorAll('main section').length >= 3`)
+    await sleep(1500)
+    const row = await evaluate(`(() => { const canvas = document.querySelector('main canvas'); const holder = canvas.nextElementSibling; const at = holder.getBoundingClientRect()
+      const lift = (() => { const card = holder.querySelector('article'); return getComputedStyle(card).transitionDuration })()
+      return { stageReserved: !canvas.hidden, pinnedStretch: canvas.parentElement.parentElement.children.length > 1, drawing: canvas.dataset.armed === 'true', blockOpacity: getComputedStyle(holder).opacity, overflowPx: document.documentElement.scrollWidth - innerWidth,
+        transitions: lift, box: [at.left, at.top + scrollY, at.width, at.height] } })()`)
+    report.reducedMotion[size.name] = { stageReserved: row.stageReserved, pinnedStretch: row.pinnedStretch, drawing: row.drawing, blockOpacity: row.blockOpacity, overflowPx: row.overflowPx, cardTransitions: row.transitions }
+    const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: Math.max(0, row.box[1] - 24), width: size.width, height: row.box[3] + 48, scale: 1 } })
+    writeFileSync(join(outDir, `${size.name}-top-deals-reduced-motion.png`), Buffer.from(shot.data, 'base64'))
+  }
+  await send('Emulation.setEmulatedMedia', { features: [] })
   report.pageErrors = problems
 } finally {
   writeFileSync(join(outDir, 'handoff-report.json'), JSON.stringify(report, null, 2))

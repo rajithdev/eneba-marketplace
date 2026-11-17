@@ -53,7 +53,13 @@ for (const file of readdirSync(coverDir).filter((name) => name.endsWith('.svg'))
   if (existsSync(png) && statSync(png).mtimeMs > statSync(join(coverDir, file)).mtimeMs) continue
   execFileSync(CHROME, ['--headless=new', '--hide-scrollbars', '--window-size=600,800', '--default-background-color=00000000', `--screenshot=${png}`, `file://${join(coverDir, file)}`], { stdio: 'ignore' })
 }
-const texture = (coverUrl) => join(textures, coverUrl.split('/').pop().replace('.svg', '.png'))
+// A game with a painted cover (web/public/covers/art/<game>.jpg, see
+// web/src/lib/coverArt.ts) carries that on its case: the picture its card shows.
+const texture = (coverUrl) => {
+  const game = coverUrl.split('/').pop().replace('.svg', '')
+  const painted = join(coverDir, 'art', `${game}.jpg`)
+  return existsSync(painted) ? painted : join(textures, `${game}.png`)
+}
 console.log(`${readdirSync(textures).length} cover textures`)
 
 // The same covers with their lettering taken out, for pictures shown to a

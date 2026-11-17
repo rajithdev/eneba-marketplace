@@ -109,6 +109,10 @@ export const between = (from: Placement, to: Placement, t: number): Placement =>
  *            page colour and moving the frame cannot be seen.
  * frameAlpha how solid the rendered frame is.
  * cardsAlpha how solid the real block (its title and cards) is.
+ * rounding   0..1: how far the cases' corners have been rounded off to the
+ *            shape of the covers they landed on, for cards that round
+ *            theirs. It starts once the frame has settled, ahead of the
+ *            cards, so no square corner is left showing around a card.
  *
  * Seamless: the cards fade in over cases that sit exactly under them, so
  * the picture does not seem to change. Otherwise a dissolve: the cases
@@ -120,5 +124,6 @@ export function phases(progress: number, seamless: boolean) {
     settle: smoothstep(0.68, 0.86, progress),
     frameAlpha: seamless ? 1 : 1 - smoothstep(0.86, 0.93, progress),
     cardsAlpha: seamless ? smoothstep(0.9, 0.98, progress) : smoothstep(0.91, 0.99, progress),
+    rounding: smoothstep(0.86, 0.93, progress),
   }
 }

@@ -101,7 +101,7 @@ const settledMemory = async () => {
   return processMemory()
 }
 const bytesOf = (filter) => downloads.filter((download) => filter(download.url)).reduce((total, download) => total + download.bytes, 0)
-const isFrame = (url) => url.includes('/cinematic/') && url.endsWith('.webp')
+const isFrame = (url) => url.includes('/cinematic/') && /\.(webp|jpg)$/.test(url)
 const isEffect = (url) => isFrame(url) || /\/assets\/(stage|sequence|fit)[^/]*\.js$/.test(url) || url.endsWith('manifest.json')
 const kb = (bytes) => Math.round(bytes / 102.4) / 10
 const shot = async (file) => writeFileSync(join(outDir, file), Buffer.from((await send('Page.captureScreenshot', { format: 'jpeg', quality: 82 })).data, 'base64'))
@@ -119,9 +119,10 @@ async function open(size, { calm = false, slow = false, tamper = '', block = [] 
   await send('Network.emulateNetworkConditions', slow ? SLOW : FULL_SPEED)
   const added = tamper ? await send('Page.addScriptToEvaluateOnNewDocument', { source: tamper }) : null
   await send('Page.navigate', { url: `${base}/?cinematic-debug` })
-  for (let i = 0; i < 300; i++) {
+  // Until the deals block is in the page (a slowed connection, or a backend that takes a while to answer, can take a minute).
+  for (let i = 0; i < 1500; i++) {
     await sleep(50)
-    if (await evaluate(`document.querySelectorAll('main section').length >= 3`).catch(() => false)) break
+    if (await evaluate(`document.querySelectorAll('main section').length >= 3 && !!document.querySelector('main canvas')`).catch(() => false)) break
   }
   if (added) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: added.identifier })
 }
@@ -201,7 +202,7 @@ try {
       continue
     }
     let state = drawnAt
-    for (let i = 0; i < 300 && !state.armed; i++) {
+    for (let i = 0; i < 700 && !state.armed; i++) {
       await sleep(100)
       state = await section()
     }

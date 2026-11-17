@@ -6,7 +6,7 @@
  * (see CinematicDeals), so it costs the others nothing.
  */
 import type { HomepageBlock } from '../lib/homepage'
-import { between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Placement, type Rect, type Size } from './fit'
+import { between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
 import { LAYOUTS, type LayoutName } from './layouts'
 import { loadSequence, type Sequence } from './sequence'
 
@@ -18,6 +18,8 @@ const BASE = `/cinematic/${VERSION}`
 const SEAMLESS_WITHIN = 1
 /** How quickly the picture catches up with the scroll position, in milliseconds: long enough to smooth a mouse wheel's steps, short enough to feel direct. */
 const CATCH_UP_MS = 90
+/** A case's own edge may show this far around its front, in pixels; it is let go of as the corners are rounded. */
+const CASE_RIM = 3
 
 interface Layout {
   frames: number
@@ -29,6 +31,13 @@ interface Layout {
   travel: number
   /** Where each case's front is in the last frame, as fractions of it, and the product it was rendered for. */
   slots: (Rect & { slug: string })[]
+  /**
+   * The colour around the cases in each frame, when it is not the page's
+   * in all of them: a colour-graded frame's wall is darker than the page
+   * until the grade lets go. Used to fill the stage around a frame that
+   * no longer covers all of it.
+   */
+  backdrops?: string[]
 }
 
 interface Manifest {
@@ -113,6 +122,7 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
   let seamless = false
   let drawn = ''
   let pin = 1
+  let radius = 0 // how round the cards' covers are at the top, in pixels
 
   /** Sizes the canvas to the stage and finds where the real covers are on it. */
   const measure = () => {
@@ -125,7 +135,8 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
     canvas.height = Math.round(box.height * density)
     stage = { width: box.width, height: box.height }
 
-    const covers = [...holder.querySelectorAll('li img')].slice(0, layout.slots.length).map((image) => {
+    const images = [...holder.querySelectorAll('li img')].slice(0, layout.slots.length)
+    const covers = images.map((image) => {
       const at = image.getBoundingClientRect()
       return { x: at.left - box.left, y: at.top - box.top, w: at.width, h: at.height }
     })
@@ -136,28 +147,45 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
     handoff = handoffPlacement(frame, layout.slots, covers)
     offBy = mismatches(frame, layout.slots, covers, handoff)
     seamless = show.sameProducts && Math.max(...offBy) <= SEAMLESS_WITHIN
+    radius = parseFloat(getComputedStyle(images[0]).borderTopLeftRadius) || 0
     drawn = ''
   }
 
   const draw = (progress: number) => {
-    const { settle, frameAlpha, cardsAlpha } = phases(progress, seamless)
+    const { settle, frameAlpha, cardsAlpha, rounding } = phases(progress, seamless)
     const index = frameAt(progress, layout.travel, layout.frames)
     const picture = sequence.picture(index)
     const at = between(cover, handoff, settle)
 
     // Nothing is drawn again unless what would be drawn has changed.
-    const state = [index, at.scale.toFixed(4), at.x.toFixed(1), at.y.toFixed(1), frameAlpha.toFixed(3), cardsAlpha.toFixed(3)].join()
+    const state = [index, at.scale.toFixed(4), at.x.toFixed(1), at.y.toFixed(1), frameAlpha.toFixed(3), cardsAlpha.toFixed(3), rounding.toFixed(3)].join()
     if (state === drawn) return
     drawn = state
 
     const density = canvas.width / stage.width
     context.globalAlpha = 1
-    context.fillStyle = show.background
+    context.fillStyle = layout.backdrops?.[index] ?? show.background
     context.fillRect(0, 0, canvas.width, canvas.height)
     if (picture && frameAlpha > 0) {
       context.globalAlpha = frameAlpha
       context.imageSmoothingQuality = 'high'
+      // Cards whose covers have rounded top corners: once the cases have
+      // landed, only as much of each is drawn as its cover's shape allows,
+      // the corners rounding a little at a time. Around them is the flat
+      // colour the stage was just filled with.
+      const shaped = radius > 0 && rounding > 0
+      if (shaped) {
+        const spare = CASE_RIM * (1 - rounding)
+        context.save()
+        context.beginPath()
+        for (const slot of layout.slots) {
+          const box = placed(frame, slot, at)
+          roundedTop(context, (box.x - spare) * density, (box.y - spare) * density, (box.w + 2 * spare) * density, (box.h + 2 * spare) * density, radius * rounding * density)
+        }
+        context.clip()
+      }
       context.drawImage(picture, at.x * density, at.y * density, frame.width * at.scale * density, frame.height * at.scale * density)
+      if (shaped) context.restore()
     }
 
     // The real block is always in the page (for screen readers and the
@@ -229,6 +257,17 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
     holder.style.opacity = ''
     holder.style.pointerEvents = ''
   }
+}
+
+/** Adds to the path a rectangle whose two top corners are rounded. */
+function roundedTop(context: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  context.moveTo(x, y + h)
+  context.lineTo(x, y + r)
+  context.arcTo(x, y, x + r, y, r)
+  context.lineTo(x + w - r, y)
+  context.arcTo(x + w, y, x + w, y + r, r)
+  context.lineTo(x + w, y + h)
+  context.closePath()
 }
 
 // Measurements for the prototype, published only when the address asks for them (?cinematic-debug).

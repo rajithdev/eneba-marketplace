@@ -220,6 +220,25 @@ the frames were rendered for the products the block holds, in its order,
 with each product's own cover picture: the build takes both from the
 backend's answer. When they differ, the page falls back to a dissolve.
 
+What the deals cards and the frames have to agree on:
+
+- **The cover's box.** A cover sits edge to edge inside a one-pixel border,
+  three wide to four high, and the row's gaps are a fixed share of its
+  width on a desktop (`dealRow` in `web/src/components/HomeBlocks.tsx`).
+  Anything else about a card can change without touching the frames.
+- **Rounded covers.** The cases are rectangles. Where the cards round the
+  top of their covers, the stage reads that rounding from the page and
+  rounds the cases' corners to match, a little at a time, once they have
+  landed (`rounding` in `phases`).
+- **The picture.** A game with a painted cover in
+  `web/public/covers/art/` shows it on its deals card
+  (`web/src/lib/coverArt.ts`) and carries it on its case (`texture` in
+  `build.mjs`); the others use the cover the backend names for both.
+- **The colour around the cases.** Graded frames have a darker wall than
+  the page until the grade lets go, so a manifest may list each frame's
+  wall colour (`backdrops`); the stage fills with it around a frame that
+  no longer covers the whole stage.
+
 A light sweep between cases and cards was tried and dropped: it read as
 one scene being swapped for another.
 
