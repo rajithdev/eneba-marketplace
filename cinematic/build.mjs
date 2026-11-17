@@ -207,11 +207,33 @@ if (lookdevOnly && referenceOnly) {
   if (!process.argv.includes('--motion-only')) {
     const wanted = flag('stills') // for example --stills=opening
     const stills = [['opening', 0], ['mid-corridor', 36], ['doorway', 67]].filter(([name]) => !wanted || wanted.split(',').includes(name))
-    const out = render('vault reference stills', { ...clip, width: 1920, height: 1080 }, {
+    const only = stills.map(([, frame]) => frame)
+    const file = (frame) => `f-${String(frame).padStart(3, '0')}.png`
+    const scale = Number(flag('scale', '1'))
+    const size = { ...clip, width: Math.round(1920 * scale), height: Math.round(1080 * scale) }
+    if (process.argv.includes('--photo')) {
+      // The same frames as a camera would record them, then what a lens and
+      // film add: a glow around bright things, darker corners, a hair of
+      // colour fringing, grain. And the distance of everything from the
+      // camera, as a guide for anyone repainting these frames elsewhere.
+      const out = render('photographic stills', size, {
+        folder: 'reference-photo',
+        options: { ...dressed, format: 'PNG', look: 'vault', photo: true, samples: Number(flag('samples', '512')), noise: Number(flag('noise', '0.012')), haze: Number(flag('haze', '0.004')), exposure: Number(flag('exposure', '0')), only },
+      })
+      const depth = render('distance maps', size, { folder: 'reference-depth', options: { ...dressed, format: 'PNG', look: 'vault', photo: true, depth: true, samples: 16, only } })
+      for (const [index, [name, frame]] of stills.entries()) {
+        execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', join(out, file(frame)), '-filter_complex',
+          'format=gbrp,split[sharp][bright];[bright]curves=all=\'0/0 0.7/0 1/1\',gblur=sigma=20[halo];[sharp][halo]blend=all_mode=screen:all_opacity=0.35,rgbashift=rh=-1:bh=1,vignette=angle=PI/6,noise=alls=3:allf=t', '-pix_fmt', 'rgb24', join(reference, `photo-${index + 1}-${name}.png`)])
+        cpSync(join(depth, file(frame)), join(reference, `depth-${index + 1}-${name}.png`))
+      }
+      console.log(`photographic stills: ${JSON.parse(readFileSync(join(out, 'layout.json'), 'utf8')).seconds.join(', ')} seconds each`)
+      process.exit(0)
+    }
+    const out = render('vault reference stills', size, {
       folder: 'reference-stills',
-      options: { ...dressed, format: 'PNG', look: 'vault', samples: 384, noise: 0.02, haze: Number(flag('haze', '0.003')), only: stills.map(([, frame]) => frame) },
+      options: { ...dressed, format: 'PNG', look: 'vault', samples: 384, noise: 0.02, haze: Number(flag('haze', '0.003')), only },
     })
-    for (const [index, [name, frame]] of stills.entries()) cpSync(join(out, `f-${String(frame).padStart(3, '0')}.png`), join(reference, `still-${index + 1}-${name}.png`))
+    for (const [index, [name, frame]] of stills.entries()) cpSync(join(out, file(frame)), join(reference, `still-${index + 1}-${name}.png`))
     console.log(`stills: ${JSON.parse(readFileSync(join(out, 'layout.json'), 'utf8')).seconds.join(', ')} seconds each`)
   }
   if (!process.argv.includes('--stills-only')) {

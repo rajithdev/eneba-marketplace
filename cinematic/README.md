@@ -100,6 +100,33 @@ and working files to `build/v2-lookdev/`; nothing is published to the site.
 The vault look is look development: the frames on the site are still the
 blockout's.
 
+## Photographic stills
+
+`"photo": true` draws the vault as a camera would record it. It is for
+reference stills only, never for the frames on the page: it changes how
+colours are written, so the last frame's background would no longer equal
+the page's.
+
+- Covers are glossy prints lit by the shop's lamps (white strip lights
+  under each shelf), not glowing pictures; the boxes on the shelves have a
+  coloured strip across the top and plastic of their own.
+- The stock stands a little off true, each case differently.
+- Glass carries smudges; neon tubes are as bright as tubes are.
+- Bright things roll off to white as on film, and one distance is in focus.
+- Afterwards the picture gets what a lens and film add: a glow around
+  bright things, darker corners, a hair of colour fringing, grain.
+
+```
+node cinematic/build.mjs --lookdev --reference --stills-only --photo    three stills and their distance maps
+/Applications/Blender.app/Contents/Resources/5.3/python/bin/python3.13 -I \
+    cinematic/check_stills.py <Blender frames> <candidates>              are repainted stills still this store, from this camera?
+```
+
+The distance maps (white near, dark far) are a structure guide for anyone
+repainting the frames in an outside image tool; `check_stills.py` then
+measures whether the results kept the layout, left the aisle empty and
+share one palette.
+
 ## The shop's cover illustrations
 
 `artwork.mjs` draws the shop's game covers (3:4, the shape of a product

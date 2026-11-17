@@ -27,6 +27,12 @@
 #   "vault"   stone, brushed metal and glass under physically based light,
 #             drawn by Cycles. Only the surroundings differ: the camera
 #             route, the hero cases and the last frame are the same code.
+#
+# With "photo" the vault is drawn as a camera would record it: covers are
+# glossy prints lit by the shop's lamps instead of glowing pictures, the
+# stock stands a little untidily, glass carries smudges, tubes are as bright
+# as tubes are, bright things roll off to white as on film, and only one
+# distance is in focus.
 
 import json
 import math
@@ -44,6 +50,11 @@ PORTRAIT = options["height"] > options["width"]
 FRAMES = options["frames"]
 VAULT = options.get("look") == "vault"
 POLISHED = options.get("look") is True
+# "photo": the vault as a photograph of it would look. For stills only, as
+# reference pictures; never for the frames on the page, because it changes
+# how colours are written and so the last frame's background.
+PHOTO = VAULT and bool(options.get("photo"))
+DEPTH = bool(options.get("depth"))  # draw distance from the camera instead of a picture
 
 # ------------------------------------------------------------------ colours
 
@@ -73,6 +84,13 @@ scene.frame_start, scene.frame_end = 0, FRAMES - 1
 # them, and the background could never equal the page colour.
 scene.view_settings.view_transform = "Standard"
 scene.view_settings.look = "None"
+if PHOTO:
+    scene.view_settings.view_transform = "AgX"  # bright things fade to white as they do on film
+    try:
+        scene.view_settings.look = "AgX - Punchy"  # with the contrast and colour of a finished photograph
+    except TypeError:
+        pass
+    scene.view_settings.exposure = options.get("exposure", 0.0)
 
 if VAULT:
     # Cycles follows light as it bounces, so reflections, soft shadows and
@@ -189,9 +207,53 @@ covers = {}
 PLAIN = [linear("#7b5cf0"), linear("#3ddcb1"), linear("#c84a9a"), linear("#fad318"), linear("#4a7cf0"), linear("#e8663c")]
 
 
+def printed(path, glow_strength, band=False):
+    """A cover as a print behind glossy plastic: it takes the light that
+    falls on it and shows the room in its sheen. `glow_strength` adds light
+    of its own, for a print in a lit display. `band` gives it the plain
+    strip of colour across the top that a boxed game has."""
+    mat = bpy.data.materials.new("print-" + os.path.basename(path))
+    mat.use_nodes = True
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    bsdf = nodes["Principled BSDF"]
+    texture = nodes.new("ShaderNodeTexImage")
+    texture.image = bpy.data.images.load(path, check_existing=True)
+    colour = texture.outputs["Color"]
+    if band:
+        # One of four strip colours, by the chance each object carries.
+        strip = nodes.new("ShaderNodeValToRGB")
+        strip.color_ramp.interpolation = "CONSTANT"
+        for element, (at, tone) in zip(strip.color_ramp.elements, ((0.0, linear("#1d4ed8")), (0.3, linear("#15803d")))):
+            element.position, element.color = at, tone
+        for at, tone in ((0.55, linear("#b91c1c")), (0.8, linear("#18181b"))):
+            strip.color_ramp.elements.new(at).color = tone
+        links.new(nodes.new("ShaderNodeObjectInfo").outputs["Random"], strip.inputs[0])
+        height = nodes.new("ShaderNodeSeparateXYZ")
+        links.new(nodes.new("ShaderNodeTexCoord").outputs["UV"], height.inputs[0])
+        top = nodes.new("ShaderNodeMath")
+        top.operation = "GREATER_THAN"
+        top.inputs[1].default_value = 0.9
+        links.new(height.outputs["Y"], top.inputs[0])
+        both = nodes.new("ShaderNodeMix")
+        both.data_type = "RGBA"
+        links.new(top.outputs[0], both.inputs[0])
+        links.new(colour, both.inputs[6])
+        links.new(strip.outputs["Color"], both.inputs[7])
+        colour = both.outputs[2]
+    links.new(colour, bsdf.inputs["Base Color"])
+    links.new(colour, bsdf.inputs["Emission Color"])
+    bsdf.inputs["Emission Strength"].default_value = glow_strength
+    bsdf.inputs["Roughness"].default_value = 0.45
+    bsdf.inputs["Coat Weight"].default_value = 1.0
+    bsdf.inputs["Coat Roughness"].default_value = 0.06
+    return mat
+
+
 def cover_material(path):
     if path not in covers:
-        if options.get("plain"):
+        if PHOTO:
+            covers[path] = printed(path, 0.55)
+        elif options.get("plain"):
             covers[path] = glow("panel-" + os.path.basename(path), PLAIN[len(covers) % len(PLAIN)], 0.85)
         else:
             covers[path] = glow("cover-" + os.path.basename(path), (1, 1, 1, 1), 1.0, bpy.data.images.load(path))
@@ -321,6 +383,9 @@ def glass(name):
     clear = nodes.new("ShaderNodeBsdfTransparent")
     mirror = nodes.new("ShaderNodeBsdfGlossy")
     mirror.inputs["Roughness"].default_value = 0.02
+    if PHOTO:  # smudges: patches where the reflection is less sharp
+        position = nodes.new("ShaderNodeNewGeometry").outputs["Position"]
+        links.new(spread(nodes, links, clouds(nodes, links, position, 5.0, 4.0), 0.01, 0.16), mirror.inputs["Roughness"])
     glancing = nodes.new("ShaderNodeFresnel")
     glancing.inputs["IOR"].default_value = 1.5
     mix = nodes.new("ShaderNodeMixShader")
@@ -336,6 +401,8 @@ def neon(name, colour, shown, true):
     would come out plain white), so the camera sees it at `shown`. Its
     reflection in a floor or a pane of glass is far dimmer than the tube
     and can be shown, so that is worked out from its `true` brightness."""
+    if PHOTO:
+        shown = true * 0.5  # a photograph can show it nearly as bright as it is
     mat = glow(name, colour, shown)
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
     strength = nodes.new("ShaderNodeMapRange")
@@ -345,11 +412,28 @@ def neon(name, colour, shown, true):
     return mat
 
 
+def chance(seed):
+    """A repeatable run of numbers between 0 and 1."""
+    state = [seed]
+
+    def next_one():
+        state[0] = (state[0] * 1664525 + 1013904223) % 4294967296
+        return state[0] / 4294967296
+    return next_one
+
+
+untidy = chance(7)
+PLASTIC = []  # the boxes' own plastic, in the photographic look
+
+
 def stock_cover(path, strength):
     """A cover as stock on a shelf wears it: lit from within like the display
     cases, a little dimmer."""
     if (path, strength) not in covers:
-        covers[(path, strength)] = glow("stock-" + os.path.basename(path), (1, 1, 1, 1), strength, bpy.data.images.load(path, check_existing=True))
+        if PHOTO:
+            covers[(path, strength)] = printed(path, 0.12, band=strength < 0.9)
+        else:
+            covers[(path, strength)] = glow("stock-" + os.path.basename(path), (1, 1, 1, 1), strength, bpy.data.images.load(path, check_existing=True))
     return covers[(path, strength)]
 
 
@@ -360,6 +444,12 @@ def small_case(name, path, location, yaw, lean=0.0):
     body.scale = (0.3, 0.3, 0.3)
     body.location = location
     body.rotation_euler = (lean, 0, yaw)
+    if PHOTO:
+        # Nobody shelves cases perfectly: each stands a little off true.
+        off = [untidy() - 0.5 for _ in range(4)]
+        body.location = (location[0] + off[0] * 0.012, location[1] + off[1] * 0.014, location[2])
+        body.rotation_euler = (lean + math.radians(off[2] * 5), 0, yaw + math.radians(off[3] * 7))
+        body.data.materials[0] = PLASTIC[int(untidy() * len(PLASTIC))]
     return body
 
 
@@ -478,6 +568,10 @@ def stock(side, y, seed, shelf, frame, led):
     for z in (0.1, 0.52):
         for place in range(6):
             small_case("stock", pick(), (side * 1.95, y + (place - 2.5) * 0.29, z + 0.18), facing, back)
+    if PHOTO:  # white strip lights under each shelf, which is what lets a print be read
+        lamp("stock-light", (side * 1.9, y, 0.495), (1.0, 0.93, 0.85), 14, 0.1, 1.6)
+        lamp("stock-light", (side * 1.86, y, 0.985), (1.0, 0.93, 0.85), 18, 0.1, 1.6)
+        lamp("stock-light", (side * 2.3, y, 3.05), (1.0, 0.93, 0.85), 22, 0.1, 1.6)
     # On the main shelf: a case at each end of the niche's back, and one above each on a ledge of its own.
     for along in (-0.7, 0.7):
         small_case("stock", pick(), (side * 2.42, y + along, 1.05 + 0.18), facing)
@@ -499,6 +593,8 @@ def stock(side, y, seed, shelf, frame, led):
 
 
 def build_vault():
+    if PHOTO:
+        PLASTIC.extend(material("plastic-" + tone, linear(tone), roughness=0.22) for tone in ("#0b1b3a", "#0c2a18", "#111114", "#2a0c10"))
     WALL_X, BACK_X, OUTER_X = HALF_WIDTH, 2.62, 2.82
     START, DOOR, DOOR_END = -6.25, LENGTH - 0.15, LENGTH + 0.3  # along the corridor; the doorway is 45 cm deep
     NICHE_Z, NICHE_HALF = (0.55, 3.1), 0.9
@@ -698,6 +794,32 @@ camera_data.sensor_width = 36
 camera = bpy.data.objects.new("Camera", camera_data)
 scene.collection.objects.link(camera)
 scene.camera = camera
+if PHOTO and not DEPTH:
+    camera_data.dof.use_dof = True
+    camera_data.dof.aperture_fstop = options.get("fstop", 2.0)
+
+if DEPTH:
+    # Every surface shows only how far it is from the camera: white near,
+    # darkening quickly at first so that nearby shapes stay distinct.
+    scene.render.engine = "BLENDER_EEVEE"
+    scene.view_settings.view_transform = "Standard"
+    far = bpy.data.materials.new("distance")
+    far.use_nodes = True
+    nodes, links = far.node_tree.nodes, far.node_tree.links
+    nodes.remove(nodes["Principled BSDF"])
+    stretched = nodes.new("ShaderNodeMath")  # 1 + distance / 2
+    stretched.operation = "MULTIPLY_ADD"
+    stretched.inputs[1].default_value, stretched.inputs[2].default_value = 0.5, 1.0
+    links.new(nodes.new("ShaderNodeCameraData").outputs["View Z Depth"], stretched.inputs[0])
+    shade = nodes.new("ShaderNodeMath")  # 1 / that
+    shade.operation = "DIVIDE"
+    shade.inputs[0].default_value = 1.0
+    links.new(stretched.outputs[0], shade.inputs[1])
+    emission = nodes.new("ShaderNodeEmission")
+    links.new(shade.outputs[0], emission.inputs["Color"])
+    links.new(emission.outputs[0], nodes["Material Output"].inputs["Surface"])
+    bpy.context.view_layer.material_override = far
+    seen.inputs["Color"].default_value = (0, 0, 0, 1)
 
 slots = options["slots"]  # the products the row ends on, left to right
 COUNT = len(slots)
@@ -811,6 +933,9 @@ for frame in (wanted if wanted is not None else range(FRAMES)):
     camera.keyframe_insert("location"); camera.keyframe_insert("rotation_euler"); camera_data.keyframe_insert("lens")
     for hero in heroes:
         hero["body"].keyframe_insert("location"); hero["body"].keyframe_insert("rotation_euler")
+    if PHOTO:
+        # In focus: the shelves a few steps ahead, or, once past them, the cases in the chamber.
+        camera_data.dof.focus_distance = 5.0 if camera.location.y < 22 else max(4.0, 38.0 - camera.location.y)
     scene.render.filepath = os.path.join(out, f"f-{frame:03d}.{EXTENSION}")
     started = time.time()
     bpy.ops.render.render(write_still=True)
