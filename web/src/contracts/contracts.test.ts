@@ -1,8 +1,10 @@
 import { expect, it } from 'vitest'
 import type { FiltersResponse, ProductDetailResponse, ProductListResponse, SuggestionsResponse } from '../lib/catalog'
 import type { CartChangedResponse, OrderListResponse, OrderResponse, QuoteResponse } from '../lib/checkout'
+import type { HomepageResponse } from '../lib/homepage'
 import quoteExample from './cart.quote.json'
 import filtersExample from './filters.json'
+import homepageExample from './homepage.json'
 import cartChangedExample from './orders.cart-changed.json'
 import declinedExample from './orders.declined.json'
 import ordersExample from './orders.list.json'
@@ -30,6 +32,7 @@ const pending: OrderResponse = pendingExample.response
 const paid: OrderResponse = paidExample.response
 const declined: OrderResponse = declinedExample.response
 const orders: OrderListResponse = ordersExample.response
+const homepage: HomepageResponse = homepageExample.response
 
 it('the recorded examples cover the cases the pages must handle', () => {
   // A discounted product, a full-price one and a sold-out one.
@@ -57,4 +60,9 @@ it('the recorded examples cover the cases the pages must handle', () => {
   // The order history never carries keys.
   expect(orders.data.length).toBeGreaterThan(1)
   expect(JSON.stringify(orders)).not.toContain('"keys"')
+
+  // A hero with banners, then three product blocks.
+  expect(homepage.data.blocks.map((block) => block.type)).toEqual(['hero_banner', 'best_sellers', 'deals', 'featured'])
+  expect(homepage.data.blocks[0].data.banners?.length).toBeGreaterThan(1)
+  expect(homepage.data.blocks.slice(1).every((block) => (block.data.products?.length ?? 0) > 1)).toBe(true)
 })

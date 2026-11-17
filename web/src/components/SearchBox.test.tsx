@@ -86,7 +86,7 @@ describe('header search box', () => {
     ])
     expect(options()[0]).toHaveTextContent('€36.49')
     // Announced to screen readers.
-    expect(screen.getByRole('status')).toHaveTextContent(`${suggested.length} suggestions.`)
+    expect(within(screen.getByRole('search')).getByRole('status')).toHaveTextContent(`${suggested.length} suggestions.`)
   })
 
   it('moves through the suggestions with the arrow keys and opens the highlighted one with Enter', async () => {
@@ -253,7 +253,7 @@ describe('header search box', () => {
 
     // Shown straight away, while the box is still waiting for a pause in typing...
     expect(await screen.findByText('Searching…', { selector: 'li' })).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Searching…')
+    expect(within(screen.getByRole('search')).getByRole('status')).toHaveTextContent('Searching…')
     // Searching the store is possible without waiting for suggestions.
     expect(screen.getByRole('option', { name: 'See all results for “zzz”' })).toBeInTheDocument()
 
@@ -264,7 +264,7 @@ describe('header search box', () => {
     release({ data: [] })
 
     expect(await screen.findByText('No suggestions for “zzz”.')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('No suggestions.')
+    expect(within(screen.getByRole('search')).getByRole('status')).toHaveTextContent('No suggestions.')
     expect(options()).toHaveLength(1)
   })
 
