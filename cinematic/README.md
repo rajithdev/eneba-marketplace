@@ -127,6 +127,34 @@ repainting the frames in an outside image tool; `check_stills.py` then
 measures whether the results kept the layout, left the aisle empty and
 share one palette.
 
+## Colour grade
+
+`grade.py` gives the rendered frames a darker, less purple, more filmic
+look after rendering, so trying a look costs seconds and not a re-render.
+It is one fixed rule from colour to colour, fitted to a reference picture
+(a photographic repaint of frame 0) and stored as a standard colour table:
+
+- tones are matched to the reference's spread of light and dark (deeper
+  blacks, fuller highlights);
+- surfaces bathed in violet light are taken down and toward neutral, while
+  the neon itself is left bright;
+- colour is reduced by hue and brightness as the reference has it, most of
+  all in the shadows; the warm accents keep theirs.
+
+Because the rule never looks at the frame it is applied to, it cannot make
+one frame differ from the next. The grade is full for the first 78% of the
+move and eases to nothing by 98%: the last frame has to be exactly the
+render, since its background is the page's colour and its six cases are
+the real covers.
+
+`vault-grade.json` is the proposed rule; the colour table is made from it.
+
+```
+PY=/Applications/Blender.app/Contents/Resources/5.3/python/bin/python3.13
+$PY -I cinematic/grade.py bake  cinematic/vault-grade.json <grade.cube>
+$PY -I cinematic/grade.py apply <grade.cube> <folder of PNG frames> <out folder>
+```
+
 ## The shop's cover illustrations
 
 `artwork.mjs` draws the shop's game covers (3:4, the shape of a product
