@@ -723,6 +723,46 @@ heading('10. Cart and checkout')
   }
 }
 
+heading('11. Homepage')
+{
+  const anonymous = { cookies: new Map() }
+  const insideTheSite = (value) => typeof value === 'string' && /^\/(?![/\\])/.test(value)
+  const home = await request('GET', '/api/homepage', anonymous)
+  const blocks = home.json?.data?.blocks ?? []
+  const products = blocks.flatMap((block) => block.data?.products ?? [])
+  const banners = blocks.flatMap((block) => block.data?.banners ?? [])
+
+  check('The homepage is served as a list of blocks', home.status === 200 && blocks.length > 0, `HTTP ${home.status}, ${blocks.map((block) => block.type).join(', ')}`)
+  check(
+    'Every block has a type and content; none is sent empty',
+    blocks.every((block) => Number.isInteger(block.id) && typeof block.type === 'string' && ((block.data?.products?.length ?? 0) > 0 || (block.data?.banners?.length ?? 0) > 0)),
+  )
+  check(
+    'Every link out of the homepage stays inside the site',
+    banners.every((banner) => insideTheSite(banner.link_url) && (banner.image_url === null || insideTheSite(banner.image_url))) && blocks.every((block) => block.link === null || insideTheSite(block.link.url)),
+    `${banners.length} banners`,
+  )
+  check('Every product shown can be bought now', products.length > 0 && products.every((product) => product.in_stock && product.price?.amount_cents > 0), `${products.length} products`)
+
+  const deals = blocks.find((block) => block.type === 'deals')?.data?.products ?? []
+  const discounts = deals.map((product) => product.price.discount_percent)
+  if (deals.length) {
+    check('Deals are real discounts, biggest first', discounts.every((percent, i) => percent > 0 && (i === 0 || percent <= discounts[i - 1])), discounts.join(', '))
+  }
+
+  const sample = products[0]
+  const inStore = sample ? (await request('GET', `/api/products/${sample.slug}`, anonymous)).json?.data : null
+  check('A product costs the same on the homepage as on its own page', Boolean(inStore) && inStore.price.amount_cents === sample.price.amount_cents && inStore.name === sample.name, sample?.name ?? 'no product')
+
+  const banner = banners.find((candidate) => candidate.link_url.startsWith('/product/'))
+  if (banner) {
+    const target = await request('GET', `/api/products/${banner.link_url.slice('/product/'.length)}`, anonymous)
+    check('A banner that points at a product points at one that exists', target.status === 200, `HTTP ${target.status}`)
+  }
+
+  check('The homepage contains no license key', !/\b[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}\b/.test(home.text))
+}
+
 // --------------------------------------------------------------- summary ---
 
 const failed = results.filter((result) => !result.passed)

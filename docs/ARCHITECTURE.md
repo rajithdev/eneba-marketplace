@@ -151,6 +151,7 @@ Public, read-only, and the single source of everything the store shows.
 
 | Endpoint | Returns |
 |---|---|
+| `GET /api/homepage` | The homepage's blocks in order (see "Homepage") |
 | `GET /api/filters` | Platforms, regions and types with product counts; the current price range; the sort orders and page sizes the list accepts |
 | `GET /api/products` | A page of products with the best price, stock flag and number of sellers. Filters: `platform`, `region`, `type` (comma-separated), `min_price`, `max_price` (cents). `sort`: `popular`, `price_asc`, `price_desc`, `newest`. `page`, `per_page` (24 by default, 48 at most). |
 | `GET /api/products/{slug}` | The product, its game's details, every active offer with its seller, and the game's other variants |
@@ -516,23 +517,70 @@ that looks like an attack (`1 OR 1=1`) with its own 403 page before the
 application sees it; the store says the search could not be run rather than
 suggesting the server is starting up.
 
-## Homepage (Planned; tables Built)
+## Homepage (Built)
 
-`homepage_blocks` is the layout: which blocks, in what order, with what
-settings. Each block type has one service class that fetches its content from
-its own source:
+The assignment asks for a homepage of blocks whose content comes from
+separate backend services. Here that is separate classes inside the one
+Laravel application, each with its own source of data; nothing is deployed
+separately.
 
-| Block type | Service reads from |
+**The layout is data.** `homepage_blocks` holds one row per block: its
+type, position, title, whether it is switched on, and its settings.
+`GET /api/homepage` returns the active blocks in position order:
+
+```
+{ "data": { "blocks": [
+    { "id", "type": "hero_banner",  "title", "link", "data": { "banners":  [...] } },
+    { "id", "type": "best_sellers", "title", "link", "data": { "products": [...] } },
+    { "id", "type": "deals",        ... },
+    { "id", "type": "featured",     ... }
+] } }
+```
+
+**The content comes from resolvers** (`app/Services/Homepage`).
+`BuildHomepage` walks the rows and asks the resolver for each row's type:
+
+| Block type | Resolver | Reads from | Settings |
+|---|---|---|---|
+| `hero_banner` | `HeroBannerResolver` | the `banners` table | `limit` |
+| `best_sellers` | `BestSellersResolver` | products by sales count (raised by every paid order) | `limit` |
+| `deals` | `DealsResolver` | products whose best in-stock price is a discount, biggest first | `limit`, `min_discount_percent` |
+| `featured` | `FeaturedProductsResolver` | the product slugs listed in the row itself, in that order | `products`, `limit` |
+
+Product blocks return the same product shape, at the same price, as the
+store list, show only what can be bought now, and show each game once.
+A row's optional `link` setting becomes the block's "see more" link.
+
+So reordering, hiding, retitling or resizing a block, or adding a second
+block of an existing type, is a change to a row. A new kind of block is one
+resolver class, one line in `BuildHomepage`, and one component.
+
+**The frontend draws what arrives.** `HomePage` maps a block's type to a
+component (`HomeBlocks.tsx`) and renders the blocks in the order received.
+It contains no product, banner text or section title of its own.
+
+**When something is missing or wrong**
+
+| Situation | Result |
 |---|---|
-| Hero banner | `banners` table |
-| Best sellers | products ordered by `sales_count` |
-| Deals | offers where the original price is above the current price |
-| New releases | products ordered by `release_date` |
+| A block has nothing to show (no banners, no deals) | left out of the response, never sent empty |
+| A row has a type no resolver knows | skipped |
+| A resolver throws | that block is left out and the error logged; the rest of the page is served |
+| A setting makes no sense (`limit: "many"`) | the default is used; limits are kept between 1 and 12 |
+| A banner or link points outside the site | dropped (`InternalPath`), so a row cannot turn a button into an outside link |
+| A featured slug no longer exists, or is sold out | passed over |
+| No active blocks, or the API cannot be reached | the frontend shows a short introduction with a link to the store (and "Try again") |
+| The frontend receives a type it does not know | skipped; the rest is drawn |
 
-`GET /api/homepage` returns the active blocks in order, each with its type,
-title and data. The frontend maps a type to a component and skips types it
-does not know. Reordering, hiding or adding a block is a database row change;
-nothing about the homepage is hardcoded in the frontend.
+**Seeding.** `HomepageSeeder` creates the starting layout from
+`database/data/homepage.json`, and only when the layout is empty. Later
+deployments run it again and change nothing, so edits made in the database
+survive. Banner artwork is this project's own generated covers.
+
+**Cost.** 15 queries however large the catalog: the layout, the banners,
+and four per product block (the products, then their games, platforms and
+regions), plus the check for overdue reservations. There is no cache: at
+this size it would add a way to be stale without a visible gain.
 
 ## Store and product pages (Built)
 

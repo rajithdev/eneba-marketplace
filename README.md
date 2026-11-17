@@ -5,11 +5,11 @@ assignment: a store with filters and search, a homepage assembled from
 backend-defined blocks, product pages comparing offers from several sellers,
 and a checkout that delivers a digital key.
 
-**Status: deployed.** Sign-up and sign-in, the store (filters, sorting,
-pagination), typo-tolerant search, product pages (seller offers, other
-platforms and regions), and the purchase flow (cart, checkout with a
-simulated payment, key delivery, order history) work end to end on a seeded
-catalog. The block-based homepage is still to come.
+**Status: deployed.** Everything in the assignment works end to end on a
+seeded catalog: sign-up and sign-in, a homepage built from backend-defined
+blocks, the store (filters, sorting, pagination), typo-tolerant search,
+product pages comparing sellers' offers, and the purchase flow (cart,
+checkout with a simulated payment, key delivery, order history).
 
 | | |
 |---|---|
@@ -115,6 +115,16 @@ Things a reviewer should know are deliberate, approximate or not done yet.
   prices to the data files and adds anything missing. It never changes a key
   that exists, a sales count, or whether an offer is switched on. A game
   removed from the data files is not removed from a deployed database.
+
+**Homepage**
+
+- The layout is rows in the database, and there is no admin screen for
+  them: changing the homepage means editing `homepage_blocks` or `banners`
+  directly. The seeder fills an empty layout once and never touches it again.
+- Four kinds of block exist (banners, best sellers, deals, featured). The
+  banners are a static arrangement, not a rotating carousel.
+- "Deals" has no matching store filter yet, so that block has no "see all".
+- Nothing is cached; the homepage costs 15 small queries per visit.
 
 **Cart and checkout**
 
