@@ -71,10 +71,21 @@ function withoutLettering() {
 
 // ---------------------------------------------------------------- 2. which products
 
-const homepage = await (await fetch(`${API}/api/homepage`, { headers: { Accept: 'application/json' } })).json()
-const deals = homepage.data.blocks.find((block) => block.type === 'deals')
-if (!deals) throw new Error('The homepage has no deals block to end on.')
-const products = deals.data.products.map((product) => ({ slug: product.slug, texture: texture(product.cover_image_url) }))
+// The answer is kept, so that stills for look development (which publish
+// nothing) can be made again while the API is not running.
+const remembered = join(build, 'products.json')
+let products
+try {
+  const homepage = await (await fetch(`${API}/api/homepage`, { headers: { Accept: 'application/json' } })).json()
+  const deals = homepage.data.blocks.find((block) => block.type === 'deals')
+  if (!deals) throw new Error('The homepage has no deals block to end on.')
+  products = deals.data.products.map((product) => ({ slug: product.slug, texture: texture(product.cover_image_url) }))
+  writeFileSync(remembered, JSON.stringify(products, null, 2))
+} catch (error) {
+  if (!lookdevOnly || !existsSync(remembered)) throw error
+  products = JSON.parse(readFileSync(remembered, 'utf8'))
+  console.log('API not reachable: using the deals block as it was last fetched')
+}
 console.log(`deals block: ${products.map((product) => product.slug).join(', ')}`)
 
 // ---------------------------------------------------------------- 3. layouts

@@ -331,6 +331,20 @@ def glass(name):
     return mat
 
 
+def neon(name, colour, shown, true):
+    """A tube of light. A picture cannot show a tube as bright as it is (it
+    would come out plain white), so the camera sees it at `shown`. Its
+    reflection in a floor or a pane of glass is far dimmer than the tube
+    and can be shown, so that is worked out from its `true` brightness."""
+    mat = glow(name, colour, shown)
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    strength = nodes.new("ShaderNodeMapRange")
+    strength.inputs["To Min"].default_value, strength.inputs["To Max"].default_value = shown, true
+    links.new(nodes.new("ShaderNodeLightPath").outputs["Is Glossy Ray"], strength.inputs["Value"])
+    links.new(strength.outputs["Result"], nodes["Emission"].inputs["Strength"])
+    return mat
+
+
 def fade_to_band(mat, start, end):
     """Between `start` and `end` along the corridor's axis the surface turns
     into the page's band colour, so a floor can run out into the backdrop
@@ -429,13 +443,13 @@ def build_vault():
     SOFT = (0.62, 0.55, 1.0, 1.0)  # the white of the lamps: violet, not neutral
     VIOLET = linear("#a03cff")  # the neon leans toward magenta; the page's own purple stays on the backdrop
     GOLD = linear("#ffb02e")
-    # A tube brighter than this would be drawn as plain white or yellow; the
-    # light each one gives comes from a lamp placed beside it.
+    # Each tube: how bright the camera sees it, and how bright it is. The
+    # light a tube gives the room comes from a lamp placed beside it.
     led = {
-        "violet": glow("led-violet", VIOLET, 2.2),
-        "teal": glow("led-teal", TEAL, 1.4),
-        "gold": glow("led-gold", GOLD, 1.4),
-        "soft": glow("led-soft", SOFT, 2.0),
+        "violet": neon("led-violet", VIOLET, 2.2, 14.0),
+        "teal": neon("led-teal", TEAL, 1.4, 10.0),
+        "gold": neon("led-gold", GOLD, 1.4, 12.0),
+        "soft": neon("led-soft", SOFT, 2.0, 6.0),
     }
     joints = [START + BAY * i for i in range(15)] + [DOOR]  # where wall and ceiling panels meet
     tiles = [START + BAY / 2 * i for i in range(29)] + [DOOR]  # the floor is laid in smaller tiles
@@ -454,7 +468,7 @@ def build_vault():
         for side in (-1, 1):
             block("ring", (side * 0.93, side * 0.97), (y - 0.65, y + 0.65), (HEIGHT - 0.07, HEIGHT - 0.03), led["violet"], 0)
             block("ring", (-0.97, 0.97), (y + side * 0.63, y + side * 0.67), (HEIGHT - 0.07, HEIGHT - 0.03), led["violet"], 0)
-        lamp("ring-light", (0, y, HEIGHT - 0.08), VIOLET, 70, 1.8, 1.2)
+        lamp("ring-light", (0, y, HEIGHT - 0.08), VIOLET, 120, 1.8, 1.2)
     block("end", (-OUTER_X, OUTER_X), (START - 0.2, START), (0.0, HEIGHT), wall, 0)
 
     for side in (-1, 1):
@@ -468,9 +482,9 @@ def build_vault():
             block("frieze", x(WALL_X, BACK_X), (a + GAP, b - GAP), (NICHE_Z[1], HEIGHT), wall)
             # The ledge under the ceiling, and the light lying on top of it.
             block("ledge", x(WALL_X - 0.24, WALL_X), (a + GAP, b - GAP), (3.56, 3.62), lengthwise, 0.003)
-            lamp("ledge-light", (side * (WALL_X - 0.11), (a + b) / 2, 3.64), VIOLET, 90, 0.12, b - a - 0.1, up=True)
-        # The line of light in the gap at the foot of the wall.
-        block("foot-led", x(2.3, 2.32), (START, DOOR), (0.02, 0.045), led["violet"], 0)
+            lamp("ledge-light", (side * (WALL_X - 0.11), (a + b) / 2, 3.64), VIOLET, 140, 0.12, b - a - 0.1, up=True)
+        # A warm line of light in the gap at the foot of the wall.
+        block("foot-led", x(2.3, 2.32), (START, DOOR), (0.02, 0.045), led["gold"], 0)
 
         # The stone between one niche and the next.
         edge = START
@@ -490,10 +504,10 @@ def build_vault():
             block("shelf", (side * 1.62, side * BACK_X), (y - 0.74, y + 0.74), (1.0, 1.05), lengthwise, 0.003)
             block("shelf-edge", (side * 1.612, side * 1.622), (y - 0.72, y + 0.72), (1.012, 1.032), led["teal"], 0)
             block("shelf-led", (side * 1.66, side * 1.69), (y - 0.7, y + 0.7), (0.99, 1.0), led["teal"], 0)
-            lamp("shelf-light", (side * 1.95, y, 0.985), TEAL, 12, 0.5, 1.3)
+            lamp("shelf-light", (side * 1.95, y, 0.985), TEAL, 16, 0.5, 1.3)
             # The niche: a line of violet along its head, and a soft light down its back.
             block("niche-led", (side * 2.215, side * 2.235), (y - 0.86, y + 0.86), (NICHE_Z[1] - 0.02, NICHE_Z[1]), led["violet"], 0)
-            lamp("niche-light", (side * 2.42, y, NICHE_Z[1] - 0.03), SOFT, 28, 0.25, 1.3)
+            lamp("niche-light", (side * 2.42, y, NICHE_Z[1] - 0.03), SOFT, 45, 0.25, 1.3)
             # The case on the shelf, where the blockout has it.
             body, _ = case(f"gallery-{bay}-{index}", gallery[(bay * 2 + index) % len(gallery)])
             body.location = (side * (HALF_WIDTH - 0.28), y, 1.7)
@@ -513,7 +527,7 @@ def build_vault():
         block("door-led", (side * 2.03, side * 2.07), (DOOR - 0.012, DOOR), (0.03, 3.77), led["gold"], 0)
     block("lintel", (-2.0, 2.0), (DOOR, DOOR_END), (3.8, HEIGHT + 0.1), bronze, 0.004)
     block("door-led", (-2.07, 2.07), (DOOR - 0.012, DOOR), (3.73, 3.77), led["gold"], 0)
-    lamp("door-light", (0, DOOR - 0.3, 3.7), GOLD, 160, 3.6, 0.3)
+    lamp("door-light", (0, DOOR - 0.3, 3.7), GOLD, 260, 3.6, 0.3)
     block("threshold", (-2.0, 2.0), (DOOR + GAP, DOOR_END), (-0.1, 0.0), lengthwise, 0.002)
 
     # The chamber. It is wider and taller than the corridor, and it ends in a
@@ -540,7 +554,7 @@ def build_vault():
     for radius, colour in ((2.4, "gold"), (3.3, "violet")):
         bpy.ops.mesh.primitive_torus_add(major_radius=radius, minor_radius=0.03, major_segments=96, minor_segments=8, location=(0, 37.0, ROOM_Z - 0.12))
         bpy.context.object.data.materials.append(led[colour])
-    lamp("room-light", (0, 37.0, ROOM_Z - 0.2), SOFT, 500, 4.0, 4.0)
+    lamp("room-light", (0, 37.0, ROOM_Z - 0.2), SOFT, 700, 4.0, 4.0)
     # The camera looks through this to the background, which is the same colour; it is here to light the room and to be reflected.
     block("light-wall", (-ROOM_X, ROOM_X), (ROOM_END, ROOM_END + 0.05), (-2.0, ROOM_Z), glow("light-wall", BAND, 1.0), 0).visible_camera = False
 
