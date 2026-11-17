@@ -265,7 +265,8 @@ if (lookdevOnly && process.argv.includes('--chamber')) {
   //   --from=0.4   every frame from that share of the move to its end instead, at draft
   //                quality: enough to try the handoff in a browser without the full render
   const from = flag('from')
-  for (const name of ['wide', 'narrow']) {
+  //   --layout=wide   only that layout
+  for (const name of flag('layout') ? [flag('layout')] : ['wide', 'narrow']) {
     const shape = layouts[name]
     const first = Math.round(Number(from) * (shape.frames - 1))
     const only = from ? Array.from({ length: shape.frames - first }, (_, index) => first + index) : [0.72, 0.8, 1].map((beat) => Math.round(beat * (shape.frames - 1)))

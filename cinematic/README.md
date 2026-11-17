@@ -210,19 +210,26 @@ cards.
   renders three chamber frames at final quality for desktop and phone, with
   the pictures in that folder on the cases, in name order.
 
-## The handoff when the cases are not the cards
+## The handoff, and what it needs from the covers
 
-When the last frame's cases show the same products as the block, in the
-same places, the cards fade in over them. Otherwise a band of light
-crosses the row: ahead of it the cases, behind it the real cards, the two
-easing into each other only inside the light (`phases` and `sweepEdge` in
-`web/src/cinematic/fit.ts`, drawn in `stage.ts`). It is a function of the
-scroll position alone, so it runs the same forwards and backwards.
+The cases settle onto the cards' cover positions, and the block's real
+title, discounts, names and prices fade in around them (`phases` in
+`web/src/cinematic/fit.ts`). The covers appear not to change, because the
+card's cover is the same picture the case carries. That only holds when
+the frames were rendered for the products the block holds, in its order,
+with each product's own cover picture: the build takes both from the
+backend's answer. When they differ, the page falls back to a dissolve.
+
+A light sweep between cases and cards was tried and dropped: it read as
+one scene being swapped for another.
 
 Trying a set of frames locally without publishing it:
 
-- `bash cinematic/preview_set.sh preview-covers` assembles a set from draft
-  renders into `web/public/cinematic/preview-covers/` (not committed).
+- `bash cinematic/preview_set.sh preview-covers <covers folder> <slugs>`
+  assembles a set from draft renders into
+  `web/public/cinematic/preview-covers/` (not committed), with the covers
+  beside the frames.
 - `VITE_CINEMATIC_VERSION=preview-covers npm run dev` in `web/` uses it.
 - `node cinematic/handoff_preview.mjs http://localhost:5173 <folder>` checks
-  the handoff in headless Chrome and records it forwards, backwards and slowly.
+  the handoff in headless Chrome, measures how much each cover changes
+  through it, and records it forwards, very slowly and backwards.

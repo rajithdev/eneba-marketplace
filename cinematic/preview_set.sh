@@ -7,7 +7,11 @@
 #   narrow  only the frames from 40% of the move on: the phone's preview starts there
 #
 # Every frame gets the colour grade, then becomes a JPEG (this ffmpeg cannot write WebP).
-# usage: bash cinematic/preview_set.sh <version name>
+# The covers on the cases are saved beside the frames (covers/<game>.jpg), for
+# showing the same pictures on the cards.
+# usage: bash cinematic/preview_set.sh <version name> [covers folder] [slug,slug,...]
+#   covers folder  the pictures the cases were rendered with (default cinematic/build/hero-covers)
+#   slugs          the products the cases stand for, in order, when the file names are not the slugs
 set -e
 cd "$(dirname "$0")/.."
 PY=/Applications/Blender.app/Contents/Resources/5.3/python/bin/python3.13
@@ -33,12 +37,22 @@ if [ -f $L/narrow-tail/layout.json ]; then
   for f in $(ls $W/narrow-graded/f-*.png); do ffmpeg -v error -y -i $f -q:v 3 $OUT/narrow/f-$(printf %03d $i).jpg; i=$((i + 1)); done
 fi
 
-python3 - "$L" "$OUT" "$i" <<'PY'
+# the covers: 3:4 at 600x800, named by game (the part of the file name before the platform and region)
+mkdir -p $OUT/covers
+for f in ${2:-$B/hero-covers}/*.png; do
+  game=$(basename ${f%.png} | sed -E 's/^[0-9]+-//; s/-(xbox-live|steam|nintendo-eshop|playstation-network|ea-app)-key-.*$//')
+  ffmpeg -v error -y -i $f -vf scale=600:800:flags=lanczos -q:v 3 $OUT/covers/$game.jpg
+done
+
+python3 - "$L" "$OUT" "$i" "$3" <<'PY'
 import json, os, sys
 L, out, narrow_frames = sys.argv[1], sys.argv[2], int(sys.argv[3])
+slugs = [slug for slug in sys.argv[4].split(",") if slug]
 def layout(name, frames):
     made = json.load(open(f"{L}/{name}-tail/layout.json"))
     size = sum(os.path.getsize(f"{out}/{name}/{f}") for f in os.listdir(f"{out}/{name}"))
+    for index, slot in enumerate(made["slots"]):
+        if slugs: slot["slug"] = slugs[index]
     return {"frames": frames, "width": made["width"], "height": made["height"], "path": name + "/f-{frame}.jpg", "bytes": size, "travel": 0.86, "slots": made["slots"]}
 layouts = {"wide": layout("wide", 120)}
 if narrow_frames:

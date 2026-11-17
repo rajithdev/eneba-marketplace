@@ -109,39 +109,16 @@ export const between = (from: Placement, to: Placement, t: number): Placement =>
  *            page colour and moving the frame cannot be seen.
  * frameAlpha how solid the rendered frame is.
  * cardsAlpha how solid the real block (its title and cards) is.
- * sweep      0..1: how far a band of light has crossed the row, or null
- *            when there is none.
  *
  * Seamless: the cards fade in over cases that sit exactly under them, so
- * the picture does not seem to change. Otherwise the cases show other
- * covers than the cards, or sit a little off them, and fading one into
- * the other in place would look like one product turning into another.
- * So a band of light crosses the row instead: ahead of it the cases,
- * behind it the real cards, the two easing into each other only inside
- * the light (see sweepEdge). The frame and the block both stay solid;
- * where each one shows is decided by the light.
+ * the picture does not seem to change. Otherwise a dissolve: the cases
+ * fade away first, then the cards fade in, so two misplaced copies are
+ * never seen at once.
  */
 export function phases(progress: number, seamless: boolean) {
-  const sweep = seamless ? null : smoothstep(0.875, 0.985, progress)
-
   return {
     settle: smoothstep(0.68, 0.86, progress),
-    frameAlpha: sweep === 1 ? 0 : 1,
-    cardsAlpha: sweep === null ? smoothstep(0.9, 0.98, progress) : sweep > 0 ? 1 : 0,
-    sweep,
+    frameAlpha: seamless ? 1 : 1 - smoothstep(0.86, 0.93, progress),
+    cardsAlpha: seamless ? smoothstep(0.9, 0.98, progress) : smoothstep(0.91, 0.99, progress),
   }
-}
-
-/** How wide the stretch is in which cases and cards ease into each other, for a row this wide. */
-export const sweepSoftness = (rowWidth: number) => rowWidth * 0.1
-
-/**
- * Where the light's leading edge is, in stage pixels. Right of it only the
- * cases show; `soft` pixels left of it and beyond, only the cards. It
- * starts with nothing of the row revealed and ends with all of it.
- */
-export function sweepEdge(sweep: number, rowLeft: number, rowRight: number, soft: number) {
-  const margin = soft / 2
-
-  return rowLeft - margin + sweep * (rowRight - rowLeft + soft + 2 * margin)
 }

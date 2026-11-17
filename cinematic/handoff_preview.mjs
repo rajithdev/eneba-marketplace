@@ -7,14 +7,17 @@
 //
 // On a desktop window and a phone it:
 //   - reads what the page reports at points through the handoff: which
-//     kind it is, where the light is, whether the block shows and can be
-//     clicked
+//     kind it is, how far each case is from its card's cover, whether the
+//     block shows and can be clicked
+//   - measures how much each cover's picture changes between the cases
+//     alone and the finished cards (0 would be no change at all)
 //   - checks that the same scroll position gives the same picture whether
 //     it was reached scrolling down or up
 //   - times display frames while a wheel or finger scrolls through the
-//     handoff forwards, backwards and slowly
-//   - saves stills, and three recordings: forwards, backwards, and slowly
-//     forwards (the page photographed at each small step of scroll)
+//     handoff forwards, backwards, very slowly and in a fast flick
+//   - saves stills, and four recordings: forwards, very slowly through the
+//     handoff, backwards, and the handoff on its own (the page
+//     photographed at each small step of scroll)
 
 import { execFileSync, spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -85,12 +88,17 @@ const until = async (expression, tries = 400) => {
 
 /** What the page shows of the handoff right now. */
 const reading = () => evaluate(`(() => {
-  const canvas = document.querySelector('main canvas'); const holder = canvas.nextElementSibling; const light = holder.nextElementSibling.firstElementChild
+  const canvas = document.querySelector('main canvas'); const holder = canvas.nextElementSibling
   const debug = window.__cinematic ?? {}
-  const round = (value) => value == null ? null : Math.round(value * 1000) / 1000
-  return { progress: round(debug.progress), frame: debug.frame, handoff: debug.handoff, sweep: round(debug.sweep), blockOpacity: Number(getComputedStyle(holder).opacity),
-    blockMasked: getComputedStyle(holder).maskImage !== 'none', blockClickable: getComputedStyle(holder).pointerEvents !== 'none', lightOpacity: round(Number(getComputedStyle(light).opacity)) }
+  return { progress: debug.progress == null ? null : Math.round(debug.progress * 1000) / 1000, frame: debug.frame, handoff: debug.handoff,
+    blockOpacity: Math.round(Number(getComputedStyle(holder).opacity) * 1000) / 1000, blockClickable: getComputedStyle(holder).pointerEvents !== 'none' }
 })()`)
+
+/** Where the first covers of the block are in a screenshot, in its pixels. */
+const coverBoxes = (count, scale) => evaluate(`[...document.querySelector('main canvas').nextElementSibling.querySelectorAll('li img')].slice(0, ${count}).map((image) => { const at = image.getBoundingClientRect(); return [at.left, at.top, at.width, at.height].map((value) => Math.round(value * ${scale})) })`)
+
+/** The pixels of one box of a PNG, as red, green, blue bytes. */
+const boxPixels = (png, [x, y, w, h]) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'png_pipe', '-i', '-', '-vf', `crop=${w - 4}:${h - 4}:${x + 2}:${y + 2}`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { input: png, maxBuffer: 1 << 28 })
 
 /** Times display frames while a wheel or a finger scrolls `distance` pixels from `from` at `speed` pixels a second. */
 async function timeScroll(size, from, distance, speed) {
@@ -122,18 +130,33 @@ try {
     const entry = (report[size.name] = { window: `${size.width}x${size.height}`, armed, allFramesLoaded: loaded, version: debug.version, layout: debug.layout, frames: debug.frames, sameProducts: debug.sameProducts, pinPx: Math.round(place.pin) })
 
     // What the page reports through the handoff, going down.
+    entry.offByPx = debug.offByPx
     entry.goingDown = []
-    for (const progress of [0.8, 0.86, 0.9, 0.93, 0.96, 0.985, 1]) {
+    for (const progress of [0.8, 0.86, 0.9, 0.92, 0.94, 0.96, 0.98, 1]) {
       await scrollTo(at(progress), 700)
       entry.goingDown.push(await reading())
     }
     await scrollTo(at(1) + size.height, 700) // past the section: the block as an ordinary part of the page
     entry.afterTheSection = await reading()
 
+    // How much each cover's picture changes from the cases alone to the
+    // finished cards: the average difference per colour value, of 255.
+    await scrollTo(at(0.885), 900)
+    const before = await capture('png')
+    const boxes = await coverBoxes(debug.offByPx.length, size.scale)
+    await scrollTo(at(1), 900)
+    const after = await capture('png')
+    entry.coverChange = boxes.map((box) => {
+      const [a, b] = [boxPixels(before, box), boxPixels(after, box)]
+      let total = 0
+      for (let i = 0; i < a.length; i++) total += Math.abs(a[i] - b[i])
+      return Math.round((total / a.length) * 10) / 10
+    })
+
     // The same place reached from above and from below must be the same picture.
     const same = []
-    for (const progress of [0.9, 0.93, 0.96]) {
-      await scrollTo(at(0.8), 500)
+    for (const progress of [0.78, 0.92, 0.95]) {
+      await scrollTo(at(0.6), 500)
       await scrollTo(at(progress), 900)
       const down = await capture('png')
       await scrollTo(at(1), 500)
@@ -144,7 +167,7 @@ try {
     entry.samePictureBothWays = same
 
     // Stills.
-    for (const [name, progress] of [['1-cases-settled', 0.87], ['2-light-a-quarter-across', 0.905], ['3-light-half-way', 0.93], ['4-light-three-quarters', 0.955], ['5-real-cards', 1]]) {
+    for (const [name, progress] of [['1-cases-arriving', 0.8], ['2-cases-settled', 0.87], ['3-details-a-quarter-in', 0.925], ['4-details-half-in', 0.94], ['5-details-three-quarters-in', 0.955], ['6-real-cards', 1]]) {
       await scrollTo(at(progress), 900)
       writeFileSync(join(outDir, `${size.name}-${name}.jpg`), await capture())
     }
@@ -154,7 +177,7 @@ try {
     entry.scrolling = {
       forward: await timeScroll(size, at(0.72), stretch, 900),
       reverse: await timeScroll(size, at(1.02), -stretch, 900),
-      slow: await timeScroll(size, at(0.85), place.pin * 0.16, 150),
+      verySlow: await timeScroll(size, at(0.85), place.pin * 0.16, 60),
       fastFlick: await timeScroll(size, at(0.6), place.pin * 0.5, 6000),
     }
 
@@ -167,16 +190,17 @@ try {
       const stops = Array.from({ length: count + 1 }, (_, index) => from + ((to - from) * index) / count)
       await scrollTo(at(stops[0]), 700)
       for (const [index, progress] of [...stops, ...Array(20).fill(to)].entries()) {
-        await scrollTo(at(progress), 200)
+        await scrollTo(at(progress), 170)
         writeFileSync(join(frames, `${String(index).padStart(4, '0')}.jpg`), await capture())
       }
       const width = size.mobile ? size.width * 2 : size.width
       execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', '30', '-i', join(frames, '%04d.jpg'), '-vf', `scale=${width}:-2`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-movflags', '+faststart', join(outDir, `${size.name}-${name}.mp4`)])
       rmSync(frames, { recursive: true, force: true })
     }
-    await record('forward', 0.66, 1.03, 0.0035)
-    await record('reverse', 1.03, 0.66, 0.0035)
-    await record('slow-forward', 0.855, 1.0, 0.001)
+    await record('forward', 0.5, 1.03, 0.0035)
+    await record('very-slow', 0.84, 1.0, 0.0005)
+    await record('reverse', 1.03, 0.5, 0.0035)
+    await record('handoff', 0.68, 1.0, 0.002)
   }
   report.pageErrors = problems
 } finally {
