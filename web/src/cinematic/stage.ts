@@ -6,18 +6,20 @@
  * (see CinematicDeals), so it costs the others nothing.
  */
 import type { HomepageBlock } from '../lib/homepage'
-import { between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Placement, type Rect, type Size } from './fit'
+import { between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, sweepEdge, sweepSoftness, type Placement, type Rect, type Size } from './fit'
 import { LAYOUTS, type LayoutName } from './layouts'
 import { loadSequence, type Sequence } from './sequence'
 
-/** Which set of frames (a folder under /cinematic) this build of the site uses. */
-export const VERSION = 'v1-blockout'
+/** Which set of frames (a folder under /cinematic) this build of the site uses. VITE_CINEMATIC_VERSION picks another, for trying a set locally. */
+export const VERSION: string = import.meta.env.VITE_CINEMATIC_VERSION ?? 'v1-blockout'
 const BASE = `/cinematic/${VERSION}`
 
 /** The cases may sit this far from the real covers, in pixels, and still be faded straight into them. */
 const SEAMLESS_WITHIN = 1
 /** How quickly the picture catches up with the scroll position, in milliseconds: long enough to smooth a mouse wheel's steps, short enough to feel direct. */
 const CATCH_UP_MS = 90
+/** How wide the band of light is, in widths of the stretch where cases and cards meet. */
+const LIGHT_WIDTH = 3.4
 
 interface Layout {
   frames: number
@@ -43,6 +45,8 @@ export interface Elements {
   holder: HTMLElement
   /** The empty stretch after the stage; its height is how many pixels of scrolling the animation lasts. */
   spacer: HTMLElement
+  /** The band of light that crosses the row when the cases do not become the cards in place. It lies over the stage, from its left edge. */
+  light: HTMLElement
 }
 
 export interface Armed {
@@ -97,7 +101,7 @@ interface Show {
   keep: number
 }
 
-function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: () => void) {
+function run(show: Show, { runway, canvas, holder, spacer, light }: Elements, giveUp: () => void) {
   const { layout, sequence } = show
   const context = canvas.getContext('2d')
   if (!context) {
@@ -113,6 +117,13 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
   let seamless = false
   let drawn = ''
   let pin = 1
+  // For the light: the row of covers from end to end, how wide the stretch
+  // is where cases and cards meet, and where the block's box starts, all
+  // in stage pixels.
+  let row = { left: 0, right: 1 }
+  let soft = 1
+  let holderLeft = 0
+  let lean = 0
 
   /** Sizes the canvas to the stage and finds where the real covers are on it. */
   const measure = () => {
@@ -136,17 +147,25 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
     handoff = handoffPlacement(frame, layout.slots, covers)
     offBy = mismatches(frame, layout.slots, covers, handoff)
     seamless = show.sameProducts && Math.max(...offBy) <= SEAMLESS_WITHIN
+    row = { left: covers[0].x, right: covers[covers.length - 1].x + covers[covers.length - 1].w }
+    soft = sweepSoftness(row.right - row.left)
+    holderLeft = holder.getBoundingClientRect().left - box.left
+    // The light is a few times as wide as that stretch, so the change of
+    // picture happens inside it, and leans forward by the stretch's width
+    // over the height of the stage.
+    light.style.width = `${(soft * LIGHT_WIDTH).toFixed(1)}px`
+    lean = (Math.atan(soft / stage.height) * 180) / Math.PI
     drawn = ''
   }
 
   const draw = (progress: number) => {
-    const { settle, frameAlpha, cardsAlpha } = phases(progress, seamless)
+    const { settle, frameAlpha, cardsAlpha, sweep } = phases(progress, seamless)
     const index = frameAt(progress, layout.travel, layout.frames)
     const picture = sequence.picture(index)
     const at = between(cover, handoff, settle)
 
     // Nothing is drawn again unless what would be drawn has changed.
-    const state = [index, at.scale.toFixed(4), at.x.toFixed(1), at.y.toFixed(1), frameAlpha.toFixed(3), cardsAlpha.toFixed(3)].join()
+    const state = [index, at.scale.toFixed(4), at.x.toFixed(1), at.y.toFixed(1), frameAlpha.toFixed(3), cardsAlpha.toFixed(3), sweep?.toFixed(4)].join()
     if (state === drawn) return
     drawn = state
 
@@ -160,14 +179,35 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
       context.drawImage(picture, at.x * density, at.y * density, frame.width * at.scale * density, frame.height * at.scale * density)
     }
 
+    // The light crossing the row. Left of its edge the frame gives way to
+    // the page's colour, here on the canvas, and the real block shows
+    // through a mask with the same edge; across the `soft` pixels before
+    // the edge the two ease into each other, under the light.
+    const crossing = sweep !== null && sweep > 0 && sweep < 1
+    const edge = crossing ? sweepEdge(sweep, row.left, row.right, soft) : 0
+    if (crossing) {
+      const fade = context.createLinearGradient((edge - soft) * density, 0, edge * density, 0)
+      fade.addColorStop(0, show.background)
+      fade.addColorStop(1, `${show.background}00`) // the same colour, see-through
+      context.globalAlpha = 1
+      context.fillStyle = fade
+      context.fillRect(0, 0, edge * density, canvas.height)
+    }
+    const mask = crossing ? `linear-gradient(90deg, #000 ${(edge - soft - holderLeft).toFixed(1)}px, transparent ${(edge - holderLeft).toFixed(1)}px)` : ''
+    holder.style.setProperty('-webkit-mask-image', mask)
+    holder.style.setProperty('mask-image', mask)
+    // The light fades in as it reaches the row and out as it leaves it.
+    light.style.opacity = crossing ? String(Math.min(1, sweep / 0.1, (1 - sweep) / 0.1)) : '0'
+    if (crossing) light.style.transform = `translateX(${(edge - soft / 2 - (soft * LIGHT_WIDTH) / 2).toFixed(1)}px) skewX(${(-lean).toFixed(2)}deg)`
+
     // The real block is always in the page (for screen readers and the
     // keyboard); until it shows, it just cannot be clicked by accident.
     holder.style.opacity = String(cardsAlpha)
-    holder.style.pointerEvents = cardsAlpha < 0.5 ? 'none' : ''
+    holder.style.pointerEvents = (sweep === null ? cardsAlpha >= 0.5 : sweep === 1) ? '' : 'none'
 
     if (debugging) {
       window.__cinematic = {
-        version: VERSION, layout: show.name, progress, frame: index, handoff: seamless ? 'seamless' : 'dissolve',
+        version: VERSION, layout: show.name, progress, frame: index, handoff: seamless ? 'seamless' : 'sweep', sweep,
         sameProducts: show.sameProducts, offByPx: offBy.map((value) => Math.round(value * 100) / 100), armedAfterMs: show.armedAfterMs,
         frames: layout.frames, decodedBytesEach: layout.width * layout.height * 4, canvasPixels: canvas.width * canvas.height, keep: show.keep, ...sequence.stats(),
       }
@@ -228,6 +268,9 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
     context.clearRect(0, 0, canvas.width, canvas.height)
     holder.style.opacity = ''
     holder.style.pointerEvents = ''
+    holder.style.removeProperty('-webkit-mask-image')
+    holder.style.removeProperty('mask-image')
+    light.style.opacity = '0'
   }
 }
 

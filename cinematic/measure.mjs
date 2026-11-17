@@ -132,8 +132,8 @@ const section = () => evaluate(`(() => {
   const spacer = runway.lastElementChild === stage ? null : runway.lastElementChild
   const next = runway.nextElementSibling
   return { top: runway.getBoundingClientRect().top + scrollY, pin: spacer ? spacer.getBoundingClientRect().height : 0, reserved: !canvas.hidden, armed: canvas.dataset.armed === 'true',
-    pageHeight: document.documentElement.scrollHeight, blockTop: Math.round(stage.lastElementChild.getBoundingClientRect().top + scrollY), nextBlockTop: next ? Math.round(next.getBoundingClientRect().top + scrollY) : null,
-    now: performance.now(), blockShown: getComputedStyle(stage.lastElementChild).opacity }
+    pageHeight: document.documentElement.scrollHeight, blockTop: Math.round(canvas.nextElementSibling.getBoundingClientRect().top + scrollY), nextBlockTop: next ? Math.round(next.getBoundingClientRect().top + scrollY) : null,
+    now: performance.now(), blockShown: getComputedStyle(canvas.nextElementSibling).opacity }
 })()`)
 const scrollTo = async (y, settle = 450) => {
   await evaluate(`window.scrollTo(0, ${Math.round(y)})`)

@@ -262,10 +262,17 @@ if (lookdevOnly && referenceOnly) {
 if (lookdevOnly && process.argv.includes('--chamber')) {
   // The chamber alone at final quality, in both layouts: the cases gliding
   // in, nearly in their row, and the last frame. Nothing is published.
+  //   --from=0.4   every frame from that share of the move to its end instead, at draft
+  //                quality: enough to try the handoff in a browser without the full render
+  const from = flag('from')
   for (const name of ['wide', 'narrow']) {
     const shape = layouts[name]
-    const only = [0.72, 0.8, 1].map((beat) => Math.round(beat * (shape.frames - 1)))
-    render(`${name} chamber`, shape, { folder: `${name}-chamber`, options: { format: 'PNG', look: 'vault', gallery: artwork().large, decor: artwork().stock, samples: 256, noise: 0.02, only } })
+    const first = Math.round(Number(from) * (shape.frames - 1))
+    const only = from ? Array.from({ length: shape.frames - first }, (_, index) => first + index) : [0.72, 0.8, 1].map((beat) => Math.round(beat * (shape.frames - 1)))
+    render(`${name} chamber`, shape, {
+      folder: from ? `${name}-tail` : `${name}-chamber`,
+      options: { format: 'PNG', look: 'vault', gallery: artwork().large, decor: artwork().stock, samples: from ? 48 : 256, noise: from ? 0.05 : 0.02, only },
+    })
   }
   process.exit(0)
 }

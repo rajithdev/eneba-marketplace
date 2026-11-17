@@ -24,11 +24,18 @@ import type { Armed } from './stage'
  * browser no space is reserved and this is exactly the deals block as it
  * has always been.
  */
+/** The light: a thin bright line with a violet glow falling away on both sides, like the neon in the frames. */
+const BEAM =
+  'linear-gradient(90deg, transparent 0%, rgb(168 85 247 / 0.12) 18%, rgb(217 70 239 / 0.42) 38%, rgb(250 210 255 / 0.85) 47%, #fff 50%, rgb(250 210 255 / 0.85) 53%, rgb(217 70 239 / 0.42) 62%, rgb(168 85 247 / 0.12) 82%, transparent 100%)'
+/** It thins out toward the top and bottom of the stage instead of ending at an edge. */
+const BEAM_ENDS = 'linear-gradient(180deg, transparent 0%, #000 22%, #000 78%, transparent 100%)'
+
 export function CinematicDeals({ block }: { block: HomepageBlock }) {
   const runway = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const holder = useRef<HTMLDivElement>(null)
   const spacer = useRef<HTMLDivElement>(null)
+  const light = useRef<HTMLDivElement>(null)
 
   const products = (block.data.products ?? []).map((product) => product.slug)
   const [layout, setLayout] = useState(() => layoutHere(products.length))
@@ -86,9 +93,9 @@ export function CinematicDeals({ block }: { block: HomepageBlock }) {
 
   // Draw, once the frames are in.
   useEffect(() => {
-    if (!armed || !runway.current || !canvas.current || !holder.current || !spacer.current) return
+    if (!armed || !runway.current || !canvas.current || !holder.current || !spacer.current || !light.current) return
 
-    return armed.run({ runway: runway.current, canvas: canvas.current, holder: holder.current, spacer: spacer.current }, () => setArmed(null))
+    return armed.run({ runway: runway.current, canvas: canvas.current, holder: holder.current, spacer: spacer.current, light: light.current }, () => setArmed(null))
   }, [armed])
 
   return (
@@ -106,6 +113,14 @@ export function CinematicDeals({ block }: { block: HomepageBlock }) {
           {/* Keeps the block from being the first thing in its box, which would change its top margin. */}
           <span hidden />
           <DealsBlock block={block} />
+        </div>
+        {/*
+          The band of light that crosses the row when the cases give way to
+          the cards (stage.ts moves it). It lies over the block, cannot be
+          clicked, and stays invisible until then.
+        */}
+        <div aria-hidden="true" hidden={!layout} className="pointer-events-none absolute left-1/2 top-0 h-[100svh] w-screen -translate-x-1/2 overflow-hidden">
+          <div ref={light} className="absolute inset-y-0 left-0 opacity-0 mix-blend-screen" style={{ background: BEAM, maskImage: BEAM_ENDS, WebkitMaskImage: BEAM_ENDS }} />
         </div>
       </div>
       {/*

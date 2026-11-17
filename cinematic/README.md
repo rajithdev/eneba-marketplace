@@ -209,3 +209,20 @@ cards.
 - `node cinematic/build.mjs --lookdev --chamber --hero-covers=<folder>`
   renders three chamber frames at final quality for desktop and phone, with
   the pictures in that folder on the cases, in name order.
+
+## The handoff when the cases are not the cards
+
+When the last frame's cases show the same products as the block, in the
+same places, the cards fade in over them. Otherwise a band of light
+crosses the row: ahead of it the cases, behind it the real cards, the two
+easing into each other only inside the light (`phases` and `sweepEdge` in
+`web/src/cinematic/fit.ts`, drawn in `stage.ts`). It is a function of the
+scroll position alone, so it runs the same forwards and backwards.
+
+Trying a set of frames locally without publishing it:
+
+- `bash cinematic/preview_set.sh preview-covers` assembles a set from draft
+  renders into `web/public/cinematic/preview-covers/` (not committed).
+- `VITE_CINEMATIC_VERSION=preview-covers npm run dev` in `web/` uses it.
+- `node cinematic/handoff_preview.mjs http://localhost:5173 <folder>` checks
+  the handoff in headless Chrome and records it forwards, backwards and slowly.

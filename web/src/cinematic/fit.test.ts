@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
+import { between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, sweepEdge, sweepSoftness, type Rect } from './fit'
 
 const frame = { width: 640, height: 360 }
 
@@ -63,15 +63,33 @@ describe('placing the frame', () => {
 
 describe('what is on screen', () => {
   it('shows only the frame during the travel and only the cards at the end', () => {
-    expect(phases(0.3, true)).toEqual({ settle: 0, frameAlpha: 1, cardsAlpha: 0 })
+    expect(phases(0.3, true)).toEqual({ settle: 0, frameAlpha: 1, cardsAlpha: 0, sweep: null })
+    expect(phases(0.3, false)).toEqual({ settle: 0, frameAlpha: 1, cardsAlpha: 0, sweep: 0 })
     expect(phases(1, true).cardsAlpha).toBe(1)
-    expect(phases(1, false)).toMatchObject({ frameAlpha: 0, cardsAlpha: 1 })
+    expect(phases(1, false)).toMatchObject({ frameAlpha: 0, cardsAlpha: 1, sweep: 1 })
   })
 
-  it('in a dissolve, never shows the cases and the cards at full strength together', () => {
-    for (let progress = 0; progress <= 1; progress += 0.01) {
-      const { frameAlpha, cardsAlpha } = phases(progress, false)
-      expect(frameAlpha + cardsAlpha).toBeLessThanOrEqual(1.25)
+  it('starts the light only once the frame has settled on the cards, and finishes before the section lets go', () => {
+    expect(phases(0.86, false)).toMatchObject({ settle: 1, sweep: 0, cardsAlpha: 0 })
+    expect(phases(0.93, false)).toMatchObject({ frameAlpha: 1, cardsAlpha: 1 })
+    expect(phases(0.93, false).sweep).toBeCloseTo(0.5)
+    expect(phases(0.99, false).sweep).toBe(1)
+  })
+
+  it('moves the light the same way forwards and backwards, never jumping', () => {
+    const positions = Array.from({ length: 101 }, (_, step) => phases(step / 100, false).sweep!)
+    for (let step = 1; step <= 100; step++) {
+      expect(positions[step]).toBeGreaterThanOrEqual(positions[step - 1])
+      expect(positions[step] - positions[step - 1]).toBeLessThan(0.15)
     }
+  })
+
+  it('reveals nothing of the row before the light and all of it after', () => {
+    const [left, right] = [96, 1344]
+    const soft = sweepSoftness(right - left)
+
+    expect(sweepEdge(0, left, right, soft)).toBeLessThan(left) // cards show only left of (edge - soft)
+    expect(sweepEdge(1, left, right, soft) - soft).toBeGreaterThan(right)
+    expect(sweepEdge(0.5, left, right, soft) - soft / 2).toBeCloseTo((left + right) / 2) // half way: the light is over the middle of the row
   })
 })
