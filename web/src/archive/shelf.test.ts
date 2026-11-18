@@ -2,14 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { approach, drawnAround, keyTarget, placeAt, poseAt, REACH, scrollFor, shelfMark, STEP, travel } from './shelf'
 
 describe('where a case stands', () => {
-  it('has the chosen case in the middle, nearest the visitor, fully lit, showing a little of its spine', () => {
+  it('has the chosen case in the middle, nearest the visitor, fully lit and rimmed, showing its spine', () => {
     const chosen = poseAt(0)
 
     expect(chosen.x).toBe(0)
     expect(chosen.light).toBe(1)
-    expect(chosen.turn).toBeGreaterThan(0)
-    expect(chosen.turn).toBeLessThan(15)
-    expect(chosen.ink).toBe(0)
+    expect(chosen.turn).toBeGreaterThan(15)
+    expect(chosen.turn).toBeLessThan(30)
+    // The chosen case, and no other, has the lit rim, which comes up gradually.
+    expect(chosen.focus).toBe(1)
+    expect(poseAt(0.3).focus).toBeGreaterThan(0)
+    expect(poseAt(0.3).focus).toBeLessThan(1)
+    expect(poseAt(1).focus).toBe(0)
+    expect(poseAt(-1).focus).toBe(0)
     for (const offset of [-3, -1, 1, 3]) expect(poseAt(offset).z).toBeLessThan(chosen.z)
   })
 
@@ -64,7 +69,8 @@ describe('where a case stands', () => {
   })
 
   it('inks in the lettering of a spine only once it is turned enough to be read', () => {
-    expect(poseAt(0.1).ink).toBeLessThan(0.5)
+    expect(poseAt(0).ink).toBe(0)
+    expect(poseAt(0.3).ink).toBe(0)
     expect(poseAt(-1).ink).toBe(1)
     expect(poseAt(1).ink).toBe(1)
   })

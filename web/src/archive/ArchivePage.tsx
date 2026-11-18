@@ -1,7 +1,8 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { LoadError, Notice, pageTitle, pageTop, primaryButton } from '../components/States'
+import { Icon } from '../components/Icon'
+import { LoadError, Notice, pageTop, primaryButton } from '../components/States'
 import { ApiError } from '../lib/api'
 import { fetchFilters, fetchProducts, type FiltersResponse, type ProductSummary } from '../lib/catalog'
 import { formatMoney } from '../lib/money'
@@ -205,17 +206,15 @@ function ArchiveHeader({ total }: { total: number | null }) {
   // Filters set in "Browse all" (a platform, a region, a price) narrow the shelf too.
   const narrowed = activeFilterCount(params) - types.length > 0 || searchTerm !== ''
 
-  const chip = (current: boolean) =>
-    `block rounded-control border px-3.5 py-1.5 text-sm font-extrabold ${current ? 'border-accent bg-accent text-black' : 'border-edge/40 text-muted hover:border-edge-lit hover:text-white'}`
-
   return (
-    // Two rows, and on a wide window one: the title, the shelves, the order, the switch.
-    <div className="pt-5 xl:flex xl:items-center xl:gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-3 sm:gap-x-6 xl:contents">
-        <div className="flex items-baseline gap-3">
-          <h1 className={pageTitle}>Game Archive</h1>
-          {/* Announced to screen readers whenever the shelf changes. (On a phone it is read out but not shown: the count is under the shelf.) */}
-          <p aria-live="polite" className="sr-only text-sm text-muted sm:not-sr-only">
+    // Two rows: the title with the order and the switch, then the shelves. On a wide window, one.
+    <div className="pt-4 sm:pt-5 xl:flex xl:items-center xl:gap-4 xl:pt-7">
+      <div className="flex items-center gap-2 sm:gap-3 xl:contents">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3 xl:flex-none">
+          <Icon name="gamepad" className="hidden size-6 text-(--ga-violet-lit) min-[350px]:block min-[390px]:size-7 sm:size-9" />
+          <h1 className="text-xl font-black leading-none tracking-tight whitespace-nowrap min-[390px]:text-[1.375rem] sm:text-[1.75rem]">Game Archive</h1>
+          {/* Announced to screen readers whenever the shelf changes. (In a narrow window it is read out but not shown: the count is under the shelf.) */}
+          <p aria-live="polite" className="sr-only text-sm text-muted md:not-sr-only md:ml-1 md:border-l md:border-white/15 md:pl-4 md:whitespace-nowrap">
             {total !== null && (
               <>
                 <span className="font-extrabold text-white">{total}</span> {total === 1 ? 'title' : 'titles'}
@@ -224,63 +223,65 @@ function ArchiveHeader({ total }: { total: number | null }) {
             )}
           </p>
           {narrowed && (
-            <Link to={{ search: withValue(withoutFilters(params), 'q', null).toString() }} className="text-sm font-extrabold underline hover:text-accent">
+            <Link to={{ search: withValue(withoutFilters(params), 'q', null).toString() }} className="text-sm font-extrabold whitespace-nowrap underline hover:text-(--ga-violet-lit)">
               Clear filters
             </Link>
           )}
         </div>
-        <ViewSwitch view="shelf" className="xl:order-last" />
-      </div>
-
-      {/* On a phone the shelves and the order share one row: the shelves scroll sideways beside the menu. */}
-      <div className="mt-3 flex items-center justify-between gap-x-3 gap-y-3 sm:flex-wrap sm:gap-x-6 xl:contents">
-        <nav aria-label="Shelves" className="min-w-0">
-          <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 py-1 [scrollbar-width:none]">
-            <li className="shrink-0">
-              <Link to={{ search: withValue(params, 'type', null).toString() }} aria-current={types.length === 0 ? 'true' : undefined} className={chip(types.length === 0)}>
-                All
-              </Link>
-            </li>
-            {(options?.types ?? [])
-              .filter((type) => type.products_count > 0)
-              .map((type) => {
-                const current = types.length === 1 && types[0] === type.value
-
-                return (
-                  <li key={type.value} className="shrink-0">
-                    <Link to={{ search: withValue(params, 'type', type.value).toString() }} aria-current={current ? 'true' : undefined} className={chip(current)}>
-                      {type.label}
-                    </Link>
-                  </li>
-                )
-              })}
-          </ul>
-        </nav>
 
         {/* Its place is kept while the orders are on their way, so the switch beside it does not move when they arrive. */}
-        <div className="min-h-9 shrink-0 xl:ml-auto">
+        <div className="min-h-10 min-w-10 shrink-0 min-[390px]:min-w-11 sm:min-w-40 xl:order-3 xl:ml-auto xl:border-l xl:border-white/15 xl:pl-4">
           {options && (
-            <label className="flex items-center gap-2 text-sm">
-              <span className="sr-only text-muted sm:not-sr-only">Shelved by</span>
-              <select
-                value={sort}
-                // The default order needs no parameter: /archive stays /archive.
-                onChange={(event) => setParams(withValue(params, 'sort', event.target.value === defaultSort ? null : event.target.value))}
-                className="h-9 rounded-control border border-edge/40 bg-card-mid px-3 font-extrabold text-white"
-              >
-                {sortOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+            <label className="flex items-center gap-3 text-sm">
+              <span className="sr-only text-muted lg:not-sr-only xl:sr-only">Shelved by</span>
+              <span className="relative">
+                {/* On a phone the menu is a button with a picture; its list still names every order. */}
+                <select
+                  value={sort}
+                  // The default order needs no parameter: /archive stays /archive.
+                  onChange={(event) => setParams(withValue(params, 'sort', event.target.value === defaultSort ? null : event.target.value))}
+                  className="ga-glass ga-select h-10 w-10 rounded-xl font-extrabold min-[390px]:w-11 sm:w-auto sm:pr-9 sm:pl-3.5"
+                >
+                  {sortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <Icon name="sort" className="pointer-events-none absolute top-1/2 left-1/2 size-[18px] -translate-1/2 sm:hidden" />
+                <Icon name="chevron" className="pointer-events-none absolute top-1/2 right-3 hidden size-4 -translate-y-1/2 sm:block" />
+              </span>
             </label>
           )}
         </div>
+        <ViewSwitch view="shelf" className="xl:order-4" />
       </div>
+
+      {/* The shelves: on a phone a row that scrolls sideways, edge to edge. */}
+      <nav aria-label="Shelves" className="-mx-4 mt-3 min-w-0 sm:mx-0 sm:mt-3.5 xl:order-2 xl:mt-0">
+        <ul className="flex gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] sm:px-0">
+          <li className="shrink-0">
+            <Link to={{ search: withValue(params, 'type', null).toString() }} aria-current={types.length === 0 ? 'true' : undefined} className={chip}>
+              All
+            </Link>
+          </li>
+          {(options?.types ?? [])
+            .filter((type) => type.products_count > 0)
+            .map((type) => (
+              <li key={type.value} className="shrink-0">
+                <Link to={{ search: withValue(params, 'type', type.value).toString() }} aria-current={types.length === 1 && types[0] === type.value ? 'true' : undefined} className={chip}>
+                  {type.label}
+                </Link>
+              </li>
+            ))}
+        </ul>
+      </nav>
     </div>
   )
 }
+
+/** A shelf to choose: a pill, solid violet when it is the one being looked at (see .ga-glass). */
+const chip = 'ga-glass flex h-10 items-center rounded-full px-4 text-sm font-extrabold xl:px-3.5'
 
 /**
  * What the address says about the shelf, read against what the API offers:
@@ -316,15 +317,19 @@ function ViewSwitch({ view, className = '' }: { view: 'shelf' | 'list'; classNam
   const [params] = useSearchParams()
   // The page number belongs to the list it was a page of.
   const search = withValue(params, 'page', null).toString()
-  const side = (current: boolean) => `rounded-[0.45rem] px-2.5 py-1.5 text-[13px] font-extrabold sm:px-3.5 sm:text-sm ${current ? 'bg-white/12 text-white ring-1 ring-edge/50' : 'text-muted hover:text-white'}`
+  const side = 'ga-glass flex h-10 min-w-10 items-center justify-center gap-2 rounded-xl text-sm font-extrabold min-[390px]:min-w-11 lg:px-3.5'
+  // In a narrow window each is a picture; its name is still what a screen reader says.
+  const name = 'sr-only lg:not-sr-only'
 
   return (
-    <nav aria-label="Catalog view" className={`flex shrink-0 gap-1 rounded-control border border-edge/30 bg-card-mid/70 p-1 ${className}`}>
-      <Link to={{ pathname: '/archive', search }} aria-current={view === 'shelf' ? 'page' : undefined} className={side(view === 'shelf')}>
-        Archive
+    <nav aria-label="Catalog view" className={`flex shrink-0 gap-2 ${className}`}>
+      <Link to={{ pathname: '/archive', search }} aria-current={view === 'shelf' ? 'page' : undefined} className={side}>
+        <Icon name="shelf" className="size-[18px]" />
+        <span className={name}>Archive</span>
       </Link>
-      <Link to={{ pathname: '/archive/all', search }} aria-current={view === 'list' ? 'page' : undefined} className={side(view === 'list')}>
-        Browse all
+      <Link to={{ pathname: '/archive/all', search }} aria-current={view === 'list' ? 'page' : undefined} className={side}>
+        <Icon name="grid" className="size-[18px]" />
+        <span className={name}>Browse all</span>
       </Link>
     </nav>
   )

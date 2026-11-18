@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import filtersExample from '../contracts/filters.json'
 import listExample from '../contracts/products.list.json'
 import { mockApi, renderAt } from '../test/render'
+import { REACH } from './shelf'
 
 const [discounted, fullPrice, soldOut] = listExample.response.data
 
@@ -224,8 +225,8 @@ describe('game archive', () => {
     renderAt('/archive')
     const list = await shelf()
 
-    // The chosen case and nine after it; each says where it is among all 24.
-    expect(inShelf().getAllByRole('option')).toHaveLength(10)
+    // The chosen case and the few after it that can be seen; each says where it is among all 24.
+    expect(inShelf().getAllByRole('option')).toHaveLength(1 + REACH)
     expect(chosenCase()).toHaveAttribute('aria-posinset', '1')
     expect(chosenCase()).toHaveAttribute('aria-setsize', '24')
 

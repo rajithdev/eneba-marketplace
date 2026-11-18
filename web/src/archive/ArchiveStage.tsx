@@ -1,5 +1,6 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import type { ProductSummary } from '../lib/catalog'
+import { coverArt } from '../lib/coverArt'
 import { GameCase } from './GameCase'
 import { approach, drawnAround, keyTarget, placeAt, poseAt, REACH, scrollFor, travel } from './shelf'
 
@@ -8,7 +9,11 @@ const CATCH_UP_MS = 110
 /** Scrolling counts as stopped once the scroll position has not changed for this long, in milliseconds. */
 const REST_AFTER_MS = 140
 /** How many cases either side of the middle have their reflection in the floor drawn. */
-const MIRRORED = 5
+const MIRRORED = 4
+/** The lamp takes its colour from the chosen cover once the choice has stood for this long, in milliseconds: not from every case a fast scroll passes. */
+const TINT_AFTER_MS = 260
+/** The archive's own violet, which a cover's colour is mixed with: red, green, blue. */
+const VIOLET = [139, 92, 246]
 /** A press that moves this far, in pixels, is a drag of the shelf and not a click on a case. */
 const DRAG_FROM = 6
 
@@ -39,8 +44,10 @@ interface Props {
 }
 
 /**
- * The archive on a wide window: the cases stand in a row that runs off into
- * the dark on both sides, the chosen one facing the visitor in the middle.
+ * The archive on a wide window: the cases stand in an arc that opens
+ * toward the visitor, the chosen one nearest and in the middle, the others
+ * stepping back into the dark on either side. Behind them a room: the rim
+ * of a great circle, a round floor, and a lamp tinted by the chosen cover.
  *
  * The page's own scrolling moves the shelf. The stage stays in place while
  * an empty stretch (the runway) scrolls past, one case per notch of the
@@ -67,6 +74,9 @@ export function ArchiveStage({ products, selected, onSelect, onOpen, label, plat
   for (let index = first; index <= last; index++) drawn.push(index)
   // The chosen case is always in the page, even before the shelf has travelled to it: it is what the keyboard is on.
   if (count > 0 && (selected < first || selected > last)) drawn.push(selected)
+
+  // The lamp over the row takes its colour from the chosen cover.
+  const tint = useTint(coverArt(useSettled(products[selected], TINT_AFTER_MS)?.cover_image_url ?? null))
 
   /** Keeps track of the element standing at a place on the shelf, so the drawing loop can move it. */
   const standsAt = (index: number) => (slot: HTMLElement | null) => {
@@ -102,6 +112,7 @@ export function ArchiveStage({ products, selected, onSelect, onOpen, label, plat
         slot.style.transform = `translate3d(${(pose.x * state.unit).toFixed(1)}px,0,${(pose.z * state.unit).toFixed(1)}px) rotateY(${pose.turn.toFixed(2)}deg)`
         slot.style.setProperty('--ga-lit', pose.light.toFixed(3))
         slot.style.setProperty('--ga-ink', pose.ink.toFixed(2))
+        slot.style.setProperty('--ga-focus', pose.focus.toFixed(2))
       }
     }
 
@@ -112,11 +123,11 @@ export function ArchiveStage({ products, selected, onSelect, onOpen, label, plat
       const from = runway.current!.getBoundingClientRect().top + window.scrollY
       runway.current!.style.setProperty('--ga-head', `${Math.min(Math.max(from, 0), window.innerHeight * 0.3).toFixed(0)}px`)
       const room = scene.current!.clientHeight
-      const height = Math.min(Math.max(room * 0.74, 180), 440)
+      const height = Math.min(Math.max(room * 0.78, 180), 540)
       state.unit = height * 0.75
       scene.current!.style.setProperty('--ga-w', `${state.unit.toFixed(1)}px`)
       scene.current!.style.setProperty('--ga-h', `${height.toFixed(1)}px`)
-      scene.current!.style.setProperty('--ga-t', `${(state.unit * 0.085).toFixed(1)}px`)
+      scene.current!.style.setProperty('--ga-t', `${(state.unit * 0.13).toFixed(1)}px`)
       wake()
     }
 
@@ -269,8 +280,11 @@ export function ArchiveStage({ products, selected, onSelect, onOpen, label, plat
 
   return (
     // The runway: the stage, plus the stretch of scrolling that takes the shelf from its first case to its last.
-    <div ref={runway} style={{ height: `calc(100svh - var(--ga-head, 9rem) + ${travel(count)}px)` }}>
+    <div ref={runway} className="ga-ground" style={{ height: `calc(100svh - var(--ga-head, 9rem) + ${travel(count)}px)` }}>
       <div className="ga-stage">
+        <div className="ga-room" aria-hidden="true">
+          <div className="ga-halo" />
+        </div>
         <div className="mx-auto w-full max-w-7xl px-4">{header}</div>
 
         <p id={`${optionId}-keys`} hidden>
@@ -286,7 +300,9 @@ export function ArchiveStage({ products, selected, onSelect, onOpen, label, plat
           aria-activedescendant={count > 0 ? `${optionId}-${selected}` : undefined}
           aria-describedby={`${optionId}-keys`}
           onKeyDown={onKeyDown}
+          style={tint ? ({ '--ga-tint': tint } as CSSProperties) : undefined}
         >
+          <div className="ga-floor" aria-hidden="true" />
           <div className="ga-rig" role="presentation">
             {first === 0 && <ShelfPlate plate={plates.start} place={standsAt(-1)} />}
             {plates.end && last === count - 1 && <ShelfPlate plate={plates.end} place={standsAt(count)} />}
@@ -348,7 +364,59 @@ function ShelfPlate({ plate, place }: { plate: Plate; place: (slot: HTMLElement 
   )
 }
 
-/** One of the two arrows at the ends of the shelf's foot: the way along it for a mouse without a wheel, or a screen reader. */
+/** A value once it has stopped changing: what `value` was `ms` ago, if it has not changed since. */
+function useSettled<T>(value: T, ms: number): T {
+  const [settled, setSettled] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), ms)
+
+    return () => clearTimeout(timer)
+  }, [value, ms])
+
+  return settled
+}
+
+/**
+ * The colour of a picture taken as a whole, as light for the room: its
+ * average, brightened, and mixed half and half with the archive's violet so
+ * that no cover can turn the room another colour altogether. Null until the
+ * picture has been read, and where it cannot be.
+ *
+ * The picture is drawn very small and its few pixels averaged, once per
+ * picture; nothing here runs while the shelf moves.
+ */
+function useTint(source: string | null): string | null {
+  const [tint, setTint] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!source) return
+    let wanted = true
+    const picture = new Image()
+    picture.onload = () => {
+      const side = 8
+      const canvas = document.createElement('canvas')
+      canvas.width = canvas.height = side
+      const context = canvas.getContext('2d')
+      if (!wanted || !context) return
+      context.drawImage(picture, 0, 0, side, side)
+      const pixels = context.getImageData(0, 0, side, side).data
+      const sum = [0, 0, 0]
+      for (let at = 0; at < pixels.length; at += 4) for (let channel = 0; channel < 3; channel++) sum[channel] += pixels[at + channel]
+      // Brightened until its strongest channel is a clear light, whatever the cover's own darkness.
+      const lift = 210 / Math.max(...sum.map((total) => total / (side * side)), 1)
+      setTint(`rgb(${sum.map((total, channel) => Math.round(((total / (side * side)) * lift + VIOLET[channel]) / 2)).join(' ')})`)
+    }
+    picture.src = source
+
+    return () => {
+      wanted = false
+    }
+  }, [source])
+
+  return tint
+}
+
+/** One of the two arrows beside what is written under the shelf: the way along it for a mouse without a wheel, or a screen reader. */
 export function ShelfArrow({ direction, disabled, onClick }: { direction: 'previous' | 'next'; disabled: boolean; onClick: () => void }) {
   return (
     <button
@@ -356,9 +424,9 @@ export function ShelfArrow({ direction, disabled, onClick }: { direction: 'previ
       aria-label={direction === 'previous' ? 'Previous game' : 'Next game'}
       disabled={disabled}
       onClick={onClick}
-      className={`absolute top-0 flex size-11 sm:top-5 items-center justify-center rounded-full border border-edge/40 text-white hover:border-accent hover:text-accent disabled:opacity-30 ${direction === 'previous' ? 'left-4' : 'right-4'}`}
+      className={`ga-glass absolute top-0 flex size-11 items-center justify-center rounded-full disabled:opacity-30 lg:top-11 lg:size-14 ${direction === 'previous' ? 'left-4 lg:left-[5%]' : 'right-4 lg:right-[5%]'}`}
     >
-      <svg viewBox="0 0 24 24" aria-hidden="true" className={`size-5 ${direction === 'previous' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg viewBox="0 0 24 24" aria-hidden="true" className={`size-5 lg:size-6 ${direction === 'previous' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4.5 12h15m-6-6 6 6-6 6" />
       </svg>
     </button>

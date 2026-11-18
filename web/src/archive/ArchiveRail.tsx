@@ -100,7 +100,8 @@ export function ArchiveRail({ products, selected, onSelect, onOpen, label, heade
   }
 
   return (
-    <>
+    <div className="ga-ground">
+      <div className="ga-room" aria-hidden="true" />
       {header}
       <p id={`${optionId}-keys`} hidden>
         Left and right arrow keys move along the shelf. Enter opens the chosen game's offers.
@@ -137,6 +138,6 @@ export function ArchiveRail({ products, selected, onSelect, onOpen, label, heade
         <ShelfArrow direction="previous" disabled={selected <= 0} onClick={() => go((live.current.aim ?? selected) - 1)} />
         <ShelfArrow direction="next" disabled={selected >= count - 1} onClick={() => go((live.current.aim ?? selected) + 1)} />
       </div>
-    </>
+    </div>
   )
 }

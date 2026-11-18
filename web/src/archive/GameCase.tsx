@@ -3,8 +3,9 @@ import { gameTitle, type ProductSummary } from '../lib/catalog'
 import { coverArt } from '../lib/coverArt'
 
 /**
- * One boxed game, as a real box: the cover on its front, a printed spine on
- * its left, the opening edge on its right, the shadow it stands in and,
+ * One boxed game, as a real box: the cover on its front under a glossy
+ * sleeve, a printed spine on its left, the opening edge on its right, the
+ * lit rim it has while it is the chosen one, the shadow it stands in and,
  * where asked for, its reflection in the floor (see archive.css).
  *
  * All of it is decoration. The product's name and price are said by the
@@ -24,8 +25,8 @@ export const GameCase = memo(function GameCase({ product, reflect = false }: { p
     <span className="ga-case" aria-hidden="true">
       <span className={`ga-face ga-front ${product.in_stock ? '' : 'ga-sold'}`}>
         {cover && <img src={cover} alt="" width={600} height={800} draggable={false} decoding="async" />}
-        {/* The same cover is sold for several platforms; the strip is what tells two such cases apart. */}
-        <span className="ga-strip">{product.platform.name}</span>
+        {/* The same cover is sold for several platforms; the label is what tells two such cases apart. */}
+        <span className="ga-label">{product.platform.name}</span>
         {!product.in_stock && <span className="ga-soldout">Sold out</span>}
         <span className="ga-sheen" />
       </span>
@@ -35,6 +36,7 @@ export const GameCase = memo(function GameCase({ product, reflect = false }: { p
         <span className="ga-spine-mark" />
       </span>
       <span className="ga-face ga-edge" />
+      <span className="ga-rim" />
       {reflect && cover && (
         <span className="ga-reflection">
           <img src={cover} alt="" draggable={false} decoding="async" />

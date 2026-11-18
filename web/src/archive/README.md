@@ -33,11 +33,22 @@ homepage's deals showroom and scroll effects) is imported or changed.
 
 ## How it is drawn
 
-No canvas and no 3D library: each case is a box made of elements placed with
-CSS 3D transforms (`archive.css`): the cover under a sleeve, a printed spine
-on the left, the opening edge on the right, a shadow, and a reflection in
-the floor. The row stands in one perspective, so the browser itself makes far
+No canvas, no 3D library and no picture of a stage: each case is a box made
+of elements placed with CSS 3D transforms (`archive.css`): the cover under a
+glossy sleeve, a printed spine on the left, the opening edge on the right, a
+shadow, and a reflection in the floor. The cases stand in an arc that opens
+toward the visitor, in one perspective, so the browser itself makes far
 cases smaller and sorts what is in front of what.
+
+Around them is a room, also plain CSS: a dark violet ground, the rim of a
+great circle behind the row, a round floor under it, and a lamp over the
+chosen case. The chosen case has a lit rim, and the lamp takes a little of
+the colour of its cover (the cover's average colour, read once when a case
+has been chosen; half of it is always the archive's own violet).
+
+The archive has its own violet for what is pressed (the chosen shelf, "View
+offers"), named once at the top of `archive.css`; the rest of the site keeps
+its yellow.
 
 | File | What it holds |
 |---|---|
@@ -57,13 +68,17 @@ Down, and the two arrow buttons scroll the page to that case; a sideways
 swipe on a trackpad or a drag does too. A click on the chosen case, or Enter,
 opens its offers.
 
-While the shelf moves, each drawn case is given a transform and a brightness
-and nothing else, once per display frame. Only the cases within nine of the
-middle are in the page. Once the shelf has come to rest no code runs at all.
+While the shelf moves, each drawn case is given a transform, a brightness
+and the strength of its rim, and nothing else, once per display frame. Only
+the cases within seven of the middle are in the page. Once the shelf has
+come to rest no code runs at all.
 
 **The rail (everything else).** The same cases in a row that is scrolled
 sideways with a finger and comes to rest on a case: the browser's own
-scrolling and scroll snapping. Where the browser can tie an animation to a
+scrolling and scroll snapping. On a phone the header is two rows (the title
+with the order and the two views as picture buttons, then the shelves as a
+row that scrolls sideways), and the price with "View offers" is a bar that
+stays at the foot of the screen while the page is scrolled over it. Where the browser can tie an animation to a
 scroll position by itself (`animation-timeline: view()`), the cases turn to
 face the middle as they pass, with no script running; elsewhere, and with
 reduced motion, they simply stand in a row.
@@ -79,6 +94,10 @@ decoration hidden from screen readers.
   product page returns to the case that was left.)
 - With reduced motion a wide window gets the flat rail, not a still version
   of the stage.
+- The label on a case names its platform in words beside a plain mark. No
+  platform's logo is used anywhere on the site.
+- In a window less than 820px tall a long name under the shelf is cut to one
+  line (the whole name is its tooltip, and the region is said beside it).
 - A shelf is walked from its first case: there is no jumping to the middle of
   a long one except by scrolling or the End key. "Browse all" is the way to
   scan a long list.

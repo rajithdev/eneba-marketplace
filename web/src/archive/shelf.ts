@@ -11,9 +11,10 @@
 /**
  * How a case stands: sideways from the middle and toward the viewer (both
  * in case widths), turned about its upright axis (degrees), how brightly
- * lit (1 is fully), and how much of the lettering on its spine is inked in
- * (the chosen case shows its spine almost edge-on, where lettering would
- * only be a row of specks).
+ * lit (1 is fully), how much of the lettering on its spine is inked in (a
+ * spine seen almost edge-on would only show a row of specks), how much it
+ * is the chosen case (1 in the middle, 0 by the time it is a neighbour:
+ * the lit rim of the chosen case).
  */
 export interface Pose {
   x: number
@@ -21,29 +22,41 @@ export interface Pose {
   turn: number
   light: number
   ink: number
+  focus: number
 }
 
+// The cases stand in an arc that opens toward the visitor: the chosen one in the middle and nearest,
+// the others stepping back and aside along each arm, turned to face the middle.
 // The first neighbour on either side of the chosen case...
-const FIRST_X = 1.05
-const FIRST_Z = -0.95
-const FIRST_TURN = 56
-// ...and each case after it: this much further out, further back and more edge-on.
-const GAP = 0.5
-const DEPTH = 0.5
-const MAX_TURN = 74
-const TURN_EASE = 4
-// The chosen case stands a little forward of the row, turned just enough to show its spine.
-const LIFT = 0.3
-const SHOWN_SPINE = 9
+const FIRST_X = 1.2
+const FIRST_Z = -1.3
+const FIRST_TURN = 33
+// ...and each case after it: this much further out, further back and a little more turned.
+const GAP = 0.96
+const DEPTH = 1.45
+const MAX_TURN = 50
+const TURN_EASE = 3
+// The chosen case is turned enough to show its spine, and turns this fast (degrees a place) as it leaves the middle.
+const SHOWN_SPINE = 22
+const THROUGH = 18
 // Light falls off with distance: the first neighbour keeps this much, and each further case loses a share of what is left.
-const FIRST_LIGHT = 0.72
-const LIGHT_EASE = 5
-const DARKEST = 0.16
+const FIRST_LIGHT = 0.84
+const LIGHT_EASE = 4.2
+const DARKEST = 0.2
 // A spine's lettering appears as the case turns from this angle to that one.
-const INK_FROM = 14
-const INK_FULL = 34
+const INK_FROM = 24
+const INK_FULL = 32
+// A case stops being the chosen one this far from the middle.
+const FOCUS_ENDS = 0.7
 
 const clamp = (value: number, low: number, high: number) => Math.min(Math.max(value, low), high)
+
+/** From 0 to 1 as `t` goes from 0 to 1, starting and stopping gently; 0 before and 1 after. */
+function smooth(t: number) {
+  const within = clamp(t, 0, 1)
+
+  return within * within * (3 - 2 * within)
+}
 
 /** A smooth curve from `from` (leaving at slope `fromSlope`) to `to` (arriving at slope `toSlope`), for t from 0 to 1. */
 function curve(t: number, from: number, fromSlope: number, to: number, toSlope: number) {
@@ -68,17 +81,21 @@ export function poseAt(offset: number): Pose {
   const near = Math.min(far, 1)
   const beyond = far - near
   const turnBeyond = (MAX_TURN - FIRST_TURN) * (1 - Math.exp(-beyond / TURN_EASE))
+  // How fast a case is still turning as it reaches the first place: the pace the rest of the row carries on at.
+  const settling = (MAX_TURN - FIRST_TURN) / TURN_EASE
   // Left of the middle a case turns its cover to the right, toward the middle; right of it, to the left.
-  // The chosen case's own slight turn is let go of by the first place, gently at both ends, so the turning never changes pace abruptly.
-  const turn = SHOWN_SPINE * (1 - near * near) ** 2 - side * (curve(near, 0, (3 * FIRST_TURN - (MAX_TURN - FIRST_TURN) / TURN_EASE) / 2, FIRST_TURN, (MAX_TURN - FIRST_TURN) / TURN_EASE) + turnBeyond)
+  // Both sides start from the chosen case's own turn at the same pace, so a case passing the middle turns steadily and never back.
+  const turn = side < 0 ? curve(near, SHOWN_SPINE, THROUGH, FIRST_TURN, settling) + turnBeyond : curve(near, SHOWN_SPINE, -THROUGH, -FIRST_TURN, -settling) - turnBeyond
 
   return {
     // Straight through the middle at a steady speed, then easing into the row's own step.
     x: side * (curve(near, 0, (3 * FIRST_X - GAP) / 2, FIRST_X, GAP) + beyond * GAP),
-    z: curve(near, LIFT, 0, FIRST_Z, -DEPTH) - beyond * DEPTH,
+    z: curve(near, 0, 0, FIRST_Z, -DEPTH) - beyond * DEPTH,
     turn,
     ink: clamp((Math.abs(turn) - INK_FROM) / (INK_FULL - INK_FROM), 0, 1),
     light: Math.max(DARKEST, curve(near, 1, 0, FIRST_LIGHT, -FIRST_LIGHT / LIGHT_EASE) * Math.exp(-beyond / LIGHT_EASE)),
+    // Eased in and out, so the rim never switches on.
+    focus: smooth(1 - far / FOCUS_ENDS),
   }
 }
 
@@ -96,8 +113,8 @@ export const scrollFor = (index: number) => index * STEP
 /** How long the runway is beyond the stage itself: the scrolling it takes to go from the first case to the last. */
 export const travel = (count: number) => Math.max(count - 1, 0) * STEP
 
-/** How many cases either side of the chosen one are drawn. Further ones are too dark and too small to be seen. */
-export const REACH = 9
+/** How many cases either side of the chosen one are drawn. Further ones are too small and too dark to be seen. */
+export const REACH = 7
 
 /** The first and last case worth drawing around a place on the shelf. */
 export function drawnAround(place: number, count: number): [first: number, last: number] {

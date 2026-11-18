@@ -1,7 +1,7 @@
 /*
- * The Game Archive: game cases as real boxes, drawn with CSS 3D transforms
- * and nothing else (no canvas, no 3D library). This file is only fetched
- * with the archive's own page.
+ * The Game Archive: game cases as real boxes on a lit stage, drawn with CSS
+ * 3D transforms and nothing else (no canvas, no 3D library, no picture of a
+ * stage). This file is only fetched with the archive's own page.
  *
  * A case is a box --ga-w wide, --ga-h tall and --ga-t thick. The stage (a
  * wide window) sets those in pixels from its own height; the rail (a phone,
@@ -12,7 +12,24 @@
  * or repainting anything. And nothing that holds a 3D child is given a
  * filter, opacity, mask or clipping of its own, because any of those would
  * flatten the box into a picture of itself.
+ *
+ * The archive's own colours are named once, here: the violet of its lit
+ * edges and of the things that are pressed, over the site's dark purple.
  */
+:root {
+  --ga-violet: #7c4dff;
+  --ga-violet-deep: #5a2ad6;
+  --ga-violet-lit: #b9a2ff;
+  /* The pale violet of a lit edge and the deeper one of a glow, as channels so each use sets its own strength. */
+  --ga-line: 205 185 255;
+  --ga-glow: 139 92 246;
+}
+
+/* The archive's part of the page: what its room is laid behind. */
+.ga-ground {
+  position: relative;
+  isolation: isolate;
+}
 
 /* ------------------------------------------------------------- the case */
 
@@ -22,13 +39,13 @@
   transform-style: preserve-3d;
 }
 
-/* The printed and plastic sides. Each is dimmed by how far back it stands (--ga-lit, set on the slot). */
+/* The printed and plastic sides. Each is dimmed by how far back it stands (--ga-lit, set on the slot the case stands in). */
 .ga-face {
   position: absolute;
   top: 0;
   height: 100%;
   overflow: hidden;
-  border-radius: 3px;
+  border-radius: 4px;
   filter: brightness(var(--ga-lit, 1));
   backface-visibility: hidden;
 }
@@ -53,20 +70,32 @@
   filter: grayscale(1);
 }
 
-/* Where it is redeemed, printed across the head of the sleeve as on a boxed game. The cover's own title sits at its foot. */
-.ga-strip {
+/* Where it is redeemed, printed along the head of the sleeve as on a boxed game, behind a small lit mark. */
+.ga-label {
   position: absolute;
   inset: 0 0 auto;
-  padding: 0.35em 0.5em 0.3em;
-  background: linear-gradient(rgb(10 4 32 / 0.92), rgb(10 4 32 / 0.74));
-  border-bottom: 1px solid rgb(176 140 255 / 0.35);
-  font-size: calc(var(--ga-w) * 0.038);
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.62em 0.9em 0.56em;
+  background: linear-gradient(rgb(8 3 28 / 0.94), rgb(8 3 28 / 0.8));
+  border-bottom: 1px solid rgb(var(--ga-line) / 0.22);
+  font-size: calc(var(--ga-w) * 0.036);
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   line-height: 1.2;
-  text-align: center;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.ga-label::before {
+  content: '';
+  flex: none;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 0.14em;
+  background: linear-gradient(135deg, #d9ccff, var(--ga-violet));
+  rotate: 45deg;
 }
 
 .ga-soldout {
@@ -82,72 +111,104 @@
   text-transform: uppercase;
 }
 
-/* The sleeve: a soft glare from the upper left, the hinge's groove down the left edge, and a lit rim. */
+/* The sleeve: a glare from the upper left, the hinge's groove down the left edge, a lit rim, and the foot falling into shade. */
 .ga-sheen {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background:
-    linear-gradient(90deg, rgb(0 0 0 / 0.45) 0, rgb(255 255 255 / 0.16) 1.6%, rgb(0 0 0 / 0.22) 3.2%, transparent 5.5%),
-    linear-gradient(112deg, rgb(255 255 255 / 0.17) 0%, rgb(255 255 255 / 0.04) 24%, transparent 42%, transparent 78%, rgb(255 255 255 / 0.06) 100%);
+    linear-gradient(90deg, rgb(0 0 0 / 0.5) 0, rgb(255 255 255 / 0.2) 1.4%, rgb(0 0 0 / 0.24) 2.8%, transparent 5%),
+    linear-gradient(118deg, rgb(255 255 255 / 0.2) 0%, rgb(255 255 255 / 0.05) 22%, transparent 38%, transparent 74%, rgb(255 255 255 / 0.07) 100%);
   box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 0.13),
-    inset 0 -18px 24px -18px rgb(0 0 0 / 0.55);
+    inset 0 0 0 1px rgb(255 255 255 / 0.16),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.3),
+    inset 0 -22px 28px -20px rgb(0 0 0 / 0.6);
 }
 
-/* The spine, on the left as on any boxed game: a corner of the cover, the title read downward, and the shop's mark. */
+/* The spine, on the left as on any boxed game: the cover's colours under dark plastic, the title read downward, and the shop's mark. */
 .ga-spine {
   left: calc(50% - var(--ga-t) / 2);
   width: var(--ga-t);
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(90deg, #06021a, #1d0f47 42%, #120833 70%, #05021a);
-  box-shadow: inset 0 0 0 1px rgb(176 140 255 / 0.22);
+  background: #0a0424;
   transform: rotateY(-90deg) translateZ(calc(var(--ga-w) / 2));
 }
 
 .ga-spine-art {
-  flex: none;
-  width: 100%;
-  aspect-ratio: 1 / 1.25;
+  position: absolute;
+  inset: 0;
   background-size: cover;
-  background-position: center 30%;
-  border-bottom: 1px solid rgb(176 140 255 / 0.35);
+  background-position: center;
+  opacity: 0.34;
+}
+
+/* The plastic over it: dark at both edges, a line of light down each. */
+.ga-spine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(4 2 20 / 0.9), rgb(30 16 78 / 0.35) 40%, rgb(14 6 44 / 0.5) 70%, rgb(4 2 20 / 0.92));
+  box-shadow: inset 0 0 0 1px rgb(var(--ga-line) / 0.34);
 }
 
 .ga-spine-title {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
-  padding: 0.7em 0;
+  padding: 1.1em 0 0.7em;
   overflow: hidden;
   opacity: var(--ga-ink, 1);
   writing-mode: vertical-rl;
-  font-size: calc(var(--ga-t) * 0.42);
+  font-size: calc(var(--ga-t) * 0.36);
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.2em;
   line-height: var(--ga-t);
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
+  color: #efe9ff;
 }
 
 .ga-spine-mark {
+  position: relative;
+  z-index: 1;
   flex: none;
-  width: 46%;
+  width: 42%;
   height: 3px;
   margin-bottom: calc(var(--ga-t) * 0.5);
   border-radius: 2px;
-  background: var(--color-accent, #fad318);
+  background: var(--ga-violet-lit);
 }
 
 /* The opening edge, on the right: the two halves of the shell and the paper sleeve between them. */
 .ga-edge {
   left: calc(50% - var(--ga-t) / 2);
   width: var(--ga-t);
-  background: linear-gradient(90deg, #080320, #20124d 26%, #0a0424 40%, rgb(222 212 245 / 0.34) 50%, #0a0424 60%, #20124d 74%, #080320);
-  box-shadow: inset 0 0 0 1px rgb(176 140 255 / 0.18);
+  background: linear-gradient(90deg, #070320, #22134f 24%, #0a0424 40%, rgb(226 216 250 / 0.38) 50%, #0a0424 60%, #22134f 76%, #070320);
+  box-shadow: inset 0 0 0 1px rgb(var(--ga-line) / 0.26);
   transform: rotateY(90deg) translateZ(calc(var(--ga-w) / 2));
+}
+
+/*
+ * The light round the chosen case's cover: a thin bright line and a soft
+ * violet bloom. It comes up as a case reaches the middle (--ga-focus) and
+ * is gone by the time it is a neighbour.
+ */
+.ga-rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  opacity: var(--ga-focus, 0);
+  box-shadow:
+    0 0 0 1px rgb(var(--ga-line) / 0.85),
+    0 0 calc(var(--ga-w) * 0.1) rgb(var(--ga-glow) / 0.5),
+    inset 0 0 calc(var(--ga-w) * 0.07) rgb(var(--ga-glow) / 0.2);
+  transform: translateZ(calc(var(--ga-t) / 2 + 1px));
+  pointer-events: none;
 }
 
 /* The floor's reflection: the foot of the cover again, upside down under the case, fading out. */
@@ -156,12 +217,12 @@
   top: calc(100% + 2px);
   left: 0;
   width: 100%;
-  height: 34%;
+  height: 38%;
   overflow: hidden;
-  border-radius: 3px;
+  border-radius: 4px;
   opacity: var(--ga-lit, 1);
-  -webkit-mask-image: linear-gradient(to top, rgb(0 0 0 / 0.3), transparent 92%);
-  mask-image: linear-gradient(to top, rgb(0 0 0 / 0.3), transparent 92%);
+  -webkit-mask-image: linear-gradient(to top, rgb(0 0 0 / 0.34), transparent 90%);
+  mask-image: linear-gradient(to top, rgb(0 0 0 / 0.34), transparent 90%);
   transform: translateZ(calc(var(--ga-t) / 2)) scaleY(-1);
   pointer-events: none;
 }
@@ -183,7 +244,7 @@
   width: 150%;
   height: calc(var(--ga-t) * 7);
   margin: calc(var(--ga-t) * -3.5) 0 0 -75%;
-  background: radial-gradient(closest-side, rgb(3 0 12 / 0.78), rgb(3 0 12 / 0.4) 55%, transparent);
+  background: radial-gradient(closest-side, rgb(3 0 12 / 0.8), rgb(3 0 12 / 0.4) 55%, transparent);
   transform: rotateX(90deg);
   pointer-events: none;
 }
@@ -201,7 +262,60 @@
   margin-inline: calc(50% - 50vw);
 }
 
-/* The room: a lamp over the chosen case, and the dark the row runs off into on either side. */
+/*
+ * The room the stage stands in, behind everything on it: midnight violet,
+ * a little lighter where the collection stands and darker toward every
+ * edge, melting into the page above and below.
+ */
+.ga-room {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: clip;
+  background: radial-gradient(74% 66% at 50% 42%, #1d0f56 0%, #130939 40%, #0a0426 76%, #07031b 100%);
+  -webkit-mask-image: linear-gradient(transparent 0, #000 8%, #000 90%, transparent 100%);
+  mask-image: linear-gradient(transparent 0, #000 8%, #000 90%, transparent 100%);
+  pointer-events: none;
+}
+
+/* On a phone the room is the whole of the archive's part of the page, edge to edge. */
+.ga-ground > .ga-room {
+  inset: 0 calc(50% - 50vw);
+}
+
+/*
+ * The arc behind the collection: the rim of a great circle rising over the
+ * row, a thin line of light with a faint haze inside it, gone well before
+ * it reaches the floor.
+ */
+.ga-halo {
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  width: max(1500px, 116vw);
+  aspect-ratio: 1;
+  translate: -45% 0;
+  border: 1px solid rgb(var(--ga-line) / 0.46);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, transparent 80%, rgb(var(--ga-glow) / 0.14) 100%);
+  box-shadow: 0 0 70px -14px rgb(var(--ga-glow) / 0.42);
+  -webkit-mask-image: linear-gradient(#000 0, rgb(0 0 0 / 0.5) 8%, transparent 19%);
+  mask-image: linear-gradient(#000 0, rgb(0 0 0 / 0.5) 8%, transparent 19%);
+}
+
+/*
+ * The colour of the lamp. Declared as a colour so that it can change
+ * gradually from one cover's to the next; a browser that cannot do that
+ * changes it at once.
+ */
+@property --ga-tint {
+  syntax: '<color>';
+  /* Only the scene itself uses it, so nothing inside the scene is restyled while it changes. */
+  inherits: false;
+  initial-value: rgb(139 92 246);
+}
+
+/* The scene: the row of cases, the light they stand in, and the dark the row runs off into on either side. */
 .ga-scene {
   position: relative;
   overflow: clip;
@@ -210,11 +324,13 @@
   perspective-origin: 50% 36%;
   touch-action: pan-y;
   user-select: none;
-  background: radial-gradient(34% 62% at 50% 40%, rgb(132 70 240 / 0.3), transparent 72%);
+  /* A lamp over the chosen case, taking a little of the colour of its cover (see useTint in ArchiveStage). */
+  background: radial-gradient(32% 58% at 50% 40%, color-mix(in srgb, var(--ga-tint) 30%, transparent), transparent 74%);
+  transition: --ga-tint 700ms ease;
   /* The row fades out at both ends, and the floor's reflections before the foot of the room. */
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(#000 86%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10%, #000 90%, transparent 100%), linear-gradient(#000 88%, transparent 100%);
   -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(#000 86%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 10%, #000 90%, transparent 100%), linear-gradient(#000 88%, transparent 100%);
   mask-composite: intersect;
 }
 
@@ -222,13 +338,21 @@
   cursor: grabbing;
 }
 
-/* The front lip of the shelf the cases stand on, catching the light. */
-.ga-scene::before {
-  content: '';
+/* The floor: a low round platform the row stands on, seen almost edge-on, its rim catching the light. */
+.ga-floor {
   position: absolute;
-  inset: calc(44% + var(--ga-h) / 2 + var(--ga-t) * 1.6) 0 auto;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 8%, rgb(176 140 255 / 0.4) 38%, rgb(220 196 255 / 0.65) 50%, rgb(176 140 255 / 0.4) 62%, transparent 92%);
+  top: calc(44% + var(--ga-h) / 2 + var(--ga-t) * 0.5);
+  left: 50%;
+  width: min(calc(var(--ga-w) * 5.4), 94%);
+  height: calc(var(--ga-w) * 0.52);
+  translate: -50% -50%;
+  border: 1px solid rgb(var(--ga-line) / 0.3);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(var(--ga-glow) / 0.2), rgb(var(--ga-glow) / 0.06) 62%, transparent 100%);
+  box-shadow:
+    0 0 46px -14px rgb(var(--ga-glow) / 0.6),
+    inset 0 0 34px -12px rgb(var(--ga-glow) / 0.4);
+  pointer-events: none;
 }
 
 /* The point everything is placed around: the middle of the chosen case. */
@@ -250,6 +374,17 @@
   cursor: pointer;
 }
 
+/* A case under the pointer steps into the light a little. */
+@media (hover: hover) {
+  .ga-slot:hover {
+    --ga-lift: 1.16;
+  }
+
+  .ga-slot .ga-face {
+    filter: brightness(calc(var(--ga-lit, 1) * var(--ga-lift, 1)));
+  }
+}
+
 /*
  * The plate at each end of the shelf, as in a record shop's racks: what
  * this shelf holds, lettered down a sheet of smoked glass.
@@ -262,10 +397,10 @@
   align-items: center;
   gap: 0.9em;
   padding: 1.1em 0 1em;
-  border: 1px solid rgb(176 140 255 / 0.5);
+  border: 1px solid rgb(var(--ga-line) / 0.42);
   border-radius: 6px;
-  background: linear-gradient(160deg, rgb(132 70 240 / 0.3), rgb(31 12 73 / 0.72) 55%, rgb(14 5 38 / 0.82));
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  background: linear-gradient(160deg, rgb(var(--ga-glow) / 0.26), rgb(31 12 73 / 0.66) 55%, rgb(14 5 38 / 0.8));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
   font-size: calc(var(--ga-w) * 0.042);
   font-weight: 700;
   letter-spacing: 0.24em;
@@ -291,14 +426,123 @@
   width: 22%;
   height: 3px;
   border-radius: 2px;
-  background: var(--color-accent, #fad318);
+  background: var(--ga-violet-lit);
 }
 
 /* The keyboard's focus ring goes round the chosen case, not round the whole room. */
 .ga-scene:focus-visible .ga-slot[aria-selected='true'] .ga-front,
 .ga-rail:focus-visible .ga-rail-item[aria-selected='true'] .ga-front {
-  outline: 3px solid var(--color-accent, #fad318);
+  outline: 3px solid #fff;
   outline-offset: 3px;
+}
+
+/* --------------------------------------------------------- the controls */
+
+/*
+ * What is pressed in the archive: quiet glass until it is the current one
+ * or the pointer is on it. Sizes and spacing are given where each is used.
+ */
+.ga-glass {
+  border: 1px solid rgb(var(--ga-line) / 0.2);
+  background: rgb(255 255 255 / 0.035);
+  color: var(--color-muted, #cfc8e3);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  transition:
+    color 150ms,
+    background-color 150ms,
+    border-color 150ms,
+    translate 150ms;
+}
+
+.ga-glass:hover:not(:disabled) {
+  border-color: rgb(var(--ga-line) / 0.55);
+  background: rgb(255 255 255 / 0.07);
+  color: #fff;
+}
+
+.ga-glass:active:not(:disabled) {
+  translate: 0 1px;
+}
+
+/* The view being looked at: lit glass. */
+.ga-glass[aria-current='page'] {
+  border-color: rgb(var(--ga-line) / 0.5);
+  background: rgb(255 255 255 / 0.1);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+/* The shelf being looked at, and the way to a game's offers: solid violet, lit from above. */
+.ga-glass[aria-current='true'],
+.ga-cta {
+  border: 1px solid rgb(var(--ga-line) / 0.6);
+  background: linear-gradient(var(--ga-violet), var(--ga-violet-deep));
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    0 10px 24px -14px rgb(var(--ga-glow) / 0.9);
+}
+
+.ga-glass[aria-current='true']:hover,
+.ga-cta:hover {
+  border-color: rgb(var(--ga-line) / 0.9);
+  background: linear-gradient(#8a60ff, #6535e6);
+  color: #fff;
+}
+
+.ga-cta {
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    translate 150ms;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ga-cta:hover {
+    translate: 0 -1px;
+  }
+}
+
+.ga-cta:active {
+  translate: 0 1px;
+}
+
+.ga-glass:focus-visible,
+.ga-cta:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* The order menu: the browser's own, without its own arrow (one is drawn beside it). */
+.ga-select {
+  appearance: none;
+  color-scheme: dark;
+  color: #fff;
+}
+
+/* On a phone it is a square button with a picture on it (see ArchiveHeader): its own words take no room. */
+@media (width < 40rem) {
+  .ga-select {
+    font-size: 0;
+  }
+}
+
+/* Its list is always readable, also where the menu itself shows only a picture (a phone). */
+.ga-select option {
+  background: var(--color-card-mid, #150835);
+  color: #fff;
+  font-size: 1rem;
+}
+
+/* The thin rule on either side of the shelf mark. */
+.ga-rule {
+  width: 3.5rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--ga-line) / 0.45));
+}
+
+.ga-rule:last-child {
+  rotate: 180deg;
 }
 
 /* ------------------------------------------------------------- the rail */
@@ -309,20 +553,24 @@
  * time coming to rest in the middle. The scrolling is the browser's own.
  */
 .ga-rail {
-  --ga-w: clamp(168px, 50vw, 248px);
+  --ga-w: clamp(170px, 48vw, 252px);
   --ga-h: calc(var(--ga-w) * 4 / 3);
-  --ga-t: calc(var(--ga-w) * 0.085);
+  --ga-t: calc(var(--ga-w) * 0.13);
+  position: relative;
   display: flex;
   gap: calc(var(--ga-w) * 0.08);
   width: 100vw;
   margin-inline: calc(50% - 50vw);
-  padding: 1.25rem calc(50vw - var(--ga-w) / 2) 2rem;
+  padding: 1.1rem calc(50vw - var(--ga-w) / 2) 2.25rem;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   outline: none;
-  background: radial-gradient(60% 70% at 50% 45%, rgb(132 70 240 / 0.26), transparent 72%);
+  /* A lamp over the chosen case, and the edge of the floor under the row. */
+  background:
+    radial-gradient(58% 60% at 50% 44%, rgb(var(--ga-glow) / 0.3), transparent 72%),
+    radial-gradient(60% 9% at 50% calc(100% - 1.7rem), rgb(var(--ga-glow) / 0.34), transparent 100%);
 }
 
 .ga-rail::-webkit-scrollbar {
@@ -334,7 +582,7 @@
   flex: none;
   width: var(--ga-w);
   height: var(--ga-h);
-  border-radius: 3px;
+  border-radius: 4px;
   scroll-snap-align: center;
   perspective: calc(var(--ga-w) * 4.6);
   cursor: pointer;
@@ -350,32 +598,37 @@
   background: rgb(31 12 73 / 0.45);
 }
 
-/* Standing still: every case turned just enough to show its spine, the chosen one lit. */
+/* Standing still: every case turned just enough to show its spine, the chosen one lit and rimmed. */
 .ga-rail-item .ga-case {
-  --ga-lit: 0.55;
-  transform: rotateY(9deg);
+  --ga-lit: 0.5;
+  transform: rotateY(12deg);
 }
 
 .ga-rail-item[aria-selected='true'] .ga-case {
   --ga-lit: 1;
+  --ga-focus: 1;
   /* Its spine is seen almost edge-on, where lettering would only be a row of specks. */
   --ga-ink: 0;
+}
+
+.ga-rail .ga-rim {
+  transition: opacity 250ms;
 }
 
 /*
  * Where the browser can tie an animation to a scroll position by itself
  * (no script runs while the rail is scrolled), a case swings round to face
- * the middle as it arrives and away again as it leaves, as on the stage.
+ * the middle and steps back as it leaves it, as on the stage.
  */
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
-    /* Turned cases take less room, so they stand closer together and more of each neighbour shows. */
+    /* Cases that have stepped back look smaller, so they stand closer together and more of each neighbour shows. */
     .ga-rail {
       gap: 0;
     }
 
     .ga-rail-item + .ga-rail-item {
-      margin-left: calc(var(--ga-w) * -0.2);
+      margin-left: calc(var(--ga-w) * -0.3);
     }
 
     .ga-rail-item .ga-case,
@@ -395,25 +648,25 @@
 /* From entering at the right edge (0%) through the middle of the row (50%) to leaving at the left (100%). */
 @keyframes ga-pass {
   0% {
-    transform: translateZ(calc(var(--ga-w) * -1.2)) rotateY(-66deg);
+    transform: translateZ(calc(var(--ga-w) * -2.6)) rotateY(-46deg);
   }
   25% {
-    transform: translateZ(calc(var(--ga-w) * -0.85)) rotateY(-57deg);
+    transform: translateZ(calc(var(--ga-w) * -1.9)) rotateY(-40deg);
   }
   40% {
-    transform: translateZ(calc(var(--ga-w) * -0.5)) rotateY(-40deg);
+    transform: translateZ(calc(var(--ga-w) * -1.05)) rotateY(-30deg);
   }
   50% {
-    transform: translateZ(0) rotateY(9deg);
+    transform: translateZ(0) rotateY(12deg);
   }
   60% {
-    transform: translateZ(calc(var(--ga-w) * -0.5)) rotateY(46deg);
+    transform: translateZ(calc(var(--ga-w) * -1.05)) rotateY(34deg);
   }
   75% {
-    transform: translateZ(calc(var(--ga-w) * -0.85)) rotateY(57deg);
+    transform: translateZ(calc(var(--ga-w) * -1.9)) rotateY(40deg);
   }
   100% {
-    transform: translateZ(calc(var(--ga-w) * -1.2)) rotateY(66deg);
+    transform: translateZ(calc(var(--ga-w) * -2.6)) rotateY(46deg);
   }
 }
 
@@ -424,7 +677,11 @@
   }
   25%,
   75% {
-    filter: brightness(0.6);
+    filter: brightness(0.55);
+  }
+  40%,
+  60% {
+    filter: brightness(0.82);
   }
   50% {
     filter: brightness(1);
