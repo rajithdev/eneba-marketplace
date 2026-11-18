@@ -119,7 +119,8 @@ export function ArchiveStage({ products, selected, onSelect, onOpen, label, plat
     /** Sizes the stage to the window, and the cases to the room that leaves: the chosen one fills most of the scene's height. */
     const measure = () => {
       // How far down the page the archive starts (the site's header is above it). The stage is as
-      // tall as the window less that, so all of it is in view before the page has been scrolled.
+      // tall as the window less that, so all of it is in view before the page has been scrolled,
+      // and stays so under the header, which is kept in the window while the stage is (archive.css).
       const from = runway.current!.getBoundingClientRect().top + window.scrollY
       runway.current!.style.setProperty('--ga-head', `${Math.min(Math.max(from, 0), window.innerHeight * 0.3).toFixed(0)}px`)
       const room = scene.current!.clientHeight

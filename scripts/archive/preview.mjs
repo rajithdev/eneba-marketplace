@@ -212,7 +212,7 @@ try {
   // -------------------------------------------------------------- pictures
   await open(DESKTOP)
   await shot('desktop-1440-start')
-  await evaluate(`window.scrollTo({ top: document.querySelector('.ga-stage').parentElement.getBoundingClientRect().top + scrollY - 72 + 96 * 11, behavior: 'instant' })`)
+  await evaluate(`window.scrollTo({ top: document.querySelector('.ga-stage').parentElement.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(document.querySelector('.ga-stage')).top) + 96 * 11, behavior: 'instant' })`)
   await rest()
   await until(`[...document.images].every((image) => image.complete)`, 100)
   await shot('desktop-1440-along')
@@ -267,6 +267,9 @@ try {
     await rest()
     now = await chosen()
     expect(desktop.works, 'scrolling down moves along the shelf, one case per 96px', now.position === 7 && says(now, catalog[6]), now)
+    // Walking the shelf is scrolling the page: the site's own header must not be scrolled away by it.
+    const above = await evaluate(`(() => { const search = document.querySelector('header input').getBoundingClientRect(); const header = document.querySelector('header').getBoundingClientRect(); const stage = document.querySelector('.ga-stage').getBoundingClientRect(); return { searchTop: Math.round(search.top), searchBottom: Math.round(search.bottom), headerBottom: Math.round(header.bottom), stageTop: Math.round(stage.top), stageBottom: Math.round(stage.bottom), window: innerHeight } })()`)
+    expect(desktop.works, 'the search stays in view along the shelf, with the stage right under the header and all in view', above.searchTop >= 0 && above.searchBottom <= above.headerBottom && Math.abs(above.stageTop - above.headerBottom) <= 1 && above.stageBottom <= above.window + 1, above)
     await shot('desktop-1440-seventh')
     await gesture(DESKTOP, -STEP * 4, 900)
     await rest()

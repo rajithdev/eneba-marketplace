@@ -251,7 +251,11 @@
 
 /* ------------------------------------------------------------ the stage */
 
-/* The stage, as wide as the window, held in place while its runway scrolls past. */
+/*
+ * The stage, as wide as the window, held in place while its runway scrolls
+ * past. --ga-head is how far down the page the archive starts: the height
+ * of the site's own header (ArchiveStage measures it).
+ */
 .ga-stage {
   position: sticky;
   top: calc(var(--ga-head, 9rem) / 2);
@@ -260,6 +264,34 @@
   width: 100vw;
   height: calc(100svh - var(--ga-head, 9rem));
   margin-inline: calc(50% - 50vw);
+}
+
+/*
+ * Walking the shelf is scrolling the page, so the site's header, with the
+ * search, the categories and the cart, would be a long scroll back from
+ * anywhere along it. While the stage is on the page the header therefore
+ * stays at the top of the window, and the stage is held right under it:
+ * the two together fill the window, as they do before any scrolling.
+ *
+ * The header gets the page's colour behind it, for the moment at the end
+ * of the shelf when the stage and then the footer pass under it.
+ *
+ * (A browser without :has() keeps the header scrolling away and the stage
+ * held in the middle of the window, as written above.)
+ */
+@supports selector(:has(*)) {
+  /* The header that stands before the page's content: the site's own. */
+  body:has(.ga-stage) header:has(~ main) {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: color-mix(in srgb, var(--color-night, #160a36) 90%, transparent);
+    backdrop-filter: blur(10px);
+  }
+
+  .ga-stage {
+    top: var(--ga-head, 9rem);
+  }
 }
 
 /*
