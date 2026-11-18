@@ -252,3 +252,13 @@ Trying a set of frames locally without publishing it:
 - `node cinematic/handoff_preview.mjs http://localhost:5173 <folder>` checks
   the handoff in headless Chrome, measures how much each cover changes
   through it, and records it forwards, very slowly and backwards.
+
+## Frames from a finished video
+
+`bash cinematic/video_set.sh <video> <version name>` cuts a set of frames
+from a filmed or generated shot instead of rendering them: the whole
+picture for a desktop, its middle for a phone, with fewer frames from the
+stretch at the end where the camera has all but stopped. Such a shot does
+not end on cases placed for the cards, so its manifest lists no slots and
+the page dissolves from the last frame into the real block; nothing about
+the cards depends on the frames.

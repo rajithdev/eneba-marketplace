@@ -29,7 +29,7 @@ interface Layout {
   path: string
   bytes: number
   travel: number
-  /** Where each case's front is in the last frame, as fractions of it, and the product it was rendered for. */
+  /** Where each case's front is in the last frame, as fractions of it, and the product it was rendered for. Empty when the frames do not end on a row of cases. */
   slots: (Rect & { slug: string })[]
   /**
    * The colour around the cases in each frame, when it is not the page's
@@ -134,6 +134,19 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
     canvas.width = Math.round(box.width * density)
     canvas.height = Math.round(box.height * density)
     stage = { width: box.width, height: box.height }
+    cover = coverPlacement(frame, stage)
+    drawn = ''
+
+    // Frames that do not end on a row of cases (a filmed or generated shot,
+    // say) list no slots. There is nothing to land on the cards, so the
+    // frame stays where it is and gives way to the block in a dissolve.
+    if (layout.slots.length === 0) {
+      handoff = cover
+      offBy = []
+      seamless = false
+      radius = 0
+      return
+    }
 
     const images = [...holder.querySelectorAll('li img')].slice(0, layout.slots.length)
     const covers = images.map((image) => {
@@ -143,12 +156,10 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
     // The cards are not where they were expected: leave the block as it is.
     if (covers.length < layout.slots.length) return giveUp()
 
-    cover = coverPlacement(frame, stage)
     handoff = handoffPlacement(frame, layout.slots, covers)
     offBy = mismatches(frame, layout.slots, covers, handoff)
     seamless = show.sameProducts && Math.max(...offBy) <= SEAMLESS_WITHIN
     radius = parseFloat(getComputedStyle(images[0]).borderTopLeftRadius) || 0
-    drawn = ''
   }
 
   const draw = (progress: number) => {

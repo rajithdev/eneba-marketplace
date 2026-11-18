@@ -3,7 +3,7 @@
 // browser (the installed Chrome, headless, over its debugging protocol)
 // and records it for review.
 //
-//   node cinematic/handoff_preview.mjs <site address> <output folder>
+//   node cinematic/handoff_preview.mjs <site address> <output folder> [whole]
 //
 // On a desktop window and a phone it:
 //   - reads what the page reports at points through the handoff: which
@@ -123,6 +123,28 @@ try {
     const place = await evaluate(`(() => { const runway = document.querySelector('main canvas').parentElement.parentElement; return { top: runway.getBoundingClientRect().top + scrollY, pin: runway.lastElementChild.getBoundingClientRect().height } })()`)
     const at = (progress) => place.top + place.pin * progress
     await scrollTo(at(0.5), 600)
+    // Recordings: the page photographed at each small step of scroll, played back at 30 a second.
+    const record = async (name, from, to, step) => {
+      const frames = join(outDir, `frames-${size.name}-${name}`)
+      rmSync(frames, { recursive: true, force: true })
+      mkdirSync(frames)
+      const count = Math.round(Math.abs(to - from) / step)
+      const stops = Array.from({ length: count + 1 }, (_, index) => from + ((to - from) * index) / count)
+      await scrollTo(at(stops[0]), 700)
+      for (const [index, progress] of [...stops, ...Array(20).fill(to)].entries()) {
+        await scrollTo(at(progress), 170)
+        writeFileSync(join(frames, `${String(index).padStart(4, '0')}.jpg`), await capture())
+      }
+      const width = size.mobile ? size.width * 2 : size.width
+      execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', '30', '-i', join(frames, '%04d.jpg'), '-vf', `scale=${width}:-2`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-movflags', '+faststart', join(outDir, `${size.name}-${name}.mp4`)])
+      rmSync(frames, { recursive: true, force: true })
+    }
+    // With "whole" as a third argument: only one recording, of the whole section from before it starts.
+    if (process.argv[4] === 'whole') {
+      await until(`(window.scrollBy(0, window.__nudge = -(window.__nudge ?? 1)), window.__cinematic && window.__cinematic.framesLoaded === window.__cinematic.frames)`, 600)
+      await record('whole', -0.06, 1.03, 0.005)
+      continue
+    }
     // Every frame in before anything is judged or recorded.
     // (The page only publishes its counts when it draws, so it is nudged by a pixel each time.)
     const loaded = await until(`(window.scrollBy(0, window.__nudge = -(window.__nudge ?? 1)), window.__cinematic && window.__cinematic.framesLoaded === window.__cinematic.frames)`, 1200)
@@ -181,22 +203,6 @@ try {
       fastFlick: await timeScroll(size, at(0.6), place.pin * 0.5, 6000),
     }
 
-    // Recordings: the page photographed at each small step of scroll, played back at 30 a second.
-    const record = async (name, from, to, step) => {
-      const frames = join(outDir, `frames-${size.name}-${name}`)
-      rmSync(frames, { recursive: true, force: true })
-      mkdirSync(frames)
-      const count = Math.round(Math.abs(to - from) / step)
-      const stops = Array.from({ length: count + 1 }, (_, index) => from + ((to - from) * index) / count)
-      await scrollTo(at(stops[0]), 700)
-      for (const [index, progress] of [...stops, ...Array(20).fill(to)].entries()) {
-        await scrollTo(at(progress), 170)
-        writeFileSync(join(frames, `${String(index).padStart(4, '0')}.jpg`), await capture())
-      }
-      const width = size.mobile ? size.width * 2 : size.width
-      execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-framerate', '30', '-i', join(frames, '%04d.jpg'), '-vf', `scale=${width}:-2`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-movflags', '+faststart', join(outDir, `${size.name}-${name}.mp4`)])
-      rmSync(frames, { recursive: true, force: true })
-    }
     // The finished row, and the same with the pointer over the second card.
     await scrollTo(at(1), 900)
     entry.overflowPx = await evaluate(`document.documentElement.scrollWidth - innerWidth`)
