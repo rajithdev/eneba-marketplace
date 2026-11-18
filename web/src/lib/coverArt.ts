@@ -6,6 +6,10 @@
  * cases carry (cinematic/build.mjs reads the same folder), which is what
  * lets a case become its card without the picture changing.
  *
+ * The homepage has three more kinds of picture, chosen the same way: the
+ * wide artwork behind the featured banner, the illustration in a
+ * promotional tile, and the scene at the top of a best-seller card.
+ *
  * Only the picture is chosen here. Which products appear, their names,
  * prices and stock are the backend's.
  */
@@ -19,4 +23,29 @@ export function coverArt(coverUrl: string | null): string | null {
   const game = coverGame(coverUrl)
 
   return game && PAINTED.has(game) ? `/covers/art/${game}.jpg` : coverUrl
+}
+
+const SCENES = new Set(['grand-theft-auto-v', 'minecraft', 'ea-sports-fc-25', 'elden-ring', 'baldurs-gate-3', 'cyberpunk-2077'])
+const HEROES = new Set(['elden-ring-shadow-of-the-erdtree'])
+const PROMOS: Record<string, string> = { 'steam-wallet-gift-card-20-eur': 'gift-cards', 'xbox-game-pass-ultimate-1-month': 'subscriptions' }
+
+/** A scene of the game, without its title, for the top of a card; null when there is none. */
+export function sceneArt(coverUrl: string | null): string | null {
+  const game = coverGame(coverUrl)
+
+  return game && SCENES.has(game) ? `/covers/art/scene/${game}.jpg` : null
+}
+
+/** Wide artwork for a banner whose picture is this cover; null when there is none. */
+export function heroArt(coverUrl: string | null): string | null {
+  const game = coverGame(coverUrl)
+
+  return game && HEROES.has(game) ? `/covers/art/hero/${game}.jpg` : null
+}
+
+/** The illustration for a promotional tile whose picture is this cover; null when there is none. */
+export function promoArt(coverUrl: string | null): string | null {
+  const promo = PROMOS[coverGame(coverUrl) ?? '']
+
+  return promo ? `/covers/art/promo/${promo}.png` : null
 }

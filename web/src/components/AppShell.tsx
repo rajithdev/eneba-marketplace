@@ -30,17 +30,36 @@ export function AppShell() {
         Skip to content
       </a>
 
-      <header className="bg-page">
-        {/* One row on wide screens; on narrow ones the search drops to its own row. */}
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 md:gap-x-8 md:py-4">
+      <header>
+        {/*
+          Wide screens: the wordmark, the categories and the cart and account in
+          one row, the search under them. Narrow ones: the wordmark with cart and
+          account, then the search, then the categories in a row that scrolls.
+        */}
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 pb-2 pt-4 lg:gap-x-10 lg:pt-6">
           {/* A text wordmark: Eneba's logo is theirs and is not copied. */}
           <Link to="/" className="text-2xl font-black tracking-tight md:text-[28px]">
             key<span className="text-accent">market</span>
           </Link>
-          <div className="order-last w-full md:order-none md:w-auto md:max-w-2xl md:flex-1">
-            <SearchBox />
-          </div>
-          <nav aria-label="Main" className="ml-auto flex items-center">
+
+          <nav aria-label="Categories" className="order-last w-full lg:order-none lg:w-auto">
+            {/* Scrolls sideways on a narrow screen, without drawing a scrollbar. */}
+            <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 py-1 text-[15px] font-semibold [scrollbar-width:none] lg:gap-2">
+              {categories.map((category) => (
+                <li key={category.to} className="shrink-0">
+                  <Link
+                    to={category.to}
+                    aria-current={category.current ? 'page' : undefined}
+                    className={`block rounded-control px-3.5 py-1.5 hover:text-white ${category.current ? 'bg-white/10 text-white ring-1 ring-edge/40' : 'text-muted'}`}
+                  >
+                    {category.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <nav aria-label="Main" className="ml-auto flex items-center lg:order-none">
             <NavLink to="/cart" className={navLink} aria-label={inCart === 0 ? 'Cart, empty' : `Cart, ${inCart} ${inCart === 1 ? 'item' : 'items'}`}>
               <span className="relative">
                 <Icon name="cart" className="size-6" />
@@ -62,6 +81,7 @@ export function AppShell() {
                 <span className={navWord}>Orders</span>
               </NavLink>
             )}
+            <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-white/25 md:block" />
             <NavLink
               to="/account"
               className={navLink}
@@ -73,24 +93,13 @@ export function AppShell() {
               </span>
             </NavLink>
           </nav>
-        </div>
 
-        <nav aria-label="Categories" className="bg-band">
-          {/* Scrolls sideways on a narrow screen, without drawing a scrollbar. */}
-          <ul className="mx-auto flex max-w-7xl overflow-x-auto px-2 text-[15px] font-semibold [scrollbar-width:none] sm:px-1">
-            {categories.map((category) => (
-              <li key={category.to} className="shrink-0">
-                <Link
-                  to={category.to}
-                  aria-current={category.current ? 'page' : undefined}
-                  className={`block border-b-2 px-2 py-3 hover:text-white sm:px-3 ${category.current ? 'border-accent text-white' : 'border-transparent text-muted'}`}
-                >
-                  {category.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+          <div className="w-full lg:order-last lg:pt-1">
+            <div className="mx-auto max-w-[880px]">
+              <SearchBox />
+            </div>
+          </div>
+        </div>
       </header>
 
       <SlowServerNotice />

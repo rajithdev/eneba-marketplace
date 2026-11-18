@@ -22,6 +22,9 @@
  * 900), and made every label shout. 700 and 800 give the same hierarchy.
  */
 @theme {
+  /* The colour the whole site sits on: a near-black violet, lit from its top corners (see body). */
+  --color-night: #160a36;
+  /* The brighter purple: fields and highlighted rows inside cards. */
   --color-page: #4618ac;
   /* The page colour under 25% black, as eneba.com shades its category bar. */
   --color-band: #341281;
@@ -55,7 +58,12 @@
 
 @layer base {
   body {
-    background-color: var(--color-page);
+    /* Dark, with a violet glow in each top corner and a faint one behind the first screen. */
+    background-color: var(--color-night);
+    background-image:
+      radial-gradient(52rem 34rem at -6% -10%, rgb(124 44 214 / 0.55), transparent 62%), radial-gradient(44rem 30rem at 106% -4%, rgb(84 36 178 / 0.4), transparent 60%),
+      radial-gradient(64rem 40rem at 50% 30rem, rgb(70 28 160 / 0.22), transparent 65%);
+    background-repeat: no-repeat;
     color: #fff;
     -webkit-font-smoothing: antialiased;
   }
@@ -97,4 +105,18 @@
       transition: none !important;
     }
   }
+}
+
+/* The featured banner: dark glass with violet light coming in from the left. */
+@utility hero-glass {
+  background:
+    radial-gradient(70% 120% at 0% 50%, rgb(96 48 190 / 0.45), transparent 70%),
+    linear-gradient(135deg, var(--color-card-top), var(--color-card-mid) 60%, var(--color-card-foot));
+}
+
+/* A promotional tile: the card's dark body with violet light in its top right corner. */
+@utility tile-glow {
+  background:
+    radial-gradient(85% 130% at 100% 0%, rgb(104 44 210 / 0.55), transparent 62%),
+    linear-gradient(160deg, var(--color-card-top), var(--color-card-mid) 55%, var(--color-card-foot));
 }

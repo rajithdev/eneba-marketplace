@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import type { ProductSummary } from '../lib/catalog'
+import { gameTitle, type ProductSummary } from '../lib/catalog'
 import { coverArt } from '../lib/coverArt'
 import { formatMoney } from '../lib/money'
 import { BuyNow } from './BuyButtons'
@@ -18,17 +18,6 @@ import { glowing } from './States'
  */
 
 const card = `group relative flex h-full flex-col ${glowing}`
-
-/**
- * The game's own title: the product's name without the platform and region
- * it ends with ("Minecraft Xbox Live Key GLOBAL" is "Minecraft"). The whole
- * name when it is not built that way.
- */
-function gameTitle(product: ProductSummary) {
-  const ending = ` ${product.platform.name} Key ${product.region.name}`.toLowerCase()
-
-  return product.name.toLowerCase().endsWith(ending) ? product.name.slice(0, -ending.length) : product.name
-}
 
 export function DealCard({ product, headingLevel: Heading = 'h3' }: { product: ProductSummary; headingLevel?: 'h2' | 'h3' }) {
   const title = gameTitle(product)

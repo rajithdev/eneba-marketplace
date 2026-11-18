@@ -620,6 +620,17 @@ It contains no product, banner text or section title of its own.
 deployments run it again and change nothing, so edits made in the database
 survive. Banner artwork is this project's own generated covers.
 
+**Pictures the frontend chooses.** The API names one cover per game
+(`/covers/<game>.svg`, a drawn placeholder). For some games the frontend
+has better pictures and shows those instead, keyed by the game in that
+address (`web/src/lib/coverArt.ts`): painted covers on the deals cards, a
+scene at the top of each best-seller card, wide artwork behind the
+featured banner and an illustration in each promotional tile. A game
+without one falls back to the cover the API named, so the blocks stay the
+backend's: which products and banners appear, their order, names, prices
+and links are never chosen here. `scripts/design/home_art.py` cuts the
+homepage's pictures out of the crops they were supplied as.
+
 ### The deals block on a desktop: a showroom you scroll into
 
 On a desktop the deals block is introduced by a scroll-controlled shot: the

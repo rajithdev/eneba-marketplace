@@ -131,7 +131,7 @@ export function SearchBox() {
     >
       {/* One bordered field, as on eneba.com: the glass, the text, the button. */}
       {/* The field is one rounded box, so the focus ring is drawn around the whole of it, not around the text inside. */}
-      <div className="flex h-12 items-center overflow-hidden rounded-control border border-white/70 bg-black/15 focus-within:border-accent hover:border-white has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-accent">
+      <div className="flex h-12 items-center overflow-hidden rounded-xl border border-edge/70 bg-panel/25 shadow-glow focus-within:border-accent hover:border-edge-lit has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-accent sm:h-[52px]">
         <label htmlFor={`${listId}-input`} className="sr-only">
           Search products
         </label>
@@ -157,7 +157,7 @@ export function SearchBox() {
           onKeyDown={onKeyDown}
           className="h-full w-full min-w-0 bg-transparent px-3 text-white outline-none placeholder:text-muted"
         />
-        <button type="submit" className="flex h-full shrink-0 items-center gap-2 bg-accent px-4 text-sm font-extrabold text-black hover:bg-accent-strong">
+        <button type="submit" className="m-1 flex h-[calc(100%-0.5rem)] shrink-0 items-center gap-2 rounded-lg bg-linear-to-b from-accent-strong to-accent px-4 text-[15px] font-extrabold text-black shadow-[0_0_14px_-2px_rgb(250_211_24/0.6)] hover:brightness-105 sm:px-8">
           <Icon name="search" className="size-5 sm:hidden" />
           <span className="sr-only sm:not-sr-only">Search</span>
         </button>

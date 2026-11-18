@@ -31,10 +31,11 @@ const shapes: Record<string, ReactNode> = {
       <path d="M9 8h6M9 12h6" />
     </>
   ),
+  arrow: <path d="M4.5 12h15m-6-6 6 6-6 6" />,
   star: <path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.9-5.2 2.9 1-5.9-4.3-4.1 5.9-.8z" fill="currentColor" />,
 }
 
-export type IconName = 'search' | 'cart' | 'user' | 'orders' | 'star'
+export type IconName = 'search' | 'cart' | 'user' | 'orders' | 'arrow' | 'star'
 
 export function Icon({ name, className = 'size-5' }: { name: IconName; className?: string }) {
   return (

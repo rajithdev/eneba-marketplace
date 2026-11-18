@@ -37,6 +37,17 @@ export interface ProductSummary {
   offers_count: number
 }
 
+/**
+ * The game's own title: the product's name without the platform and region
+ * it ends with ("Minecraft Xbox Live Key GLOBAL" is "Minecraft"). The whole
+ * name when it is not built that way.
+ */
+export function gameTitle(product: Pick<ProductSummary, 'name' | 'platform' | 'region'>) {
+  const ending = ` ${product.platform.name} Key ${product.region.name}`.toLowerCase()
+
+  return product.name.toLowerCase().endsWith(ending) ? product.name.slice(0, -ending.length) : product.name
+}
+
 export interface Offer {
   id: number
   seller: { slug: string; name: string; rating_percent: number; sales_count: number }
