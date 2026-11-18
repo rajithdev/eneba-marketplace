@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DealsBlock } from '../components/HomeBlocks'
+import { WaveEdge } from '../components/WaveEdge'
 import type { HomepageBlock } from '../lib/homepage'
 import { LAYOUTS, layoutHere } from './layouts'
 import { Showroom } from './Showroom'
@@ -35,6 +36,7 @@ export function CinematicDeals({ block }: { block: HomepageBlock }) {
   const spacer = useRef<HTMLDivElement>(null)
   const hotspots = useRef<HTMLDivElement>(null)
   const shade = useRef<HTMLDivElement>(null)
+  const edge = useRef<HTMLDivElement>(null)
 
   const products = (block.data.products ?? []).map((product) => product.slug)
   const [layout, setLayout] = useState(() => layoutHere(products.length))
@@ -94,7 +96,7 @@ export function CinematicDeals({ block }: { block: HomepageBlock }) {
   useEffect(() => {
     if (!armed || !runway.current || !canvas.current || !holder.current || !spacer.current) return
 
-    return armed.run({ runway: runway.current, canvas: canvas.current, holder: holder.current, spacer: spacer.current, hotspots: hotspots.current, shade: shade.current }, () => setArmed(null))
+    return armed.run({ runway: runway.current, canvas: canvas.current, holder: holder.current, spacer: spacer.current, hotspots: hotspots.current, shade: shade.current, edge: edge.current }, () => setArmed(null))
   }, [armed])
 
   return (
@@ -115,6 +117,12 @@ export function CinematicDeals({ block }: { block: HomepageBlock }) {
           hidden={!layout}
           className="pointer-events-none absolute left-1/2 top-0 h-[100svh] w-screen -translate-x-1/2"
         />
+        {/*
+          The lit line along the curved edge the store comes up behind. Its
+          depth and brightness follow the scroll (stage.ts); until the frames
+          are in it is not shown, and the block's own resting curve is.
+        */}
+        {layout && <WaveEdge ref={edge} className="absolute left-1/2 top-0 w-screen -translate-x-1/2" style={{ height: 0, opacity: 0 }} />}
         <div ref={holder}>
           {/* Keeps the block from being the first thing in its box, which would change its top margin. */}
           <span hidden />

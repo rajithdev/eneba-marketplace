@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arrival, blendAt, dusk, framePosition, softEdges, toWholeFrame, panelsPlacement, placed, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
+import { arrival, blendAt, dusk, entrance, framePosition, softEdges, toWholeFrame, panelsPlacement, placed, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
 
 const frame = { width: 640, height: 360 }
 
@@ -132,6 +132,35 @@ describe('what is on screen', () => {
     // Let go and scrolling away: the bottom edge is in the window, and fades.
     expect(softEdges(-270, 630, windowHeight, stageHeight)).toEqual({ top: 0, bottom: 135 })
     expect(softEdges(-800, 100, windowHeight, stageHeight)).toEqual({ top: 0, bottom: 270 })
+  })
+})
+
+describe('the curved edge the store comes in behind', () => {
+  const windowHeight = 900
+
+  it('hangs 7.5% of the width deep while the stage is low in the window, within 32px and 140px', () => {
+    expect(entrance(900, windowHeight, 1440)).toEqual({ depth: 108, glow: 1 })
+    expect(entrance(600, windowHeight, 1024).depth).toBeCloseTo(76.8)
+    expect(entrance(900, windowHeight, 375).depth).toBe(32) // a narrow window: no shallower than this
+    expect(entrance(900, windowHeight, 2560).depth).toBe(140) // a very wide one: no deeper
+  })
+
+  it('flattens out and goes out as the stage rises, and is gone when the camera starts', () => {
+    const depths = [540, 400, 270, 120, 30].map((top) => entrance(top, windowHeight, 1440).depth)
+    for (let i = 1; i < depths.length; i++) expect(depths[i]).toBeLessThan(depths[i - 1])
+    expect(entrance(135, windowHeight, 1440).glow).toBeCloseTo(0.5) // the line half lit half way through its last stretch
+    expect(entrance(0, windowHeight, 1440)).toEqual({ depth: 0, glow: 0 }) // the stage fills the window
+    expect(entrance(-500, windowHeight, 1440)).toEqual({ depth: 0, glow: 0 }) // pinned
+  })
+
+  it('rises steadily: its middle never moves down the window while the page scrolls down', () => {
+    // Where the middle of the curve is in the window, for every pixel of scrolling as the stage comes up.
+    let previous = Infinity
+    for (let top = 900; top >= 0; top--) {
+      const middle = top + entrance(top, windowHeight, 1440).depth
+      expect(middle).toBeLessThan(previous)
+      previous = middle
+    }
   })
 })
 
