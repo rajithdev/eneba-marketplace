@@ -6,6 +6,7 @@ import { coverArt } from '../lib/coverArt'
 import { formatMoney } from '../lib/money'
 import { storeSearchPath } from '../lib/storeParams'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
+import { useOpenProduct } from '../product/openProduct'
 import { Icon } from './Icon'
 
 /** Wait this long after the last keystroke before asking for suggestions. */
@@ -30,6 +31,7 @@ const MAX_LENGTH = 80
  */
 export function SearchBox() {
   const navigate = useNavigate()
+  const openProduct = useOpenProduct()
   const location = useLocation()
   const [params] = useSearchParams()
   const listId = useId()
@@ -82,9 +84,11 @@ export function SearchBox() {
 
   function choose(index: number) {
     if (index >= 0 && index < products.length) {
-      setOpen(false)
-      setText('')
-      navigate(`/product/${products[index].slug}`)
+      // The small cover in the line glides into the product page's cover, so
+      // the list is left open: it closes, and the box empties, as the page
+      // changes (see seenLocation above), which is after the browser has
+      // taken its picture of the page with the list in it.
+      void openProduct(products[index], document.getElementById(optionId(index)))
     } else {
       openStore()
     }
@@ -202,7 +206,7 @@ export function SearchBox() {
                 className={`flex cursor-pointer items-center gap-3 px-3 py-2 ${active === index ? 'bg-panel' : ''}`}
               >
                 {product.cover_image_url && (
-                  <img src={coverArt(product.cover_image_url) ?? undefined} alt="" width={36} height={48} className="h-12 w-9 shrink-0 object-cover" />
+                  <img data-cover src={coverArt(product.cover_image_url) ?? undefined} alt="" width={36} height={48} className="h-12 w-9 shrink-0 object-cover" />
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-extrabold">{product.name}</span>

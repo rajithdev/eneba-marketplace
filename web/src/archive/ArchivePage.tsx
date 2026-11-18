@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { Icon } from '../components/Icon'
 import { LoadError, Notice, pageTop, primaryButton } from '../components/States'
 import { ApiError } from '../lib/api'
@@ -9,9 +9,11 @@ import { formatMoney } from '../lib/money'
 import { activeFilterCount, apiQuery, selected as chosenValues, withValue, withoutFilters } from '../lib/storeParams'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { StorePage } from '../pages/StorePage'
+import { useOpenProduct } from '../product/openProduct'
 import { ArchiveRail } from './ArchiveRail'
 import { ArchiveStage, type Plate } from './ArchiveStage'
 import { CaseDetails } from './CaseDetails'
+import { chosenCase } from './shelf'
 import './archive.css'
 
 /**
@@ -149,7 +151,7 @@ function Shelf({
   plates: { start: Plate; end: Plate | null }
   fetchMore: (() => void) | null
 }) {
-  const navigate = useNavigate()
+  const open = useOpenProduct()
   const [selected, setSelected] = useState(0)
   const chosen = products[Math.min(selected, products.length - 1)]
   // As it was when the shelf first appeared; the answer changes once a shelf that was kept has been fetched again.
@@ -168,7 +170,7 @@ function Shelf({
         products={products}
         selected={selected}
         onSelect={setSelected}
-        onOpen={(product) => void navigate(`/product/${product.slug}`)}
+        onOpen={(product) => void open(product, chosenCase())}
         label={(product) => `${product.name}, ${product.price ? `from ${formatMoney(product.price.amount_cents, product.price.currency)}` : 'sold out'}`}
         plates={plates}
         header={header}

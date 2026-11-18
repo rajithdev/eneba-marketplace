@@ -23,7 +23,8 @@ export const GameCase = memo(function GameCase({ product, reflect = false }: { p
 
   return (
     <span className="ga-case" aria-hidden="true">
-      <span className={`ga-face ga-front ${product.in_stock ? '' : 'ga-sold'}`}>
+      {/* data-cover: what glides into the product page's cover when the case is opened. */}
+      <span data-cover className={`ga-face ga-front ${product.in_stock ? '' : 'ga-sold'}`}>
         {cover && <img src={cover} alt="" width={600} height={800} draggable={false} decoding="async" />}
         {/* The same cover is sold for several platforms; the label is what tells two such cases apart. */}
         <span className="ga-label">{product.platform.name}</span>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { coverArt, heroArt, sceneArt } from '../lib/coverArt'
+import { COVER_NAME } from './openProduct'
 
 /*
  * The game's own pictures, as the product page shows them.
@@ -76,11 +77,13 @@ export function Backdrop({ coverUrl, dimmed }: { coverUrl: string | null; dimmed
 export function Cover({ coverUrl, title, soldOut, className = '' }: { coverUrl: string | null; title: string; soldOut: boolean; className?: string }) {
   const source = coverArt(coverUrl)
   const [failed, setFailed] = useState(false)
+  // The landing place of a picture clicked elsewhere (see openProduct.ts).
+  const landing = { 'data-cover-target': '', style: { viewTransitionName: COVER_NAME } }
   const frame = `relative aspect-[3/4] overflow-hidden rounded-card border border-edge/50 bg-card shadow-[0_30px_60px_-24px_rgb(4_1_18/0.95),0_0_0_1px_rgb(176_140_255/0.08)] ${className}`
 
   if (!source || failed) {
     return (
-      <div className={`${frame} flex items-center justify-center bg-linear-to-b from-panel-top to-card-foot`}>
+      <div {...landing} className={`${frame} flex items-center justify-center bg-linear-to-b from-panel-top to-card-foot`}>
         <span aria-hidden="true" className="text-6xl font-black text-white/70">
           {title.charAt(0)}
         </span>
@@ -89,7 +92,7 @@ export function Cover({ coverUrl, title, soldOut, className = '' }: { coverUrl: 
   }
 
   return (
-    <div className={frame}>
+    <div {...landing} className={frame}>
       <img
         src={source}
         alt={`Cover of ${title}`}

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import { Icon } from '../components/Icon'
 import { LoadError, Notice, pageTop, primaryButton } from '../components/States'
 import { ApiError } from '../lib/api'
@@ -71,6 +71,9 @@ const typeLabels: Record<string, string> = {
 const delay = (ms: number) => ({ '--spot-delay': `${ms}ms` }) as CSSProperties
 
 function ProductView({ product, busy }: { product: ProductDetail; busy: boolean }) {
+  // Opened from a picture of the game that glided into the cover (openProduct.ts): the page
+  // has already been faded in, so its own entrance is skipped (spotlight.css).
+  const arrived = (useLocation().state as { morph?: boolean } | null)?.morph === true
   const [chosenId, setChosenId] = useState<number | null>(null)
   const offer = chosenOffer(product.offers, chosenId)
   const cartItems = useCart()
@@ -93,7 +96,7 @@ function ProductView({ product, busy }: { product: ProductDetail; busy: boolean 
     })
 
   return (
-    <article className="relative max-lg:pb-24">
+    <article className={`relative max-lg:pb-24 ${arrived ? 'spot-arrived' : ''}`}>
       <Backdrop coverUrl={product.cover_image_url} dimmed={soldOut} />
 
       <nav aria-label="Breadcrumb" className="pt-6 text-sm text-muted">

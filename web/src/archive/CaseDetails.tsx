@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router'
 import { Icon, type IconName } from '../components/Icon'
 import { PriceTag } from '../components/PriceTag'
 import type { ProductSummary } from '../lib/catalog'
-import { shelfMark } from './shelf'
+import { ProductLink } from '../product/ProductLink'
+import { chosenCase, shelfMark } from './shelf'
 
 /**
  * What is written under the shelf about the chosen case, most important
@@ -67,10 +67,10 @@ export function CaseDetails({ product, position, total }: { product: ProductSumm
           <PriceTag price={product.price} label="From" size="large" />
         </div>
         <i aria-hidden="true" className="hidden h-10 w-px bg-white/15 lg:block" />
-        <Link to={`/product/${product.slug}`} className="ga-cta inline-flex h-12 flex-1 items-center justify-center gap-2.5 rounded-full px-4 text-base font-extrabold whitespace-nowrap lg:flex-none lg:px-9">
+        <ProductLink product={product} pictureOf={chosenCase} className="ga-cta inline-flex h-12 flex-1 items-center justify-center gap-2.5 rounded-full px-4 text-base font-extrabold whitespace-nowrap lg:flex-none lg:px-9">
           View offers
           <Icon name="arrow" className="size-[18px]" />
-        </Link>
+        </ProductLink>
       </div>
     </section>
   )

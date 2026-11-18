@@ -84,3 +84,51 @@
     }
   }
 }
+
+/*
+ * Arriving from a picture of the game elsewhere (openProduct.ts). The
+ * clicked picture glides and grows into the cover (the "spot-cover" pair);
+ * around it the old page fades out quickly and this one fades in just
+ * after. The page's own entrance is then skipped: the cover must be there,
+ * whole, the moment it is landed on. The artwork behind still fades in.
+ */
+.spot-arrived .spot-enter {
+  animation: none;
+}
+
+::view-transition-old(root) {
+  animation: 200ms ease-out both spot-fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 340ms cubic-bezier(0.2, 0.7, 0.2, 1) 80ms both spot-fade;
+}
+
+@keyframes spot-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+::view-transition-group(spot-cover) {
+  animation-duration: 520ms;
+  animation-timing-function: cubic-bezier(0.2, 0.75, 0.15, 1);
+  border-radius: var(--radius-card);
+  overflow: clip;
+}
+
+/* The two pictures fill the moving frame whatever their shapes (a wide scene can become a tall cover), crossfading as it moves. */
+::view-transition-old(spot-cover),
+::view-transition-new(spot-cover) {
+  height: 100%;
+  object-fit: cover;
+  animation-duration: 520ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

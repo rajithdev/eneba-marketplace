@@ -1,7 +1,7 @@
-import { Link } from 'react-router'
 import { gameTitle, type ProductSummary } from '../lib/catalog'
 import { coverArt } from '../lib/coverArt'
 import { formatMoney } from '../lib/money'
+import { ProductLink } from '../product/ProductLink'
 import { BuyNow } from './BuyButtons'
 import { glowing } from './States'
 
@@ -26,8 +26,8 @@ export function DealCard({ product, headingLevel: Heading = 'h3' }: { product: P
   return (
     <article className={card}>
       {/* The cover and the text are one link to the product page; the button below is the only other thing to press. */}
-      <Link to={`/product/${product.slug}`} className="flex flex-1 flex-col rounded-t-[15px]">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-t-[15px] bg-panel">
+      <ProductLink product={product} className="flex flex-1 flex-col rounded-t-[15px]">
+        <div data-cover className="relative aspect-[3/4] overflow-hidden rounded-t-[15px] bg-panel">
           {cover && (
             <img
               src={cover}
@@ -85,7 +85,7 @@ export function DealCard({ product, headingLevel: Heading = 'h3' }: { product: P
             </>
           )}
         </div>
-      </Link>
+      </ProductLink>
 
       <div className="p-2.5 pt-3">
         <BuyNow product={product} />

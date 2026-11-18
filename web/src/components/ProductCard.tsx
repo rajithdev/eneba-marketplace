@@ -1,6 +1,6 @@
-import { Link } from 'react-router'
 import type { ProductSummary } from '../lib/catalog'
 import { coverArt } from '../lib/coverArt'
+import { ProductLink } from '../product/ProductLink'
 import { PriceTag } from './PriceTag'
 import { glowing } from './States'
 
@@ -15,8 +15,9 @@ export function ProductCard({ product, headingLevel: Heading = 'h2' }: { product
   const cover = coverArt(product.cover_image_url)
 
   return (
-    <Link to={`/product/${product.slug}`} className={`group flex h-full flex-col overflow-hidden ${glowing}`}>
-      <div className="relative aspect-[3/4] overflow-hidden bg-panel">
+    <ProductLink product={product} className={`group flex h-full flex-col overflow-hidden ${glowing}`}>
+      {/* data-cover: the picture that glides into the product page's cover when the card is opened. */}
+      <div data-cover className="relative aspect-[3/4] overflow-hidden bg-panel">
         {cover && (
           <img
             src={cover}
@@ -52,6 +53,6 @@ export function ProductCard({ product, headingLevel: Heading = 'h2' }: { product
           )}
         </div>
       </div>
-    </Link>
+    </ProductLink>
   )
 }

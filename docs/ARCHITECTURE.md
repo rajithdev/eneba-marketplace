@@ -861,6 +861,16 @@ buy panel beside it, every seller's offer, and the game's other versions.
 - *Phones.* The panel follows the title; once its "Add to cart" has
   scrolled away, a slim bar at the foot of the screen (`BuyBar`) keeps the
   chosen offer's price and the button there until the footer comes up.
+- *Arriving.* Opening a product from a picture of it (a store or deals
+  card, a best seller, the featured card, a case in the Game Archive, a
+  search suggestion) is one movement: the clicked picture glides and grows
+  into the page's cover while the rest crossfades. It uses the browser's
+  View Transitions through React Router's `viewTransition`
+  (`product/openProduct.ts`, `ProductLink`). The page needs its data and
+  cover to land on, so they are asked for when a pointer comes near the
+  link, and a click waits for them for at most 400 ms before opening the
+  page anyway. Without View Transitions, for reduced motion, and for a
+  click that opens a new tab, links behave as ordinary links.
 - *Motion* is CSS only (`product/spotlight.css`): an entrance once, and
   scroll-driven animations for the artwork's drift and each block's
   reveal, which the browser ties to the scroll position (no JavaScript,

@@ -145,3 +145,6 @@ export function keyTarget(key: string, selected: number, count: number): number 
 export function shelfMark(position: number, count: number): string {
   return String(position).padStart(Math.max(3, String(count).length), '0')
 }
+
+/** The front of the chosen case on the shelf: the picture that glides into the product page's cover when it is opened. */
+export const chosenCase = () => document.querySelector('[role="option"][aria-selected="true"] [data-cover]')
