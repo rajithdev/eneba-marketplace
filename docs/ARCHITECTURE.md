@@ -657,8 +657,9 @@ before anything is downloaded, so the page never changes shape later.
 **What it costs.** The code for it is fetched only by browsers that will
 run it. They fetch 14 frames (1.1 MB) to be ready and the other 91 only
 when the section is within two windows' height. At most 48 MB of decoded
-pictures are held, and none while the section is off screen. Frames are
-served from a versioned folder with a one-year cache.
+pictures are held, and none while the section is off screen. The frames
+are in a folder named for their version, so a later set never collides
+with one a browser still holds.
 
 **Checked with** unit tests for the scroll arithmetic, the frame loader,
 the rule for when the showroom may be used and the panels' buttons, and
