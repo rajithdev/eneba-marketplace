@@ -216,9 +216,10 @@ Things a reviewer should know are deliberate, approximate or not done yet.
 
 **Look and feel**
 
-- The look follows Eneba's design language (colours, heavy type, square
-  corners, card and offer layout, read from eneba.com's own pages) without
-  copying its assets. The wordmark is a placeholder, and Eneba's typeface is
+- The look follows Eneba's design language (colours, heavy type, card and
+  offer layout, read from eneba.com's own pages) without copying its
+  assets. The shapes are the site's own: rounded cards with a thin lit
+  edge and a soft glow, where Eneba's are square. The wordmark is a placeholder, and Eneba's typeface is
   not bundled: the system sans-serif is used unless the visitor has it.
 - The header has a search box, category links and the cart, but no category
   mega-menu, language or currency switcher, wishlist or cashback, which
