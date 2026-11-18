@@ -1,0 +1,432 @@
+/*
+ * The Game Archive: game cases as real boxes, drawn with CSS 3D transforms
+ * and nothing else (no canvas, no 3D library). This file is only fetched
+ * with the archive's own page.
+ *
+ * A case is a box --ga-w wide, --ga-h tall and --ga-t thick. The stage (a
+ * wide window) sets those in pixels from its own height; the rail (a phone,
+ * or reduced motion) sets them here.
+ *
+ * Two rules keep it cheap. Only `transform`, `filter` and `opacity` ever
+ * change while the shelf moves, which the browser does without laying out
+ * or repainting anything. And nothing that holds a 3D child is given a
+ * filter, opacity, mask or clipping of its own, because any of those would
+ * flatten the box into a picture of itself.
+ */
+
+/* ------------------------------------------------------------- the case */
+
+.ga-case {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+/* The printed and plastic sides. Each is dimmed by how far back it stands (--ga-lit, set on the slot). */
+.ga-face {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 3px;
+  filter: brightness(var(--ga-lit, 1));
+  backface-visibility: hidden;
+}
+
+/* The front: the cover under the case's clear sleeve. */
+.ga-front {
+  left: 0;
+  width: 100%;
+  background: var(--color-card-mid, #150835);
+  transform: translateZ(calc(var(--ga-t) / 2));
+}
+
+.ga-front img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+
+.ga-front.ga-sold img {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+/* Where it is redeemed, printed across the head of the sleeve as on a boxed game. The cover's own title sits at its foot. */
+.ga-strip {
+  position: absolute;
+  inset: 0 0 auto;
+  padding: 0.35em 0.5em 0.3em;
+  background: linear-gradient(rgb(10 4 32 / 0.92), rgb(10 4 32 / 0.74));
+  border-bottom: 1px solid rgb(176 140 255 / 0.35);
+  font-size: calc(var(--ga-w) * 0.038);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ga-soldout {
+  position: absolute;
+  inset: 50% 0 auto;
+  translate: 0 -50%;
+  padding: 0.5em 0;
+  background: rgb(0 0 0 / 0.78);
+  font-size: calc(var(--ga-w) * 0.045);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* The sleeve: a soft glare from the upper left, the hinge's groove down the left edge, and a lit rim. */
+.ga-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 0.45) 0, rgb(255 255 255 / 0.16) 1.6%, rgb(0 0 0 / 0.22) 3.2%, transparent 5.5%),
+    linear-gradient(112deg, rgb(255 255 255 / 0.17) 0%, rgb(255 255 255 / 0.04) 24%, transparent 42%, transparent 78%, rgb(255 255 255 / 0.06) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.13),
+    inset 0 -18px 24px -18px rgb(0 0 0 / 0.55);
+}
+
+/* The spine, on the left as on any boxed game: a corner of the cover, the title read downward, and the shop's mark. */
+.ga-spine {
+  left: calc(50% - var(--ga-t) / 2);
+  width: var(--ga-t);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(90deg, #06021a, #1d0f47 42%, #120833 70%, #05021a);
+  box-shadow: inset 0 0 0 1px rgb(176 140 255 / 0.22);
+  transform: rotateY(-90deg) translateZ(calc(var(--ga-w) / 2));
+}
+
+.ga-spine-art {
+  flex: none;
+  width: 100%;
+  aspect-ratio: 1 / 1.25;
+  background-size: cover;
+  background-position: center 30%;
+  border-bottom: 1px solid rgb(176 140 255 / 0.35);
+}
+
+.ga-spine-title {
+  flex: 1;
+  min-height: 0;
+  padding: 0.7em 0;
+  overflow: hidden;
+  opacity: var(--ga-ink, 1);
+  writing-mode: vertical-rl;
+  font-size: calc(var(--ga-t) * 0.42);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: var(--ga-t);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ga-spine-mark {
+  flex: none;
+  width: 46%;
+  height: 3px;
+  margin-bottom: calc(var(--ga-t) * 0.5);
+  border-radius: 2px;
+  background: var(--color-accent, #fad318);
+}
+
+/* The opening edge, on the right: the two halves of the shell and the paper sleeve between them. */
+.ga-edge {
+  left: calc(50% - var(--ga-t) / 2);
+  width: var(--ga-t);
+  background: linear-gradient(90deg, #080320, #20124d 26%, #0a0424 40%, rgb(222 212 245 / 0.34) 50%, #0a0424 60%, #20124d 74%, #080320);
+  box-shadow: inset 0 0 0 1px rgb(176 140 255 / 0.18);
+  transform: rotateY(90deg) translateZ(calc(var(--ga-w) / 2));
+}
+
+/* The floor's reflection: the foot of the cover again, upside down under the case, fading out. */
+.ga-reflection {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  width: 100%;
+  height: 34%;
+  overflow: hidden;
+  border-radius: 3px;
+  opacity: var(--ga-lit, 1);
+  -webkit-mask-image: linear-gradient(to top, rgb(0 0 0 / 0.3), transparent 92%);
+  mask-image: linear-gradient(to top, rgb(0 0 0 / 0.3), transparent 92%);
+  transform: translateZ(calc(var(--ga-t) / 2)) scaleY(-1);
+  pointer-events: none;
+}
+
+.ga-reflection img {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: var(--ga-h);
+  object-fit: cover;
+}
+
+/* The shadow it stands in, lying on the floor. */
+.ga-shadow {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 150%;
+  height: calc(var(--ga-t) * 7);
+  margin: calc(var(--ga-t) * -3.5) 0 0 -75%;
+  background: radial-gradient(closest-side, rgb(3 0 12 / 0.78), rgb(3 0 12 / 0.4) 55%, transparent);
+  transform: rotateX(90deg);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------ the stage */
+
+/* The stage, as wide as the window, held in place while its runway scrolls past. */
+.ga-stage {
+  position: sticky;
+  top: calc(var(--ga-head, 9rem) / 2);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100vw;
+  height: calc(100svh - var(--ga-head, 9rem));
+  margin-inline: calc(50% - 50vw);
+}
+
+/* The room: a lamp over the chosen case, and the dark the row runs off into on either side. */
+.ga-scene {
+  position: relative;
+  overflow: clip;
+  outline: none;
+  perspective: calc(var(--ga-w) * 4.6);
+  perspective-origin: 50% 36%;
+  touch-action: pan-y;
+  user-select: none;
+  background: radial-gradient(34% 62% at 50% 40%, rgb(132 70 240 / 0.3), transparent 72%);
+  /* The row fades out at both ends, and the floor's reflections before the foot of the room. */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(#000 86%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(#000 86%, transparent 100%);
+  mask-composite: intersect;
+}
+
+.ga-scene[data-dragging] {
+  cursor: grabbing;
+}
+
+/* The front lip of the shelf the cases stand on, catching the light. */
+.ga-scene::before {
+  content: '';
+  position: absolute;
+  inset: calc(44% + var(--ga-h) / 2 + var(--ga-t) * 1.6) 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 8%, rgb(176 140 255 / 0.4) 38%, rgb(220 196 255 / 0.65) 50%, rgb(176 140 255 / 0.4) 62%, transparent 92%);
+}
+
+/* The point everything is placed around: the middle of the chosen case. */
+.ga-rig {
+  position: absolute;
+  top: 44%;
+  left: 50%;
+  transform-style: preserve-3d;
+}
+
+.ga-slot {
+  position: absolute;
+  top: calc(var(--ga-h) / -2);
+  left: calc(var(--ga-w) / -2);
+  width: var(--ga-w);
+  height: var(--ga-h);
+  transform-style: preserve-3d;
+  will-change: transform;
+  cursor: pointer;
+}
+
+/*
+ * The plate at each end of the shelf, as in a record shop's racks: what
+ * this shelf holds, lettered down a sheet of smoked glass.
+ */
+.ga-plate {
+  left: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9em;
+  padding: 1.1em 0 1em;
+  border: 1px solid rgb(176 140 255 / 0.5);
+  border-radius: 6px;
+  background: linear-gradient(160deg, rgb(132 70 240 / 0.3), rgb(31 12 73 / 0.72) 55%, rgb(14 5 38 / 0.82));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  font-size: calc(var(--ga-w) * 0.042);
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--color-muted, #cfc8e3);
+  cursor: default;
+}
+
+.ga-plate strong {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  writing-mode: vertical-rl;
+  font-size: calc(var(--ga-w) * 0.115);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  white-space: nowrap;
+  color: #fff;
+}
+
+.ga-plate i {
+  width: 22%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-accent, #fad318);
+}
+
+/* The keyboard's focus ring goes round the chosen case, not round the whole room. */
+.ga-scene:focus-visible .ga-slot[aria-selected='true'] .ga-front,
+.ga-rail:focus-visible .ga-rail-item[aria-selected='true'] .ga-front {
+  outline: 3px solid var(--color-accent, #fad318);
+  outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------- the rail */
+
+/*
+ * Where the stage does not run (a phone, a small window, reduced motion):
+ * the same cases in a row that scrolls sideways under the finger, one at a
+ * time coming to rest in the middle. The scrolling is the browser's own.
+ */
+.ga-rail {
+  --ga-w: clamp(168px, 50vw, 248px);
+  --ga-h: calc(var(--ga-w) * 4 / 3);
+  --ga-t: calc(var(--ga-w) * 0.085);
+  display: flex;
+  gap: calc(var(--ga-w) * 0.08);
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  padding: 1.25rem calc(50vw - var(--ga-w) / 2) 2rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  outline: none;
+  background: radial-gradient(60% 70% at 50% 45%, rgb(132 70 240 / 0.26), transparent 72%);
+}
+
+.ga-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.ga-rail-item {
+  position: relative;
+  flex: none;
+  width: var(--ga-w);
+  height: var(--ga-h);
+  border-radius: 3px;
+  scroll-snap-align: center;
+  perspective: calc(var(--ga-w) * 4.6);
+  cursor: pointer;
+}
+
+/* The chosen case is in front of its neighbours, and is what a tap where they meet lands on. */
+.ga-rail-item[aria-selected='true'] {
+  z-index: 1;
+}
+
+/* A case not drawn yet (see ArchiveRail) keeps its place as a dark outline. */
+.ga-rail-item:empty {
+  background: rgb(31 12 73 / 0.45);
+}
+
+/* Standing still: every case turned just enough to show its spine, the chosen one lit. */
+.ga-rail-item .ga-case {
+  --ga-lit: 0.55;
+  transform: rotateY(9deg);
+}
+
+.ga-rail-item[aria-selected='true'] .ga-case {
+  --ga-lit: 1;
+  /* Its spine is seen almost edge-on, where lettering would only be a row of specks. */
+  --ga-ink: 0;
+}
+
+/*
+ * Where the browser can tie an animation to a scroll position by itself
+ * (no script runs while the rail is scrolled), a case swings round to face
+ * the middle as it arrives and away again as it leaves, as on the stage.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* Turned cases take less room, so they stand closer together and more of each neighbour shows. */
+    .ga-rail {
+      gap: 0;
+    }
+
+    .ga-rail-item + .ga-rail-item {
+      margin-left: calc(var(--ga-w) * -0.2);
+    }
+
+    .ga-rail-item .ga-case,
+    .ga-rail-item[aria-selected='true'] .ga-case {
+      --ga-lit: 1;
+      animation: ga-pass linear both;
+      animation-timeline: view(inline);
+    }
+
+    .ga-rail-item .ga-face {
+      animation: ga-pass-light linear both;
+      animation-timeline: view(inline);
+    }
+  }
+}
+
+/* From entering at the right edge (0%) through the middle of the row (50%) to leaving at the left (100%). */
+@keyframes ga-pass {
+  0% {
+    transform: translateZ(calc(var(--ga-w) * -1.2)) rotateY(-66deg);
+  }
+  25% {
+    transform: translateZ(calc(var(--ga-w) * -0.85)) rotateY(-57deg);
+  }
+  40% {
+    transform: translateZ(calc(var(--ga-w) * -0.5)) rotateY(-40deg);
+  }
+  50% {
+    transform: translateZ(0) rotateY(9deg);
+  }
+  60% {
+    transform: translateZ(calc(var(--ga-w) * -0.5)) rotateY(46deg);
+  }
+  75% {
+    transform: translateZ(calc(var(--ga-w) * -0.85)) rotateY(57deg);
+  }
+  100% {
+    transform: translateZ(calc(var(--ga-w) * -1.2)) rotateY(66deg);
+  }
+}
+
+@keyframes ga-pass-light {
+  0%,
+  100% {
+    filter: brightness(0.3);
+  }
+  25%,
+  75% {
+    filter: brightness(0.6);
+  }
+  50% {
+    filter: brightness(1);
+  }
+}
