@@ -34,7 +34,7 @@ and that scope must be justified.
 | Depth | Features |
 |---|---|
 | Deep, with backend tests | Product and seller-offer model, search, checkout with key delivery |
-| Solid but standard | Store filters, sorting and pagination; authentication; homepage blocks; order history |
+| Solid but standard | Store filters, sorting and pagination; authentication; homepage blocks, with a scroll-controlled showroom in front of the deals block on a desktop; order history |
 | Cut | Seller accounts and dashboards, admin UI, reviews, wishlist, multiple currencies, emails, refunds UI, server-side rendering, genres, password reset, social login |
 
 Sellers are catalog data: they are seeded, they do not log in.
@@ -619,6 +619,52 @@ It contains no product, banner text or section title of its own.
 `database/data/homepage.json`, and only when the layout is empty. Later
 deployments run it again and change nothing, so edits made in the database
 survive. Banner artwork is this project's own generated covers.
+
+### The deals block on a desktop: a showroom you scroll into
+
+On a desktop the deals block is introduced by a scroll-controlled shot: the
+visitor scrolls down a neon game store into a round showroom where each of
+the block's six products hangs on a lit panel. The shot then stays, and the
+panels are the cards: pointing at one, pressing it or reaching it with the
+keyboard brings up the product's name, discount and price, with **Add to
+cart** and **Buy Now**. The code is `web/src/cinematic`; how the frames are
+made is in `cinematic/README.md`.
+
+**What it is made of.** 105 WebP frames (8.2 MB) cut from a ten-second
+generated video, drawn on a canvas as the page scrolls past a pinned stage.
+The video is decoration; nothing is read from it.
+
+**It stays the backend's block.** The frames know only which game each
+panel shows. A panel's product is the one in the API's block for that game,
+so names, prices, discounts and stock are the API's, and the backend may
+reorder the block freely. If the block ever holds a product that no panel
+shows (the ranking changed), the showroom is not used and the ordinary
+cards appear.
+
+**Buying.** A card or a panel knows a product's best price but not which
+seller's offer it is. Both buttons ask for the product first (the product
+page's own request), take its first offer that can be bought, and put that
+offer in the cart, exactly as the product page would. Buy Now then opens
+the cart, where the server prices it as for any cart. If nothing can be
+bought, the product page opens instead.
+
+**Where it does not run.** Phones and tablet-sized windows, reduced motion,
+data saving, a 2g connection, little memory, a browser without what is
+needed, or frames that cannot be fetched: all get the ordinary block, with
+the same products. That is decided at once from the window and the device,
+before anything is downloaded, so the page never changes shape later.
+
+**What it costs.** The code for it is fetched only by browsers that will
+run it. They fetch 14 frames (1.1 MB) to be ready and the other 91 only
+when the section is within two windows' height. At most 48 MB of decoded
+pictures are held, and none while the section is off screen. Frames are
+served from a versioned folder with a one-year cache.
+
+**Checked with** unit tests for the scroll arithmetic, the frame loader,
+the rule for when the showroom may be used and the panels' buttons, and
+`cinematic/showroom_preview.mjs`, which drives a real browser: every
+panel's details at three window widths, the keyboard, both buttons, the
+same picture scrolling down and up, and the fallbacks.
 
 **Cost.** 15 queries however large the catalog: the layout, the banners,
 and four per product block (the products, then their games, platforms and

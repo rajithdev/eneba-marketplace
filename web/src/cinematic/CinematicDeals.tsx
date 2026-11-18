@@ -7,23 +7,26 @@ import type { Armed } from './stage'
 
 /**
  * The homepage's deals block, with a scroll-controlled introduction where
- * the browser can run one: the visitor scrolls through a rendered vault of
- * game cases, and the last frame's row of cases becomes the block's real
- * product cards.
+ * the browser can run one: the visitor scrolls through a neon game store
+ * into a showroom, where each of the block's products hangs on a lit
+ * panel. The panels are then the cards: choosing one brings up the
+ * product's name, discount and price with buttons to add it to the cart
+ * or buy it (see Showroom.tsx).
  *
  * The block itself is always the ordinary <DealsBlock>, in the page from
- * the start: its title, names, prices, discounts and links are the real
- * elements, backed by the API. The animation is decoration drawn on a
- * canvas behind it and is hidden from screen readers.
+ * the start, backed by the API. It is what everyone sees where the
+ * introduction cannot run, and until its frames have arrived. The frames
+ * are decoration drawn on a canvas and hidden from screen readers; what
+ * they show of each product is repeated as real text and buttons.
  *
  * Space first, pictures second. Whether the section gets its pinned stage
  * and the scrolling room behind it is decided the moment the block
  * appears, from the window and the device alone (see layoutHere). The
  * frames are fetched after that, and when they arrive nothing on the page
  * moves: the canvas simply starts drawing. With reduced motion, data
- * saving, a slow connection, a tablet-sized window or an unsupported
- * browser no space is reserved and this is exactly the deals block as it
- * has always been.
+ * saving, a slow connection, a phone or tablet-sized window, an
+ * unsupported browser, or products the showroom does not show, no
+ * animation runs and this is exactly the deals block as it has always been.
  */
 export function CinematicDeals({ block }: { block: HomepageBlock }) {
   const runway = useRef<HTMLDivElement>(null)

@@ -278,3 +278,13 @@ with Add to cart and Buy Now (`web/src/cinematic/Showroom.tsx`).
 
 `node cinematic/showroom_preview.mjs http://localhost:5173 <folder>` tries
 all of it in headless Chrome and records it.
+
+The published set is made with:
+
+    bash cinematic/video_set.sh <the video> v3-showroom 200 cinematic/kling-showroom-panels.json
+
+which writes `web/public/cinematic/v3-showroom/` (105 WebP frames at
+quality 70, 8.2 MB, and the manifest). `VERSION` in
+`web/src/cinematic/stage.ts` names the set the site uses. A new video
+means a new version name, so that browsers holding the old frames in
+their cache are not shown them.

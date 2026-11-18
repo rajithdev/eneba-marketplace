@@ -10,7 +10,10 @@
  *
  * Loading is in two passes. The coarse pass fetches every eighth frame and
  * the last one; when it is done the animation can already be scrubbed from
- * end to end, just in bigger steps. The second pass fills in the rest.
+ * end to end, just in bigger steps. The second pass fills in the rest, and
+ * only starts when it is asked for (`fill`): the stage asks once the
+ * section is near, so the bulk of the download is not paid for by a
+ * visitor who never scrolls down to it.
  */
 
 const COARSE_STEP = 8
@@ -21,6 +24,8 @@ export interface Sequence {
   ready: Promise<void>
   /** The decoded picture for a frame, or the nearest one there is while that frame is fetched or decoded. */
   picture(frame: number): ImageBitmap | null
+  /** Starts fetching the frames the coarse pass left out. Asking again does nothing. */
+  fill(): void
   /** Called whenever another picture has been decoded, so the stage can draw again. */
   onPicture: () => void
   stats(): { framesLoaded: number; bytesLoaded: number; coarseBytes: number; decoded: number }
@@ -43,6 +48,9 @@ export function loadSequence(urlFor: (frame: number) => string, frames: number, 
   const fetchFrame = async (frame: number) => {
     const reply = await fetch(urlFor(frame), { signal: abort.signal })
     if (!reply.ok) throw new Error(`frame ${frame}: HTTP ${reply.status}`)
+    // A host that answers every unknown address with the site's own page
+    // says "200 OK" for a missing frame too. That is not a picture.
+    if (!(reply.headers.get('Content-Type') ?? '').startsWith('image/')) throw new Error(`frame ${frame}: not a picture`)
     files[frame] = await reply.blob()
   }
 
@@ -81,18 +89,25 @@ export function loadSequence(urlFor: (frame: number) => string, frames: number, 
   const ready = Promise.all(coarse.map(fetchFrame)).then(async () => {
     coarseBytes = files.reduce((total, file) => total + (file?.size ?? 0), 0)
     await decode(0)
-
-    // The rest, a few at a time, without holding up the page: failures here
-    // only mean bigger steps between frames.
-    const rest = Array.from({ length: frames }, (_, frame) => frame).filter((frame) => !files[frame])
-    const worker = async () => {
-      while (rest.length > 0 && !disposed) await fetchFrame(rest.shift()!).catch(() => {})
-    }
-    void Promise.all(Array.from({ length: PARALLEL }, worker))
   })
+
+  let filling = false
+  /** The rest, a few at a time, without holding up the page: failures here only mean bigger steps between frames. */
+  const fill = () => {
+    if (filling) return
+    filling = true
+    void ready.then(() => {
+      const rest = Array.from({ length: frames }, (_, frame) => frame).filter((frame) => !files[frame])
+      const worker = async () => {
+        while (rest.length > 0 && !disposed) await fetchFrame(rest.shift()!).catch(() => {})
+      }
+      void Promise.all(Array.from({ length: PARALLEL }, worker))
+    })
+  }
 
   const sequence: Sequence = {
     ready,
+    fill,
     onPicture: () => {},
     picture(frame) {
       resting = false

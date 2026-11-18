@@ -21,12 +21,13 @@ export const LAYOUTS = {
 } as const
 
 /**
- * The layouts this build's frames come in. A set cut from one widescreen
- * shot has nothing for a phone, and phones then get the ordinary block.
- * (VITE_CINEMATIC_LAYOUTS, comma-separated, goes with VITE_CINEMATIC_VERSION
- * when trying such a set locally.)
+ * The layouts this build's frames come in. The published set is cut from
+ * one widescreen shot that ends on a showroom, which has nothing for a
+ * phone: phones get the ordinary block. (VITE_CINEMATIC_LAYOUTS,
+ * comma-separated, goes with VITE_CINEMATIC_VERSION when trying another
+ * set locally, for example "wide,narrow" with a set rendered for both.)
  */
-const AVAILABLE: string[] = (import.meta.env.VITE_CINEMATIC_LAYOUTS ?? 'wide,narrow').split(',')
+const AVAILABLE: string[] = (import.meta.env.VITE_CINEMATIC_LAYOUTS ?? 'wide').split(',')
 
 const WIDE_FROM = 1024
 const NARROW_UP_TO = 639

@@ -12,7 +12,7 @@ import { LAYOUTS, type LayoutName } from './layouts'
 import { loadSequence, type Sequence } from './sequence'
 
 /** Which set of frames (a folder under /cinematic) this build of the site uses. VITE_CINEMATIC_VERSION picks another, for trying a set locally. */
-export const VERSION: string = import.meta.env.VITE_CINEMATIC_VERSION ?? 'v1-blockout'
+export const VERSION: string = import.meta.env.VITE_CINEMATIC_VERSION ?? 'v3-showroom'
 const BASE = `/cinematic/${VERSION}`
 
 /** The cases may sit this far from the real covers, in pixels, and still be faded straight into them. */
@@ -296,6 +296,17 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots }: Elements,
     draw(shown)
     request = requestAnimationFrame(tick)
   }
+  // The frames between the coarse pass are only fetched once the section is
+  // near: within two windows' height of it. A visitor who never scrolls
+  // that far downloads no more than it took to be ready.
+  const near = new IntersectionObserver(
+    ([entry]) => {
+      if (!entry.isIntersecting) return
+      sequence.fill()
+      near.disconnect()
+    },
+    { rootMargin: '200% 0px' },
+  )
   const onScreen = new IntersectionObserver(([entry]) => {
     cancelAnimationFrame(request)
     if (entry.isIntersecting) {
@@ -333,12 +344,14 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots }: Elements,
   canvas.dataset.armed = 'true'
   if (debugging) window.__cinematicPictures = () => sequence.stats().decoded
   onScreen.observe(runway)
+  near.observe(runway)
   window.addEventListener('resize', measure)
   reached.addEventListener('focusin', onFocus)
 
   return () => {
     cancelAnimationFrame(request)
     onScreen.disconnect()
+    near.disconnect()
     window.removeEventListener('resize', measure)
     reached.removeEventListener('focusin', onFocus)
     holder.inert = false
