@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
+import { arrival, panelsPlacement, placed, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
 
 const frame = { width: 640, height: 360 }
 
@@ -84,5 +84,39 @@ describe('what is on screen', () => {
       const { frameAlpha, cardsAlpha } = phases(progress, false)
       expect(frameAlpha + cardsAlpha).toBeLessThanOrEqual(1.25)
     }
+  })
+
+  it('in a showroom, brings in what can be pressed only once the last frame is held', () => {
+    expect(frameAt(0.86, 0.86, 105)).toBe(104)
+    expect(arrival(0.86)).toBe(0)
+    expect(arrival(0.9)).toBeGreaterThan(0)
+    expect(arrival(0.93)).toBe(1)
+    expect(arrival(1)).toBe(1)
+  })
+
+  it('uses a showroom only when its panels are exactly the block\'s products', () => {
+    const shown = ['minecraft', 'doom-eternal', 'god-of-war']
+
+    expect(showroomFits(['god-of-war', 'minecraft', 'doom-eternal'], shown)).toBe(true) // the order is the backend's to choose
+    expect(showroomFits(['god-of-war', 'minecraft', 'stardew-valley'], shown)).toBe(false) // a product no panel shows
+    expect(showroomFits(['god-of-war', 'minecraft'], shown)).toBe(false) // a panel with nothing to sell
+    expect(showroomFits(['god-of-war', 'minecraft', null], shown)).toBe(false) // a product whose picture is not one of ours
+  })
+
+  it('rests a showroom where every panel is inside the window, however narrow', () => {
+    const film = { width: 1440, height: 808 }
+    const [left, right] = [0.045, 0.961] // the row of panels, almost as wide as the picture
+
+    for (const stage of [{ width: 1920, height: 1080 }, { width: 1440, height: 900 }, { width: 1024, height: 768 }]) {
+      const at = panelsPlacement(film, stage, left, right)
+      const row = placed(film, { x: left, y: 0.3, w: right - left, h: 0.4 }, at)
+
+      expect(row.x).toBeGreaterThanOrEqual(0)
+      expect(row.x + row.w).toBeLessThanOrEqual(stage.width)
+      expect(at.x).toBeLessThanOrEqual(0) // the picture still reaches both sides
+      expect(at.x + film.width * at.scale).toBeGreaterThanOrEqual(stage.width - 0.001)
+    }
+    // Where covering the stage already shows them all, it is left covering.
+    expect(panelsPlacement(film, { width: 1920, height: 1080 }, left, right).scale).toBeCloseTo(coverPlacement(film, { width: 1920, height: 1080 }).scale)
   })
 })

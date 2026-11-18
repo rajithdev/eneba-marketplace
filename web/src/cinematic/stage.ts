@@ -6,7 +6,8 @@
  * (see CinematicDeals), so it costs the others nothing.
  */
 import type { HomepageBlock } from '../lib/homepage'
-import { between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
+import { coverGame } from '../lib/coverArt'
+import { arrival, panelsPlacement, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
 import { LAYOUTS, type LayoutName } from './layouts'
 import { loadSequence, type Sequence } from './sequence'
 
@@ -20,6 +21,12 @@ const SEAMLESS_WITHIN = 1
 const CATCH_UP_MS = 90
 /** A case's own edge may show this far around its front, in pixels; it is let go of as the corners are rounded. */
 const CASE_RIM = 3
+
+/** A product's picture in the last frame of a showroom: which game it shows, and its four corners (top left, top right, bottom right, bottom left) as fractions of the frame. */
+export interface Panel {
+  game: string
+  quad: [number, number][]
+}
 
 interface Layout {
   frames: number
@@ -38,6 +45,12 @@ interface Layout {
    * no longer covers all of it.
    */
   backdrops?: string[]
+  /**
+   * For a showroom: frames that end on the products themselves, each on a
+   * panel. The last frame then stays, and the panels are what is pressed
+   * (see Showroom.tsx); nothing lands on the cards or gives way to them.
+   */
+  panels?: Panel[]
 }
 
 interface Manifest {
@@ -52,9 +65,13 @@ export interface Elements {
   holder: HTMLElement
   /** The empty stretch after the stage; its height is how many pixels of scrolling the animation lasts. */
   spacer: HTMLElement
+  /** In a showroom, the box over the stage that holds an item for each panel; null otherwise. */
+  hotspots: HTMLElement | null
 }
 
 export interface Armed {
+  /** The panels to put the products on, when the frames are a showroom. */
+  panels: Panel[] | null
   /** Starts drawing; returns the function that stops it. `giveUp` is called if the effect can no longer run here. */
   run(elements: Elements, giveUp: () => void): () => void
   dispose(): void
@@ -75,6 +92,14 @@ export async function prepare(block: HomepageBlock, name: LayoutName): Promise<A
   const products = block.data.products ?? []
   if (!layout || products.length < layout.slots.length) return null
 
+  // A showroom shows particular games. It is only used when they are the
+  // block's products, all of them and no others: otherwise a panel would
+  // have nothing to sell, or a product no panel.
+  if (layout.panels) {
+    const games = products.map((product) => coverGame(product.cover_image_url))
+    if (!showroomFits(games, layout.panels.map((panel) => panel.game))) return null
+  }
+
   // Were the frames rendered for the products the block holds today, in today's order?
   const sameProducts = layout.slots.every((slot, index) => products[index].slug === slot.slug)
 
@@ -91,6 +116,7 @@ export async function prepare(block: HomepageBlock, name: LayoutName): Promise<A
   const armedAfterMs = Math.round(performance.now() - startedAt)
 
   return {
+    panels: layout.panels ?? null,
     dispose: () => sequence.dispose(),
     run: (elements, giveUp) => run({ name, layout, background: manifest.background, sequence, sameProducts, armedAfterMs, keep }, elements, giveUp),
   }
@@ -106,8 +132,9 @@ interface Show {
   keep: number
 }
 
-function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: () => void) {
+function run(show: Show, { runway, canvas, holder, spacer, hotspots }: Elements, giveUp: () => void) {
   const { layout, sequence } = show
+  const showroom = layout.panels && hotspots ? { panels: layout.panels, box: hotspots } : null
   const context = canvas.getContext('2d')
   if (!context) {
     giveUp()
@@ -145,6 +172,14 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
       offBy = []
       seamless = false
       radius = 0
+      if (showroom) {
+        // The frame comes to rest with every panel inside the window (it is
+        // eased there as the camera arrives), and the items go where the
+        // panels then are.
+        const xs = showroom.panels.flatMap((panel) => panel.quad.map(([x]) => x))
+        handoff = panelsPlacement(frame, stage, Math.min(...xs), Math.max(...xs))
+        placeHotspots(showroom.panels, showroom.box)
+      }
       return
     }
 
@@ -162,14 +197,37 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
     radius = parseFloat(getComputedStyle(images[0]).borderTopLeftRadius) || 0
   }
 
+  /** Puts each panel's item where the panel is drawn, and its details where they stay on the stage. */
+  const placeHotspots = (panels: Panel[], box: HTMLElement) => {
+    for (const item of box.querySelectorAll<HTMLElement>('[data-panel]')) {
+      const corners = panels[Number(item.dataset.panel)].quad.map(([x, y]) => [x * frame.width * handoff.scale + handoff.x, y * frame.height * handoff.scale + handoff.y])
+      const left = Math.min(...corners.map(([x]) => x))
+      const top = Math.min(...corners.map(([, y]) => y))
+      const width = Math.max(...corners.map(([x]) => x)) - left
+      item.style.left = `${left.toFixed(1)}px`
+      item.style.top = `${top.toFixed(1)}px`
+      item.style.width = `${width.toFixed(1)}px`
+      item.style.height = `${(Math.max(...corners.map(([, y]) => y)) - top).toFixed(1)}px`
+      // The details sit under the middle of the panel, moved in from the stage's edge where they would cross it.
+      const wide = (item.lastElementChild as HTMLElement).offsetWidth
+      const wanted = Math.min(Math.max(left + width / 2 - wide / 2, 12), stage.width - wide - 12)
+      item.style.setProperty('--details-left', `${(wanted - left).toFixed(1)}px`)
+    }
+  }
+
   const draw = (progress: number) => {
-    const { settle, frameAlpha, cardsAlpha, rounding } = phases(progress, seamless)
+    const phase = phases(progress, seamless)
+    const arrived = showroom ? arrival(progress) : 0
+    // In a showroom the frame never gives way and the block never appears.
+    const { settle, rounding } = phase
+    const frameAlpha = showroom ? 1 : phase.frameAlpha
+    const cardsAlpha = showroom ? 0 : phase.cardsAlpha
     const index = frameAt(progress, layout.travel, layout.frames)
     const picture = sequence.picture(index)
     const at = between(cover, handoff, settle)
 
     // Nothing is drawn again unless what would be drawn has changed.
-    const state = [index, at.scale.toFixed(4), at.x.toFixed(1), at.y.toFixed(1), frameAlpha.toFixed(3), cardsAlpha.toFixed(3), rounding.toFixed(3)].join()
+    const state = [index, at.scale.toFixed(4), at.x.toFixed(1), at.y.toFixed(1), frameAlpha.toFixed(3), cardsAlpha.toFixed(3), rounding.toFixed(3), arrived.toFixed(3)].join()
     if (state === drawn) return
     drawn = state
 
@@ -197,16 +255,28 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
       }
       context.drawImage(picture, at.x * density, at.y * density, frame.width * at.scale * density, frame.height * at.scale * density)
       if (shaped) context.restore()
+      // A showroom's frame that has been eased back no longer reaches the
+      // top and bottom of the stage. Its own first and last rows are drawn
+      // out to the edges, so ceiling and floor simply carry on.
+      if (showroom && at.y > 0) {
+        const [x, wide, tall] = [at.x * density, frame.width * at.scale * density, at.y * density]
+        context.drawImage(picture, 0, 0, picture.width, 1, x, 0, wide, tall + 1)
+        context.drawImage(picture, 0, picture.height - 1, picture.width, 1, x, canvas.height - tall - 1, wide, tall + 1)
+      }
     }
 
     // The real block is always in the page (for screen readers and the
     // keyboard); until it shows, it just cannot be clicked by accident.
     holder.style.opacity = String(cardsAlpha)
     holder.style.pointerEvents = cardsAlpha < 0.5 ? 'none' : ''
+    if (showroom) {
+      showroom.box.style.opacity = String(arrived)
+      showroom.box.style.setProperty('--panel-pointer', arrived < 0.5 ? 'none' : 'auto')
+    }
 
     if (debugging) {
       window.__cinematic = {
-        version: VERSION, layout: show.name, progress, frame: index, handoff: seamless ? 'seamless' : 'dissolve',
+        version: VERSION, layout: show.name, progress, frame: index, handoff: showroom ? 'showroom' : seamless ? 'seamless' : 'dissolve',
         sameProducts: show.sameProducts, offByPx: offBy.map((value) => Math.round(value * 100) / 100), armedAfterMs: show.armedAfterMs,
         frames: layout.frames, decodedBytesEach: layout.width * layout.height * 4, canvasPixels: canvas.width * canvas.height, keep: show.keep, ...sequence.stats(),
       }
@@ -251,18 +321,29 @@ function run(show: Show, { runway, canvas, holder, spacer }: Elements, giveUp: (
   sequence.onPicture = () => {
     drawn = ''
   }
+  // What is reached with the keyboard: the block, or in a showroom the panels,
+  // which stand in for it. The block is then taken out of the way entirely.
+  const reached = showroom ? showroom.box : holder
+  if (showroom) {
+    holder.inert = true
+    holder.style.visibility = 'hidden'
+    holder.style.position = 'absolute'
+  }
   measure()
   canvas.dataset.armed = 'true'
   if (debugging) window.__cinematicPictures = () => sequence.stats().decoded
   onScreen.observe(runway)
   window.addEventListener('resize', measure)
-  holder.addEventListener('focusin', onFocus)
+  reached.addEventListener('focusin', onFocus)
 
   return () => {
     cancelAnimationFrame(request)
     onScreen.disconnect()
     window.removeEventListener('resize', measure)
-    holder.removeEventListener('focusin', onFocus)
+    reached.removeEventListener('focusin', onFocus)
+    holder.inert = false
+    holder.style.visibility = ''
+    holder.style.position = ''
     delete canvas.dataset.armed
     context.clearRect(0, 0, canvas.width, canvas.height)
     holder.style.opacity = ''

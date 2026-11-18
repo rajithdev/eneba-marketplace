@@ -253,12 +253,28 @@ Trying a set of frames locally without publishing it:
   the handoff in headless Chrome, measures how much each cover changes
   through it, and records it forwards, very slowly and backwards.
 
-## Frames from a finished video
+## Frames from a finished video, and the showroom
 
-`bash cinematic/video_set.sh <video> <version name>` cuts a set of frames
-from a filmed or generated shot instead of rendering them: the whole
-picture for a desktop, its middle for a phone, with fewer frames from the
-stretch at the end where the camera has all but stopped. Such a shot does
-not end on cases placed for the cards, so its manifest lists no slots and
-the page dissolves from the last frame into the real block; nothing about
-the cards depends on the frames.
+`bash cinematic/video_set.sh <video> <version name> [last moving frame] [panels.json]`
+cuts a set of frames from a filmed or generated shot instead of rendering
+them, with fewer frames from the stretch at the end where the camera has
+all but stopped.
+
+Such a shot does not end on cases placed for the cards. Given a list of
+the panels its last frame shows (`cinematic/kling-showroom-panels.json`:
+the game on each and its four corners), the last frame becomes a showroom:
+it stays on screen, and each panel is the card for the block's product of
+that game. Pointing at a panel, pressing it or reaching it with the
+keyboard brings up the product's name, discount and price from the API,
+with Add to cart and Buy Now (`web/src/cinematic/Showroom.tsx`).
+
+- The showroom is used only when its panels are exactly the block's
+  products (`showroomFits`). Otherwise the ordinary block is shown.
+- The frame comes to rest with every panel inside the window
+  (`panelsPlacement`), so no product is out of reach in a narrow window.
+- A widescreen shot has nothing for a phone: with
+  `VITE_CINEMATIC_LAYOUTS=wide` phones get the ordinary block.
+- Without a panel list the page dissolves from the last frame into the block.
+
+`node cinematic/showroom_preview.mjs http://localhost:5173 <folder>` tries
+all of it in headless Chrome and records it.

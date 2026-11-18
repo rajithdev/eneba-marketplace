@@ -20,6 +20,14 @@ export const LAYOUTS = {
   narrow: { slots: 2, pin: '200svh', pictureBudgetMB: 24 },
 } as const
 
+/**
+ * The layouts this build's frames come in. A set cut from one widescreen
+ * shot has nothing for a phone, and phones then get the ordinary block.
+ * (VITE_CINEMATIC_LAYOUTS, comma-separated, goes with VITE_CINEMATIC_VERSION
+ * when trying such a set locally.)
+ */
+const AVAILABLE: string[] = (import.meta.env.VITE_CINEMATIC_LAYOUTS ?? 'wide,narrow').split(',')
+
 const WIDE_FROM = 1024
 const NARROW_UP_TO = 639
 
@@ -33,7 +41,7 @@ export function layoutHere(productCount: number): LayoutName | null {
   if (!canRun()) return null
   const name = window.innerWidth >= WIDE_FROM ? 'wide' : window.innerWidth <= NARROW_UP_TO ? 'narrow' : null
 
-  return name && productCount >= LAYOUTS[name].slots ? name : null
+  return name && AVAILABLE.includes(name) && productCount >= LAYOUTS[name].slots ? name : null
 }
 
 function canRun() {

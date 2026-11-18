@@ -1,13 +1,8 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { cart } from '../lib/cart'
-import { fetchProduct, type ProductSummary } from '../lib/catalog'
+import { Link } from 'react-router'
+import type { ProductSummary } from '../lib/catalog'
 import { coverArt } from '../lib/coverArt'
 import { formatMoney } from '../lib/money'
-import { useSingleFlight } from '../lib/useSingleFlight'
-import { Icon } from './Icon'
-import { Spinner } from './States'
+import { BuyNow } from './BuyButtons'
 
 /*
  * A product in the deals row: its cover large, then the game's title, the
@@ -25,10 +20,6 @@ const card =
   'group relative flex h-full flex-col rounded-2xl border border-[#b08cff]/60 bg-[linear-gradient(180deg,#1f0c49_0%,#150835_55%,#0e0526_100%)] ' +
   'shadow-[0_0_16px_-3px_rgb(168_85_247/0.6)] transition-[border-color,box-shadow,transform] duration-200 ' +
   'hover:border-[#dcc4ff] hover:shadow-[0_0_24px_-1px_rgb(192_132_252/0.8)] focus-within:border-[#dcc4ff] motion-safe:hover:-translate-y-0.5'
-
-const buyButton =
-  'inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-[#c4a2ff]/50 bg-[linear-gradient(180deg,#9a5cff_0%,#6d2fe0_100%)] ' +
-  'text-[13px] font-extrabold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25)] hover:brightness-110 active:translate-y-px disabled:opacity-70 sm:text-sm'
 
 /**
  * The game's own title: the product's name without the platform and region
@@ -113,45 +104,5 @@ export function DealCard({ product, headingLevel: Heading = 'h3' }: { product: P
         <BuyNow product={product} />
       </div>
     </article>
-  )
-}
-
-/**
- * Buys at the price on the card: puts the product's best offer in the cart
- * and opens the cart, where the server checks it before anything is paid.
- *
- * A card only knows the best price, not which seller's offer it is, so the
- * product is asked for first (the same request the product page makes) and
- * its first offer that can be bought is taken: the API lists offers that
- * can be bought first, cheapest first. If that cannot be done (sold out in
- * the meantime, or the request fails) the product page opens instead, which
- * shows what is the matter.
- */
-function BuyNow({ product }: { product: ProductSummary }) {
-  const queryClient = useQueryClient()
-  const navigate = useNavigate()
-  const [busy, setBusy] = useState(false)
-
-  const buy = useSingleFlight(async () => {
-    setBusy(true)
-    try {
-      const { data } = await queryClient.fetchQuery({ queryKey: ['product', product.slug], queryFn: () => fetchProduct(product.slug) })
-      const best = data.offers.find((offer) => offer.in_stock)
-      if (!best) return navigate(`/product/${product.slug}`)
-
-      cart.add({ offerId: best.id, unitPriceCents: best.price.amount_cents, productName: data.name, sellerName: best.seller.name })
-      await navigate('/cart')
-    } catch {
-      await navigate(`/product/${product.slug}`)
-    } finally {
-      setBusy(false)
-    }
-  })
-
-  return (
-    <button type="button" className={buyButton} disabled={busy || !product.in_stock} aria-label={`Buy ${product.name} now`} onClick={() => void buy()}>
-      {busy ? <Spinner /> : <Icon name="cart" className="size-4" />}
-      {product.in_stock ? 'Buy Now' : 'Sold out'}
-    </button>
   )
 }

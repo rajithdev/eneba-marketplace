@@ -11,9 +11,12 @@
  */
 const PAINTED = new Set(['minecraft', 'hogwarts-legacy', 'ea-sports-fc-25', 'god-of-war', 'doom-eternal', 'forza-horizon-5'])
 
+/** Which game a cover address belongs to ("/covers/minecraft.svg" is "minecraft"), or null when it is not one of ours. */
+export const coverGame = (coverUrl: string | null): string | null => coverUrl?.match(/^\/covers\/([a-z0-9-]+)\.svg$/)?.[1] ?? null
+
 /** The painted cover for the game a cover address belongs to, or the address unchanged when there is none. */
 export function coverArt(coverUrl: string | null): string | null {
-  const game = coverUrl?.match(/^\/covers\/([a-z0-9-]+)\.svg$/)?.[1]
+  const game = coverGame(coverUrl)
 
   return game && PAINTED.has(game) ? `/covers/art/${game}.jpg` : coverUrl
 }

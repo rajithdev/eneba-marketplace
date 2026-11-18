@@ -127,3 +127,32 @@ export function phases(progress: number, seamless: boolean) {
     rounding: smoothstep(0.86, 0.93, progress),
   }
 }
+
+/**
+ * In a showroom (frames that end on the products themselves, each on a
+ * panel) nothing gives way to anything: the last frame stays, and what can
+ * be pressed on it fades in over this stretch, once the camera has stopped.
+ */
+export const arrival = (progress: number) => smoothstep(0.86, 0.93, progress)
+
+/**
+ * Whether a showroom can stand in for the block: its panels show exactly
+ * the games of the block's products, in any order. One product without a
+ * panel, or one panel without a product, and the ordinary block is used.
+ */
+export const showroomFits = (games: (string | null)[], shown: string[]) => games.length === shown.length && shown.every((game) => games.includes(game))
+
+/**
+ * Where a showroom's last frame rests: covering the stage where that shows
+ * every panel, and otherwise as large as still fits the row of panels (from
+ * `left` to `right`, as fractions of the frame) inside the stage with a
+ * little room at each side. A window narrower than the picture would cut
+ * the outer panels off, and a product must never be out of reach.
+ */
+export function panelsPlacement(frame: Size, stage: Size, left: number, right: number, room = 0.02): Placement {
+  const scale = Math.min(coverPlacement(frame, stage).scale, (stage.width * (1 - 2 * room)) / ((right - left) * frame.width))
+  // The row in the middle, without uncovering either side of the stage.
+  const x = clamp(stage.width / 2 - ((left + right) / 2) * frame.width * scale, stage.width - frame.width * scale, 0)
+
+  return { scale, x, y: (stage.height - frame.height * scale) / 2 }
+}

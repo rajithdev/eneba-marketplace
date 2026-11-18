@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { DealsBlock } from '../components/HomeBlocks'
 import type { HomepageBlock } from '../lib/homepage'
 import { LAYOUTS, layoutHere } from './layouts'
+import { Showroom } from './Showroom'
 import type { Armed } from './stage'
 
 /**
@@ -29,6 +30,7 @@ export function CinematicDeals({ block }: { block: HomepageBlock }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const holder = useRef<HTMLDivElement>(null)
   const spacer = useRef<HTMLDivElement>(null)
+  const hotspots = useRef<HTMLDivElement>(null)
 
   const products = (block.data.products ?? []).map((product) => product.slug)
   const [layout, setLayout] = useState(() => layoutHere(products.length))
@@ -88,7 +90,7 @@ export function CinematicDeals({ block }: { block: HomepageBlock }) {
   useEffect(() => {
     if (!armed || !runway.current || !canvas.current || !holder.current || !spacer.current) return
 
-    return armed.run({ runway: runway.current, canvas: canvas.current, holder: holder.current, spacer: spacer.current }, () => setArmed(null))
+    return armed.run({ runway: runway.current, canvas: canvas.current, holder: holder.current, spacer: spacer.current, hotspots: hotspots.current }, () => setArmed(null))
   }, [armed])
 
   return (
@@ -107,6 +109,16 @@ export function CinematicDeals({ block }: { block: HomepageBlock }) {
           <span hidden />
           <DealsBlock block={block} />
         </div>
+        {/*
+          Frames that end on the products themselves (a showroom): the
+          panels in the last frame are the cards. This lies over the stage
+          and holds what is pressed; stage.ts places it and brings it in.
+        */}
+        {armed?.panels && (
+          <div ref={hotspots} className="pointer-events-none absolute left-1/2 top-0 h-[100svh] w-screen -translate-x-1/2 overflow-hidden opacity-0">
+            <Showroom block={block} panels={armed.panels} />
+          </div>
+        )}
       </div>
       {/*
         The stretch the stage stays pinned for. It has to be an element:
