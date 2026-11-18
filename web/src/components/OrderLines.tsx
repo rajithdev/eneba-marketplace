@@ -1,11 +1,14 @@
 import { Link } from 'react-router'
 import type { Totals } from '../lib/checkout'
+import { coverArt } from '../lib/coverArt'
 import { formatMoney } from '../lib/money'
 
 /** The small cover beside a cart or order line. */
 export function LineCover({ url, dimmed = false }: { url: string | null; dimmed?: boolean }) {
-  return url ? (
-    <img src={url} alt="" width={600} height={800} className={`h-20 w-[60px] shrink-0 rounded-md object-cover ${dimmed ? 'opacity-50 grayscale' : ''}`} />
+  const cover = coverArt(url)
+
+  return cover ? (
+    <img src={cover} alt="" width={600} height={800} className={`h-20 w-[60px] shrink-0 rounded-md object-cover ${dimmed ? 'opacity-50 grayscale' : ''}`} />
   ) : (
     <div className="h-20 w-[60px] shrink-0 rounded-md bg-panel" />
   )

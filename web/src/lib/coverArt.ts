@@ -1,10 +1,12 @@
 /*
  * Painted covers. The backend names each game's cover picture
  * (/covers/<game>.svg, a drawn placeholder). For the games listed here a
- * painted cover exists as well, at /covers/art/<game>.jpg, and the deals
- * cards show that one instead. It is also the picture the scroll section's
- * cases carry (cinematic/build.mjs reads the same folder), which is what
- * lets a case become its card without the picture changing.
+ * painted cover exists as well, at /covers/art/<game>.jpg, and every place
+ * that shows a cover (store and deals cards, the product page, search
+ * suggestions, cart and order lines) shows that one instead. It is also the
+ * picture the scroll section's cases carry (cinematic/build.mjs reads the
+ * same folder), which is what lets a case become its card without the
+ * picture changing.
  *
  * The homepage has three more kinds of picture, chosen the same way: the
  * wide artwork behind the featured banner, the illustration in a

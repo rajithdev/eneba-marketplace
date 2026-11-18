@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useId, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { fetchSuggestions } from '../lib/catalog'
+import { coverArt } from '../lib/coverArt'
 import { formatMoney } from '../lib/money'
 import { storeSearchPath } from '../lib/storeParams'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
@@ -201,7 +202,7 @@ export function SearchBox() {
                 className={`flex cursor-pointer items-center gap-3 px-3 py-2 ${active === index ? 'bg-panel' : ''}`}
               >
                 {product.cover_image_url && (
-                  <img src={product.cover_image_url} alt="" width={36} height={48} className="h-12 w-9 shrink-0 object-cover" />
+                  <img src={coverArt(product.cover_image_url) ?? undefined} alt="" width={36} height={48} className="h-12 w-9 shrink-0 object-cover" />
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-extrabold">{product.name}</span>

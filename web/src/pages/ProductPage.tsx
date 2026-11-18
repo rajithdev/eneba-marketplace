@@ -7,6 +7,7 @@ import { VariantList } from '../components/VariantList'
 import { ApiError } from '../lib/api'
 import { cart, useCart } from '../lib/cart'
 import { fetchProduct, type Offer, type ProductDetail } from '../lib/catalog'
+import { coverArt } from '../lib/coverArt'
 import { formatDate, formatMoney } from '../lib/money'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
@@ -82,7 +83,7 @@ function ProductView({ product }: { product: ProductDetail }) {
         <div className="order-1 md:order-none">
           {product.cover_image_url && (
             <img
-              src={product.cover_image_url}
+              src={coverArt(product.cover_image_url) ?? undefined}
               alt={`Cover of ${product.game.title}`}
               width={600}
               height={800}

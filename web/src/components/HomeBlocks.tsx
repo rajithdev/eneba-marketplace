@@ -276,7 +276,7 @@ export function FeaturedBlock({ block }: { block: HomepageBlock }) {
         <div className="col-span-2 sm:col-span-4 lg:col-span-2">
           <Link to={`/product/${spotlight.slug}`} className={`group flex h-full items-center gap-4 p-4 sm:gap-6 sm:p-6 ${raised} ${lit}`}>
             {spotlight.cover_image_url && (
-              <img src={spotlight.cover_image_url} alt="" width={600} height={800} className="h-auto w-28 shrink-0 rounded-lg object-cover shadow-2xl sm:w-40" />
+              <img src={coverArt(spotlight.cover_image_url) ?? undefined} alt="" width={600} height={800} className="h-auto w-28 shrink-0 rounded-lg object-cover shadow-2xl sm:w-40" />
             )}
             <span className="flex min-w-0 flex-1 flex-col gap-2">
               <h3 className="text-xl font-black leading-tight group-hover:underline sm:text-2xl">{spotlight.name}</h3>

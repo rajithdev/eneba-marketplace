@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import type { ProductSummary } from '../lib/catalog'
+import { coverArt } from '../lib/coverArt'
 import { PriceTag } from './PriceTag'
 import { glowing } from './States'
 
@@ -10,16 +11,20 @@ import { glowing } from './States'
  * fits where it sits on that page.
  */
 export function ProductCard({ product, headingLevel: Heading = 'h2' }: { product: ProductSummary; headingLevel?: 'h2' | 'h3' }) {
+  // The painted cover where the game has one; otherwise the drawn one the API names.
+  const cover = coverArt(product.cover_image_url)
+
   return (
     <Link to={`/product/${product.slug}`} className={`group flex h-full flex-col overflow-hidden ${glowing}`}>
       <div className="relative aspect-[3/4] overflow-hidden bg-panel">
-        {product.cover_image_url && (
+        {cover && (
           <img
-            src={product.cover_image_url}
+            src={cover}
             // Decorative: the product name is in the text right below.
             alt=""
-            // Not lazy-loaded: each cover is about 1 KB, and lazy loading left
-            // visible cards blank for a moment on the live site.
+            // Not lazy-loaded: lazy loading left visible cards blank for a
+            // moment on the live site. A drawn cover is about 1 KB, a painted
+            // one about 100 KB.
             width={600}
             height={800}
             className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] ${product.in_stock ? '' : 'opacity-40 grayscale'}`}
