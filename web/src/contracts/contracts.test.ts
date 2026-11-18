@@ -1,7 +1,9 @@
 import { expect, it } from 'vitest'
+import type { AccountSummaryResponse } from '../lib/account'
 import type { FiltersResponse, ProductDetailResponse, ProductListResponse, SuggestionsResponse } from '../lib/catalog'
 import type { CartChangedResponse, OrderListResponse, OrderResponse, QuoteResponse } from '../lib/checkout'
 import type { HomepageResponse } from '../lib/homepage'
+import summaryExample from './account.summary.json'
 import quoteExample from './cart.quote.json'
 import filtersExample from './filters.json'
 import homepageExample from './homepage.json'
@@ -33,6 +35,7 @@ const paid: OrderResponse = paidExample.response
 const declined: OrderResponse = declinedExample.response
 const orders: OrderListResponse = ordersExample.response
 const homepage: HomepageResponse = homepageExample.response
+const summary: AccountSummaryResponse = summaryExample.response
 
 it('the recorded examples cover the cases the pages must handle', () => {
   // A discounted product, a full-price one and a sold-out one.
@@ -60,6 +63,9 @@ it('the recorded examples cover the cases the pages must handle', () => {
   // The order history never carries keys.
   expect(orders.data.length).toBeGreaterThan(1)
   expect(JSON.stringify(orders)).not.toContain('"keys"')
+  // The dashboard's totals: counts and a sum, never a key.
+  expect(summary.data.keys_count).toBeGreaterThan(0)
+  expect(JSON.stringify(summary)).not.toContain('XXXXX')
 
   // A hero with banners, then three product blocks.
   expect(homepage.data.blocks.map((block) => block.type)).toEqual(['hero_banner', 'best_sellers', 'deals', 'featured'])

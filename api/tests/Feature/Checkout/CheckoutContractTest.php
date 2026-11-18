@@ -55,6 +55,9 @@ class CheckoutContractTest extends TestCase
 
         $list = $this->actingAs($buyer)->getJson('/api/orders')->assertOk();
         $this->assertMatchesExample('orders.list.json', 'GET /api/orders', $this->stable($list->json(), $id, $declined->public_id));
+
+        $summary = $this->actingAs($buyer)->getJson('/api/account/summary')->assertOk();
+        $this->assertMatchesExample('account.summary.json', 'GET /api/account/summary', $summary->json());
     }
 
     private function cheapestOffer(string $productSlug): Offer

@@ -1,11 +1,14 @@
 import type { RouteObject } from 'react-router'
 import { AppShell } from './components/AppShell'
-import { AccountPage } from './pages/AccountPage'
+import { AccountLayout, OrdersRedirect, RegisterPage } from './account/AccountLayout'
+import { KeysTab } from './account/KeysTab'
+import { OrdersTab } from './account/OrdersTab'
+import { OverviewPage } from './account/OverviewPage'
+import { ProfileTab } from './account/ProfileTab'
 import { CartPage } from './pages/CartPage'
 import { HomePage } from './pages/HomePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { OrderPage } from './pages/OrderPage'
-import { OrdersPage } from './pages/OrdersPage'
 import { PageCrashed } from './pages/PageCrashed'
 import { ProductPage } from './pages/ProductPage'
 import { StorePage } from './pages/StorePage'
@@ -37,8 +40,20 @@ export const routes: RouteObject[] = inShell([
   { path: '/archive/all', lazy: () => import('./archive/ArchivePage').then((archive) => ({ Component: archive.ArchiveBrowsePage })) },
   { path: '/product/:slug', element: <ProductPage /> },
   { path: '/cart', element: <CartPage /> },
-  { path: '/orders', element: <OrdersPage /> },
+  // The order history moved into the account; its old address still works.
+  { path: '/orders', element: <OrdersRedirect /> },
   { path: '/orders/:id', element: <OrderPage /> },
-  { path: '/account', element: <AccountPage /> },
+  // The account: signed out, the sign-in form; signed in, the dashboard and its sections.
+  {
+    path: '/account',
+    element: <AccountLayout />,
+    children: [
+      { index: true, element: <OverviewPage /> },
+      { path: 'orders', element: <OrdersTab /> },
+      { path: 'keys', element: <KeysTab /> },
+      { path: 'profile', element: <ProfileTab /> },
+    ],
+  },
+  { path: '/account/register', element: <RegisterPage /> },
   { path: '*', element: <NotFoundPage /> },
 ])

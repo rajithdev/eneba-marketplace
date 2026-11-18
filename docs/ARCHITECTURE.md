@@ -34,7 +34,7 @@ and that scope must be justified.
 | Depth | Features |
 |---|---|
 | Deep, with backend tests | Product and seller-offer model, search, checkout with key delivery |
-| Solid but standard | Store filters, sorting and pagination; authentication; homepage blocks, with scroll effects that lead into a scroll-controlled showroom in front of the deals block on a desktop; order history |
+| Solid but standard | Store filters, sorting and pagination; authentication; homepage blocks, with scroll effects that lead into a scroll-controlled showroom in front of the deals block on a desktop; order history and the account dashboard |
 | Cut | Seller accounts and dashboards, admin UI, reviews, wishlist, multiple currencies, emails, refunds UI, server-side rendering, genres, password reset, social login |
 
 Sellers are catalog data: they are seeded, they do not log in.
@@ -375,7 +375,8 @@ Every order route needs a signed-in user and looks the order up through
 that user's own orders, by a random public id: someone else's order answers
 "not found", exactly like one that does not exist. License keys appear in
 one place only, the single-order response, and only once the order is paid.
-The order history, quotes and pending orders never contain a key.
+The order history, the account totals, quotes and pending orders never
+contain a key.
 
 The browser holds on to none of it past the session. Orders and keys are
 kept in memory only, under the buyer's id, and are discarded the moment the
@@ -485,6 +486,53 @@ filter larger than the price column can hold, a query string that is not
 valid UTF-8, a list where the sign-in rate limiter expected an email, and
 the bearer token above. The API host's firewall refuses some of these
 before the application sees them (403), which is also a controlled answer.
+
+## Account (Built)
+
+`/account` is the sign-in form for a visitor and a dashboard for a buyer,
+built only on what the API offers. Signed out, every account address shows
+the sign-in form in place (with a heading for what was asked for), and
+signing in shows that page; `/account/register` is the sign-up form.
+Signed in, a sidebar (a row of four tabs on a phone) leads to:
+
+| Page | Shows | From |
+|---|---|---|
+| Overview | totals, the latest orders, the latest keys | `GET /api/account/summary`, `GET /api/orders`, `GET /api/orders?status=paid` |
+| My orders (`/account/orders`) | every order with its date, reference, total, order and payment status; a filter by status | `GET /api/orders?status=...` |
+| My game keys (`/account/keys`) | one card per product of a paid order, its keys hidden | `GET /api/orders?status=paid`, then `GET /api/orders/{id}` on "Reveal" |
+| Profile (`/account/profile`) | name and email; sign out | `GET /api/auth/me` |
+
+Two read-only additions to the API made the dashboard possible without
+counting in the browser (which would be wrong past the first page of
+orders):
+
+- `GET /api/account/summary`: the buyer's number of orders, of paid
+  orders, of orders awaiting payment, of keys delivered, and the total
+  spent. Counts and a sum, from the buyer's own orders only; never a key.
+  Like the order history, it first settles the buyer's pending orders.
+- `?status=` on `GET /api/orders`: one of the order states, validated
+  (anything else is 422).
+
+Keys are still in one response only, the single paid order. The key cards
+are drawn from the order history (no keys) with every key masked;
+"Reveal" asks for that order and shows the keys of that one product. The
+answer stays in memory under the buyer's id like every other order, and
+nothing is written to browser storage. A pending order is said to be
+awaiting payment, with no keys; declined, expired and cancelled orders
+say no keys were delivered and nothing was charged.
+
+The forms check the same rules as the server before sending (required
+fields, an email's shape, eight characters for a new password) and show
+the server's own message when it disagrees. A failed sign-in is said
+above the form, since it is about the email and password together. There
+is no social sign-in, password reset or profile editing, because the API
+has none; the profile page says that changing details is not available.
+
+When a signed-in session ends without "Sign out" being pressed (it
+expired, or ended in another tab, and a request was answered 401), the
+sign-in form says that the session has ended; after "Sign out" it says
+the buyer has signed out. `/orders`, the history's old address, forwards
+to `/account/orders` with its page.
 
 ## Search (Built)
 

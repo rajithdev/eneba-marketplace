@@ -65,7 +65,7 @@ export function OrderPage() {
       <div className={pageTop}>
         <Notice title="Order not found" heading="h1">
           <p>This order does not exist, or belongs to another account.</p>
-          <Link to="/orders" className={primaryButton}>
+          <Link to="/account/orders" className={primaryButton}>
             Your orders
           </Link>
         </Notice>
@@ -84,7 +84,7 @@ export function OrderPage() {
   return (
     <div className={pageTop}>
       <p className="text-sm text-muted">
-        <Link to="/orders" className="underline hover:text-accent">
+        <Link to="/account/orders" className="underline hover:text-accent">
           Your orders
         </Link>{' '}
         / Order {shortId(data.id)}
@@ -253,8 +253,8 @@ function Outcome({ order }: { order: Order }) {
         </h1>
         <p className="mt-2 text-muted">
           Thank you. Your {order.totals.items_count === 1 ? 'key is' : 'keys are'} below, and stay available under{' '}
-          <Link to="/orders" className="underline hover:text-accent">
-            Your orders
+          <Link to="/account/keys" className="underline hover:text-accent">
+            My game keys
           </Link>
           .
         </p>

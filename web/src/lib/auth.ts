@@ -53,7 +53,8 @@ export function useSession(): Session {
 
 /**
  * Everything this browser remembers that belongs to one buyer: their
- * orders, with the keys in them, and the checkout they had in progress.
+ * orders, with the keys in them, their account totals, and the checkout
+ * they had in progress.
  * Dropped whenever the person at the keyboard may have changed, so that
  * nothing of the previous buyer's can be shown to the next one. (The cart
  * is not personal: it is kept, so a visitor can fill it before signing in.)
@@ -61,6 +62,7 @@ export function useSession(): Session {
 function forgetBuyer(queryClient: QueryClient) {
   queryClient.removeQueries({ queryKey: ['orders'] })
   queryClient.removeQueries({ queryKey: ['order'] })
+  queryClient.removeQueries({ queryKey: ['account'] })
   checkoutAttempt.forget()
 }
 

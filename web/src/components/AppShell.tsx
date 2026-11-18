@@ -76,7 +76,7 @@ export function AppShell() {
             </NavLink>
             {/* A signed-in buyer sees their orders and their own name here. */}
             {session.state === 'signed-in' && (
-              <NavLink to="/orders" className={navLink} aria-label="Orders">
+              <NavLink to="/account/orders" className={navLink} aria-label="Orders">
                 <Icon name="orders" className="size-6" />
                 <span className={navWord}>Orders</span>
               </NavLink>
@@ -145,7 +145,7 @@ export function AppShell() {
                 </Link>
               </li>
               <li>
-                <Link to="/orders" className={footerLink}>
+                <Link to="/account/orders" className={footerLink}>
                   Your orders and keys
                 </Link>
               </li>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountSummaryController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CatalogFilterController;
@@ -50,6 +51,8 @@ Route::middleware(ReleaseExpiredReservations::class)->group(function () {
     // Orders belong to a signed-in buyer. {order} is the order's public id.
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders', [OrderController::class, 'index']);
+        // The account dashboard's totals: counts only, never a key.
+        Route::get('/account/summary', AccountSummaryController::class);
         Route::get('/orders/{order}', [OrderController::class, 'show'])->whereUuid('order');
 
         Route::middleware('throttle:checkout')->group(function () {

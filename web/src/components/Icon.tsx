@@ -73,9 +73,75 @@ const shapes: Record<string, ReactNode> = {
       <path d="M2.8 19.5a6.2 6.2 0 0 1 12.400 0M15.800 5.600a3.300 3.300 0 0 1 0 5.800M17.700 14.300a6.200 6.200 0 0 1 3.500 5.200" />
     </>
   ),
+  // The account pages: their sections, and the controls around a key.
+  home: (
+    <>
+      <path d="M3.5 10.5 12 3.5l8.5 7" />
+      <path d="M5.5 9v11h13V9M10 20v-6h4v6" />
+    </>
+  ),
+  key: (
+    <>
+      <circle cx="8" cy="15" r="4.5" />
+      <path d="m11.2 11.8 8.8-8.8M16.5 6.5 19 9M14 9l2 2" />
+    </>
+  ),
+  logout: (
+    <>
+      <path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14" />
+      <path d="M10 16.5 5.5 12 10 7.5M5.5 12H16" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  'eye-off': (
+    <>
+      <path d="M10.6 5.6a9.6 9.6 0 0 1 1.4-.1c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.7 3.4M6.6 6.6C4 8.3 2.5 12 2.5 12s3.5 6.5 9.5 6.5a9 9 0 0 0 5.4-1.7" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3.5 3.5l17 17" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2" />
+      <path d="M15.5 8.5V6A1.5 1.5 0 0 0 14 4.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5" />
+    </>
+  ),
+  check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  coins: (
+    <>
+      <ellipse cx="12" cy="6.5" rx="7" ry="3" />
+      <path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5M5 11.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3 4.5 6v5.5c0 4.5 3.2 8.2 7.5 9.5 4.3-1.3 7.5-5 7.5-9.5V6z" />
+      <path d="m9 12 2.2 2.2L15.5 10" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
+  next: <path d="m9.5 6 6 6-6 6" />,
+  bolt: <path d="M13 3 5.5 13.5H12L11 21l7.5-10.5H12z" />,
+  lock: (
+    <>
+      <rect x="5" y="10.5" width="14" height="10" rx="2" />
+      <path d="M8 10.5v-3a4 4 0 0 1 8 0v3" />
+    </>
+  ),
 }
 
-export type IconName = 'search' | 'cart' | 'user' | 'orders' | 'arrow' | 'star' | 'gamepad' | 'shelf' | 'grid' | 'chevron' | 'sort' | 'platform' | 'globe' | 'sellers'
+export type IconName =
+  | 'search' | 'cart' | 'user' | 'orders' | 'arrow' | 'star' | 'gamepad' | 'shelf' | 'grid' | 'chevron' | 'sort' | 'platform' | 'globe' | 'sellers'
+  | 'home' | 'key' | 'logout' | 'eye' | 'eye-off' | 'copy' | 'check' | 'coins' | 'shield' | 'clock' | 'next' | 'bolt' | 'lock'
 
 export function Icon({ name, className = 'size-5' }: { name: IconName; className?: string }) {
   return (

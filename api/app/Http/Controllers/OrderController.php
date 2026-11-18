@@ -15,6 +15,7 @@ use App\Services\Checkout\PlaceOrder;
 use App\Services\Checkout\SettleOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * A buyer's orders: placing one, paying for it, and reading it back.
@@ -35,7 +36,12 @@ class OrderController extends Controller
         $request->user()->orders()->where('status', OrderStatus::Pending)->get()
             ->each(fn (Order $order) => $settle->reconcile($order));
 
-        $page = $request->user()->orders()->with(self::WITH)->latest('id')->paginate(10);
+        // ?status=paid lists only the orders whose keys were delivered.
+        $status = $request->validate(['status' => ['nullable', Rule::enum(OrderStatus::class)]])['status'] ?? null;
+
+        $page = $request->user()->orders()
+            ->when($status, fn ($orders) => $orders->where('status', $status))
+            ->with(self::WITH)->latest('id')->paginate(10)->withQueryString();
 
         return response()->json([
             'data' => OrderSummaryResource::collection($page->items())->resolve($request),

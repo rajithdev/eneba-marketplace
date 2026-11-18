@@ -142,11 +142,13 @@ export const placeOrder = (items: CartItem[], idempotencyKey: string) =>
  * behind in the cache.
  */
 export const orderKey = (userId: number | null, id: string) => ['order', userId, id]
-export const ordersKey = (userId: number | null, page: number) => ['orders', userId, page]
+export const ordersKey = (userId: number | null, page: number, status = '') => ['orders', userId, status || 'all', page]
 
 export const fetchOrder = (id: string) => apiFetch<OrderResponse>(`/orders/${encodeURIComponent(id)}`)
 
-export const fetchOrders = (page: number) => apiFetch<OrderListResponse>(`/orders?page=${page}`)
+/** One page of the order history; `status` ("paid", "pending", ...) lists only the orders in that state. */
+export const fetchOrders = (page: number, status = '') =>
+  apiFetch<OrderListResponse>(`/orders?page=${page}${status ? `&status=${encodeURIComponent(status)}` : ''}`)
 
 export const payOrder = (id: string, paymentMethod: string) =>
   apiFetch<OrderResponse>(`/orders/${encodeURIComponent(id)}/pay`, {
@@ -197,6 +199,22 @@ export const statusLabels: Record<string, string> = {
   failed: 'Payment declined',
   expired: 'Expired',
   cancelled: 'Cancelled',
+}
+
+/** Where the money is, worded for the buyer (an order's payment status). */
+export const paymentLabels: Record<string, string> = {
+  pending: 'Not charged yet',
+  succeeded: 'Charged',
+  failed: 'Declined, not charged',
+  cancelled: 'Not charged',
+}
+
+/** "Elden Ring Steam Key GLOBAL", or "Elden Ring Steam Key GLOBAL and 2 more" for an order of several products. */
+export function orderTitle(order: OrderSummary): string {
+  const [first, ...others] = order.items
+  if (!first) return 'Order'
+
+  return others.length === 0 ? first.product.name : `${first.product.name} and ${others.length} more`
 }
 
 /** The first block of the order's long random id is enough to recognise it by. */

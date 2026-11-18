@@ -59,6 +59,24 @@ class OrderAccessTest extends TestCase
         $this->actingAs($buyer)->getJson('/api/orders?page=2')->assertOk()->assertJsonCount(1, 'data');
     }
 
+    public function test_the_order_history_can_list_only_the_orders_in_one_state(): void
+    {
+        $buyer = User::factory()->create();
+        $offer = $this->offer(1000, keys: 10);
+        $paid = $this->pendingOrder($buyer, $offer);
+        $this->pay($buyer, $paid)->assertOk();
+        $this->pay($buyer, $this->pendingOrder($buyer, $offer), 'test_card_declined');
+        $this->pendingOrder($buyer, $offer);
+
+        $this->actingAs($buyer)->getJson('/api/orders?status=paid')->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $paid->public_id)
+            ->assertJsonPath('meta.total', 1);
+        $this->actingAs($buyer)->getJson('/api/orders?status=')->assertOk()->assertJsonPath('meta.total', 3);
+        $this->actingAs($buyer)->getJson('/api/orders?status=refunded')->assertUnprocessable()->assertJsonValidationErrors('status');
+        $this->actingAs($buyer)->getJson('/api/orders?status[]=paid')->assertUnprocessable();
+    }
+
     public function test_keys_are_shown_to_their_buyer_only_once_the_order_is_paid(): void
     {
         $buyer = User::factory()->create();

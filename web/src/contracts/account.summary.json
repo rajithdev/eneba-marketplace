@@ -1,0 +1,15 @@
+{
+    "request": "GET /api/account/summary",
+    "response": {
+        "data": {
+            "orders_count": 2,
+            "paid_orders_count": 1,
+            "pending_orders_count": 0,
+            "keys_count": 3,
+            "spent": {
+                "total_cents": 8027,
+                "currency": "EUR"
+            }
+        }
+    }
+}

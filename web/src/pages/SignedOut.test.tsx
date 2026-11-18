@@ -60,6 +60,7 @@ function server(signedIn: typeof ada | null) {
         state.signedIn = ben
         return { body: { data: ben } }
       }
+      if (path === '/api/account/summary') return state.signedIn ? { body: { data: { orders_count: 0, paid_orders_count: 0, pending_orders_count: 0, keys_count: 0, spent: { total_cents: 0, currency: 'EUR' } } } } : unauthenticated
       if (path === '/api/orders') return state.orders ?? (state.signedIn === ada ? { body: ordersExample.response } : state.signedIn ? { body: noOrders } : unauthenticated)
       if (path === `/api/orders/${orderId}`) return state.signedIn === ada ? { body: adasPaidOrder } : state.signedIn ? { status: 404, body: { message: 'Order not found.' } } : unauthenticated
       return { status: 404, body: { message: 'Not found.' } }
@@ -194,20 +195,25 @@ it('never shows one account the orders of the account that used the browser befo
   await screen.findByRole('link', { name: 'View keys' })
 
   await signOut(router)
+
+  // Ben signs in, and his account opens on its overview, which asks for his
+  // latest orders. While the answer is on its way, nothing of Ada's fills the gap.
+  let answer: (reply: Reply) => void = () => {}
+  api.orders = new Promise<Reply>((resolve) => (answer = resolve))
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: ben.email } })
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'a-test-password' } })
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
   await screen.findByText(ben.email)
-
-  // Ben opens his orders. While the answer is on its way, nothing of
-  // Ada's fills the gap.
-  let answer: (reply: Reply) => void = () => {}
-  api.orders = new Promise<Reply>((resolve) => (answer = resolve))
-  await router.navigate('/orders')
-  expect(await screen.findByText('Loading your orders…')).toBeInTheDocument()
+  expect(screen.getByRole('status', { name: 'Loading your orders' })).toBeInTheDocument()
   expectNothingOfAdas()
 
   answer({ body: noOrders })
+  expect(await screen.findByRole('heading', { name: 'No orders yet' })).toBeInTheDocument()
+  expectNothingOfAdas()
+
+  // His order history, opened by its old address, is his too.
+  await router.navigate('/orders')
+  expect(await screen.findByRole('heading', { level: 1, name: 'My orders' })).toBeInTheDocument()
   expect(await screen.findByRole('heading', { name: 'No orders yet' })).toBeInTheDocument()
   expectNothingOfAdas()
 

@@ -83,7 +83,7 @@ describe('the header and footer', () => {
     const main = screen.getByRole('navigation', { name: 'Main' })
 
     expect(await within(main).findByRole('link', { name: 'Account, signed in as Ada Lovelace' })).toHaveTextContent('Ada Lovelace')
-    expect(within(main).getByRole('link', { name: 'Orders' })).toHaveAttribute('href', '/orders')
+    expect(within(main).getByRole('link', { name: 'Orders' })).toHaveAttribute('href', '/account/orders')
   })
 })
 
