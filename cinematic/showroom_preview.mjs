@@ -78,6 +78,8 @@ const capture = async (format = 'jpeg') => Buffer.from((await send('Page.capture
 const scrollTo = async (y, settle = 450) => {
   await evaluate(`window.scrollTo(0, ${Math.round(y)})`)
   await sleep(settle)
+  // The store's picture glides for a moment after the scroll stops, onto a single frame: wait for that too.
+  for (let i = 0; i < 40 && (await evaluate(`window.__cinematic?.blended === true && (() => { const box = document.querySelector('main canvas').getBoundingClientRect(); return box.top < innerHeight && box.bottom > 0 })()`)); i++) await sleep(50)
 }
 const until = async (expression, tries = 400) => {
   for (let i = 0; i < tries; i++) {

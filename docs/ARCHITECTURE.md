@@ -641,9 +641,20 @@ keyboard brings up the product's name, discount and price, with **Add to
 cart** and **Buy Now**. The code is `web/src/cinematic`; how the frames are
 made is in `cinematic/README.md`.
 
-**What it is made of.** 105 WebP frames (8.2 MB) cut from a ten-second
+**What it is made of.** 209 WebP frames (16.3 MB) cut from a ten-second
 generated video, drawn on a canvas as the page scrolls past a pinned stage.
 The video is decoration; nothing is read from it.
+
+**Gliding between frames.** A frame is about nine pixels of scrolling, so
+scrolled slowly a sequence of frames is seen for what it is: a still
+picture, then a jump. Two things remove that. Every frame of the video is
+kept while its camera moves (the first set kept every second one), which
+halves each jump. And between two frames the later one is drawn over the
+earlier, as solid as the scroll is far along, so the picture passes from
+one into the next. Two frames laid over each other look like motion blur
+while moving but soft when still, so once scrolling stops the picture is
+eased onto the nearest whole frame; the same scroll position therefore
+still rests on the same sharp picture whichever way it was reached.
 
 **It stays the backend's block.** The frames know only which game each
 panel shows. A panel's product is the one in the API's block for that game,
@@ -666,8 +677,9 @@ the same products. That is decided at once from the window and the device,
 before anything is downloaded, so the page never changes shape later.
 
 **What it costs.** The code for it is fetched only by browsers that will
-run it. They fetch 14 frames (1.1 MB) to be ready and the other 91 only
-when the section is within two windows' height. At most 48 MB of decoded
+run it. They fetch 14 frames (1.1 MB) to be ready and the other 195 only
+when the section is within two windows' height, the evenly spread ones
+first, so the steps get finer everywhere at once. At most 48 MB of decoded
 pictures are held, and none while the section is off screen. The frames
 are in a folder named for their version, so a later set never collides
 with one a browser still holds.

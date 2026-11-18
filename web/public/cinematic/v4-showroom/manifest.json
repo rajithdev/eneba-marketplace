@@ -1,13 +1,13 @@
 {
-  "version": "v3-showroom",
+  "version": "v4-showroom",
   "background": "#341281",
   "layouts": {
     "wide": {
-      "frames": 105,
+      "frames": 209,
       "width": 1440,
       "height": 808,
       "path": "wide/f-{frame}.webp",
-      "bytes": 8606212,
+      "bytes": 17135058,
       "travel": 0.86,
       "slots": [],
       "panels": [

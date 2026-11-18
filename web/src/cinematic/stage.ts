@@ -7,18 +7,22 @@
  */
 import type { HomepageBlock } from '../lib/homepage'
 import { coverGame } from '../lib/coverArt'
-import { arrival, dusk, softEdges, panelsPlacement, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
+import { arrival, blendAt, dusk, framePosition, softEdges, toWholeFrame, panelsPlacement, showroomFits, between, coverPlacement, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
 import { LAYOUTS, type LayoutName } from './layouts'
 import { loadSequence, type Sequence } from './sequence'
 
 /** Which set of frames (a folder under /cinematic) this build of the site uses. VITE_CINEMATIC_VERSION picks another, for trying a set locally. */
-export const VERSION: string = import.meta.env.VITE_CINEMATIC_VERSION ?? 'v3-showroom'
+export const VERSION: string = import.meta.env.VITE_CINEMATIC_VERSION ?? 'v4-showroom'
 const BASE = `/cinematic/${VERSION}`
 
 /** The cases may sit this far from the real covers, in pixels, and still be faded straight into them. */
 const SEAMLESS_WITHIN = 1
 /** How quickly the picture catches up with the scroll position, in milliseconds: long enough to smooth a mouse wheel's steps, short enough to feel direct. */
 const CATCH_UP_MS = 90
+/** Scrolling counts as stopped once the scroll position has not changed for this long, in milliseconds. */
+const REST_AFTER_MS = 140
+/** How quickly the picture then settles onto a single frame, and lets go of it when scrolling starts again, in milliseconds. */
+const SETTLE_MS = 90
 /** A case's own edge may show this far around its front, in pixels; it is let go of as the corners are rounded. */
 const CASE_RIM = 3
 
@@ -217,19 +221,24 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade }: El
     }
   }
 
-  const draw = (progress: number) => {
+  /** `position` is where the picture is among the frames (12.4: four tenths of the way from frame 12 to frame 13). */
+  const draw = (progress: number, position: number) => {
     const phase = phases(progress, seamless)
     const arrived = showroom ? arrival(progress) : 0
     // In a showroom the frame never gives way and the block never appears.
     const { settle, rounding } = phase
     const frameAlpha = showroom ? 1 : phase.frameAlpha
     const cardsAlpha = showroom ? 0 : phase.cardsAlpha
-    const index = frameAt(progress, layout.travel, layout.frames)
+    const { index, mix } = blendAt(position, layout.frames)
     const picture = sequence.picture(index)
+    // Between two frames, the later one is laid over the earlier, as solid as the
+    // position is far along: the picture passes from one into the next instead of
+    // jumping. Only when both are really there; a stand-in is never mixed in.
+    const over = mix > 0 && picture === sequence.exact(index) ? sequence.exact(index + 1) : null
     const at = between(cover, handoff, settle)
 
     // Nothing is drawn again unless what would be drawn has changed.
-    const state = [index, at.scale.toFixed(4), at.x.toFixed(1), at.y.toFixed(1), frameAlpha.toFixed(3), cardsAlpha.toFixed(3), rounding.toFixed(3), arrived.toFixed(3)].join()
+    const state = [index, over ? mix.toFixed(3) : 'alone', at.scale.toFixed(4), at.x.toFixed(1), at.y.toFixed(1), frameAlpha.toFixed(3), cardsAlpha.toFixed(3), rounding.toFixed(3), arrived.toFixed(3)].join()
     if (state === drawn) return
     drawn = state
 
@@ -255,16 +264,23 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade }: El
         }
         context.clip()
       }
-      context.drawImage(picture, at.x * density, at.y * density, frame.width * at.scale * density, frame.height * at.scale * density)
-      if (shaped) context.restore()
-      // A showroom's frame that has been eased back no longer reaches the
-      // top and bottom of the stage. Its own first and last rows are drawn
-      // out to the edges, so ceiling and floor simply carry on.
-      if (showroom && at.y > 0) {
-        const [x, wide, tall] = [at.x * density, frame.width * at.scale * density, at.y * density]
-        context.drawImage(picture, 0, 0, picture.width, 1, x, 0, wide, tall + 1)
-        context.drawImage(picture, 0, picture.height - 1, picture.width, 1, x, canvas.height - tall - 1, wide, tall + 1)
+      const paint = (source: ImageBitmap) => {
+        context.drawImage(source, at.x * density, at.y * density, frame.width * at.scale * density, frame.height * at.scale * density)
+        // A showroom's frame that has been eased back no longer reaches the
+        // top and bottom of the stage. Its own first and last rows are drawn
+        // out to the edges, so ceiling and floor simply carry on.
+        if (showroom && at.y > 0) {
+          const [x, wide, tall] = [at.x * density, frame.width * at.scale * density, at.y * density]
+          context.drawImage(source, 0, 0, source.width, 1, x, 0, wide, tall + 1)
+          context.drawImage(source, 0, source.height - 1, source.width, 1, x, canvas.height - tall - 1, wide, tall + 1)
+        }
       }
+      paint(picture)
+      if (over) {
+        context.globalAlpha = frameAlpha * mix
+        paint(over)
+      }
+      if (shaped) context.restore()
     }
 
     // The real block is always in the page (for screen readers and the
@@ -278,7 +294,7 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade }: El
 
     if (debugging) {
       window.__cinematic = {
-        version: VERSION, layout: show.name, progress, frame: index, handoff: showroom ? 'showroom' : seamless ? 'seamless' : 'dissolve',
+        version: VERSION, layout: show.name, progress, frame: Math.round(position), position: Math.round(position * 1000) / 1000, blended: over !== null, handoff: showroom ? 'showroom' : seamless ? 'seamless' : 'dissolve',
         sameProducts: show.sameProducts, offByPx: offBy.map((value) => Math.round(value * 100) / 100), armedAfterMs: show.armedAfterMs,
         frames: layout.frames, decodedBytesEach: layout.width * layout.height * 4, canvasPixels: canvas.width * canvas.height, keep: show.keep, ...sequence.stats(),
       }
@@ -289,6 +305,9 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade }: El
   // to where the scroll is. It only runs while the section is on screen.
   let shown = -1
   let last = 0
+  let aimed = -1 // the scroll position as last seen,
+  let movedAt = 0 // and when it last changed
+  let nudge = 0 // how far the picture has been eased from where the scroll is toward a whole frame, in frames
   let request = 0
   let edges = '' // the canvas's mask as last set
   let dimmed = '' // the shade's opacity as last set
@@ -313,10 +332,25 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade }: El
     }
     // The page around the stage dims as the stage arrives, and brightens again as it leaves.
     dim(dusk(section.top, section.bottom, window.innerHeight))
+    if (target !== aimed) {
+      aimed = target
+      movedAt = now
+    }
     shown = shown < 0 ? target : target + (shown - target) * Math.exp(-(now - last) / CATCH_UP_MS)
     if (Math.abs(shown - target) < 0.0004) shown = target
+    // While the page is being scrolled the picture is wherever the scroll is,
+    // between frames as often as not. Once scrolling has stopped and the
+    // picture has caught up with it, the picture is eased onto the nearest
+    // whole frame, which is sharp (see toWholeFrame); and off it again, as
+    // gently, when scrolling resumes.
+    const position = framePosition(shown, layout.travel, layout.frames)
+    const stopped = shown === target && now - movedAt > REST_AFTER_MS
+    const wanted = stopped ? toWholeFrame(position) : 0
+    nudge = wanted + (nudge - wanted) * Math.exp(-(now - last) / SETTLE_MS)
+    // Within a hundredth of a frame is there: the difference could not be seen.
+    if (Math.abs(nudge - wanted) < 0.01) nudge = wanted
     last = now
-    draw(shown)
+    draw(shown, position + nudge)
     request = requestAnimationFrame(tick)
   }
   // The frames between the coarse pass are only fetched once the section is

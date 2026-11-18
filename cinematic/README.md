@@ -259,8 +259,12 @@ Trying a set of frames locally without publishing it:
 
 `bash cinematic/video_set.sh <video> <version name> [last moving frame] [panels.json]`
 cuts a set of frames from a filmed or generated shot instead of rendering
-them, with fewer frames from the stretch at the end where the camera has
-all but stopped.
+them: every frame while the camera moves (`EVERY=2` keeps every second
+one), with fewer from the stretch at the end where it has all but stopped.
+The page draws the frame the scroll is on and, between two frames, the
+next one over it (`blendAt` in `fit.ts`), so slow scrolling glides instead
+of stepping; with every second frame left out, the things nearest the
+camera show as two pictures side by side while it does.
 
 Such a shot does not end on cases placed for the cards. Given a list of
 the panels its last frame shows (`cinematic/kling-showroom-panels.json`:
@@ -283,10 +287,12 @@ all of it in headless Chrome and records it.
 
 The published set is made with:
 
-    bash cinematic/video_set.sh <the video> v3-showroom 200 cinematic/kling-showroom-panels.json
+    bash cinematic/video_set.sh <the video> v4-showroom 200 cinematic/kling-showroom-panels.json
 
-which writes `web/public/cinematic/v3-showroom/` (105 WebP frames at
-quality 70, 8.2 MB, and the manifest). `VERSION` in
-`web/src/cinematic/stage.ts` names the set the site uses. A new video
-means a new version name, so that browsers holding the old frames in
-their cache are not shown them.
+which writes `web/public/cinematic/v4-showroom/` (209 WebP frames at
+quality 70, 16.3 MB, and the manifest). `VERSION` in
+`web/src/cinematic/stage.ts` names the set the site uses. A new video,
+or a different choice of frames from the same one, means a new version
+name, so that browsers holding the old frames in their cache are not
+shown them. (`v3-showroom` was the same video with every second frame:
+8.2 MB, and visible steps when scrolled slowly.)

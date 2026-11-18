@@ -97,13 +97,15 @@ await send('Page.enable')
 await send('Runtime.enable')
 // The browser's own record of anything that moved without being asked to.
 await send('Page.addScriptToEvaluateOnNewDocument', {
-  source: `window.__shifts = []; new PerformanceObserver((list) => { for (const entry of list.getEntries()) window.__shifts.push({ value: entry.value, at: entry.startTime }) }).observe({ type: 'layout-shift', buffered: true })`,
+  source: `window.__shifts = []; new PerformanceObserver((list) => { for (const entry of list.getEntries()) window.__shifts.push({ value: entry.value, at: entry.startTime, what: (entry.sources ?? []).map((source) => (source.node?.nodeName ?? '?') + ' ' + String(source.node?.className ?? '').slice(0, 60) + ' from ' + Math.round(source.previousRect.y) + ' to ' + Math.round(source.currentRect.y)) }) }).observe({ type: 'layout-shift', buffered: true })`,
 })
 
 const png = async () => Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64')
 const scrollTo = async (y, settle = 700) => {
   await evaluate(`window.scrollTo({ top: ${Math.round(y)}, behavior: 'instant' })`)
   await sleep(settle)
+  // The store's picture glides for a moment after the scroll stops, onto a single frame: wait for that too.
+  for (let i = 0; i < 40 && (await evaluate(`window.__cinematic?.blended === true && (() => { const box = document.querySelector('main canvas').getBoundingClientRect(); return box.top < innerHeight && box.bottom > 0 })()`)); i++) await sleep(50)
 }
 /** Scrolls as a visitor does: a mouse wheel on a desktop, a finger on a phone. `distance` is how far down the page (negative: up), `speed` in pixels a second. */
 const gesture = async (size, distance, speed) => {
@@ -128,7 +130,8 @@ const open = async (size, calm = false) => {
 /** The layout shifts recorded since this was last asked, added up. */
 const shifted = async () => {
   const shifts = await evaluate('window.__shifts.splice(0)')
-  return { total: Math.round(shifts.reduce((total, shift) => total + shift.value, 0) * 10000) / 10000, entries: shifts.length }
+  // With what moved, when anything did.
+  return { total: Math.round(shifts.reduce((total, shift) => total + shift.value, 0) * 10000) / 10000, entries: shifts.length, ...(shifts.length ? { moved: shifts.flatMap((shift) => shift.what) } : {}) }
 }
 
 /** Where things are in the page, in pixels from its top. */

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadSequence } from './sequence'
+import { coarseStep, loadSequence } from './sequence'
 
 const FRAMES = 20
 const url = (frame: number) => `/cinematic/test/f-${frame}.webp`
@@ -46,6 +46,38 @@ describe('loading the frames', () => {
     await vi.waitFor(() => expect(sequence.stats().framesLoaded).toBe(FRAMES))
 
     expect(asked).toHaveLength(FRAMES) // each frame once, however often it is asked
+    sequence.dispose()
+  })
+
+  it('takes about fourteen frames to be ready, however long the sequence', () => {
+    expect(coarseStep(20)).toBe(8)
+    expect(coarseStep(105)).toBe(8)
+    expect(coarseStep(209)).toBe(16) // frames 0, 16 ... 208: fourteen
+  })
+
+  it('fills in evenly: the frames half way between those it has, then half way between those', async () => {
+    const asked = host()
+    const sequence = loadSequence(url, FRAMES, 5)
+    await sequence.ready
+    asked.length = 0
+
+    sequence.fill()
+    await vi.waitFor(() => expect(sequence.stats().framesLoaded).toBe(FRAMES))
+
+    // Every fourth first (4, 12), then every second, and the odd ones last.
+    expect(asked.slice(0, 2)).toEqual([4, 12])
+    expect(asked.slice(2, 7)).toEqual([2, 6, 10, 14, 18])
+    expect(asked.slice(7).every((frame) => frame % 2 === 1)).toBe(true)
+    sequence.dispose()
+  })
+
+  it('never lets another frame stand in when exactly one is asked for', async () => {
+    host()
+    const sequence = loadSequence(url, FRAMES, 5)
+    await sequence.ready
+
+    expect(sequence.exact(0)).not.toBeNull()
+    expect(sequence.exact(3)).toBeNull() // not fetched yet, and frame 0 is not frame 3
     sequence.dispose()
   })
 

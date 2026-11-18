@@ -34,10 +34,39 @@ export interface Placement {
 export const progressAt = (top: number, pin: number) => clamp(-top / pin, 0, 1)
 
 /**
- * The frame to show. Frames advance during the first `travel` share of the
- * scroll; after that the last frame is held while the real cards appear.
+ * Where the scroll is among the frames, as a frame number with a fraction:
+ * 12.4 is four tenths of the way from frame 12 to frame 13. Frames advance
+ * during the first `travel` share of the scroll; after that the last frame
+ * is held while what can be pressed appears.
  */
-export const frameAt = (progress: number, travel: number, frames: number) => Math.round(clamp(progress / travel, 0, 1) * (frames - 1))
+export const framePosition = (progress: number, travel: number, frames: number) => clamp(progress / travel, 0, 1) * (frames - 1)
+
+/** The frame nearest to where the scroll is: the one shown once scrolling has stopped. */
+export const frameAt = (progress: number, travel: number, frames: number) => Math.round(framePosition(progress, travel, frames))
+
+/**
+ * What is drawn for a position between two frames: the earlier frame, and
+ * over it the later one, as solid as the position is far along (`mix`, 0
+ * to 1). Moving slowly, the picture then passes from one frame into the
+ * next instead of jumping.
+ */
+export function blendAt(position: number, frames: number) {
+  // On a frame, or as good as: that frame alone.
+  const whole = Math.round(position)
+  if (Math.abs(position - whole) < 0.001) return { index: clamp(whole, 0, frames - 1), mix: 0 }
+  const index = clamp(Math.floor(position), 0, frames - 1)
+
+  return { index, mix: index === frames - 1 ? 0 : clamp(position - index, 0, 1) }
+}
+
+/**
+ * How far the picture is from the nearest whole frame, in frames (-0.5 to
+ * 0.5). Two frames laid over each other are fine in motion but soft to
+ * look at, so once scrolling has stopped the picture is eased by this much,
+ * onto a single sharp frame. The nearest one whichever way it was reached,
+ * so the same scroll position always rests on the same picture.
+ */
+export const toWholeFrame = (position: number) => Math.round(position) - position
 
 /** The frame scaled to cover the whole stage, centred (some of it may be cut off). */
 export function coverPlacement(frame: Size, stage: Size): Placement {

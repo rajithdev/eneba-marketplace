@@ -2,10 +2,11 @@
 # Makes a set of frames for the scroll section from a finished video (a
 # filmed or generated shot) instead of Blender renders.
 #
-# Not every frame is kept: every second one while the camera moves, then a
-# few from the stretch where it has all but stopped, and the last. Scrolling
-# then passes through the still end quickly instead of waiting on it. The
-# sound, if any, is left behind. Frames are cut as PNG and saved as WebP by
+# Every frame is kept while the camera moves (EVERY=2 keeps every second
+# one: half the download, twice the jump between frames), then a few from
+# the stretch where it has all but stopped (TAIL of them, the last frame
+# among them). Scrolling then passes through the still end quickly instead
+# of waiting on it. The sound, if any, is left behind. Frames are cut as PNG and saved as WebP by
 # Blender (cinematic/to_webp.py), because this ffmpeg cannot write WebP.
 #
 # A showroom: when the shot ends on the products themselves, each on a
@@ -18,15 +19,17 @@
 # 9:16), and the page dissolves from the last frame into the real block.
 #
 # usage: bash cinematic/video_set.sh <video> <version name> [last moving frame, default 200] [panels.json]
-#        QUALITY=70 is the WebP quality.
+#        QUALITY=70 is the WebP quality; EVERY=1 and TAIL=8 are described above.
 set -e
 cd "$(dirname "$0")/.."
 VIDEO=$1; VERSION=$2; MOVING=${3:-200}; PANELS=$4
 OUT=web/public/cinematic/$VERSION; WORK=cinematic/build/$VERSION-frames
 BLENDER=${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}
 LAST=$(($(ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 "$VIDEO") - 1))
-STEP=$(((LAST - MOVING) / 4))
-PICK="lte(n\,$MOVING)*not(mod(n\,2))+eq(n\,$((MOVING + STEP)))+eq(n\,$((MOVING + 2 * STEP)))+eq(n\,$((MOVING + 3 * STEP)))+eq(n\,$LAST)"
+EVERY=${EVERY:-1}; TAIL=${TAIL:-8}
+STEP=$(((LAST - MOVING) / TAIL))
+PICK="lte(n\,$MOVING)*not(mod(n\,$EVERY))+eq(n\,$LAST)"
+for i in $(seq 1 $((TAIL - 1))); do PICK="$PICK+eq(n\,$((MOVING + i * STEP)))"; done
 rm -rf "$OUT" "$WORK"; mkdir -p "$OUT" "$WORK/wide"
 
 ffmpeg -v error -y -i "$VIDEO" -an -vf "select='$PICK',scale=1440:-2:flags=lanczos" -fps_mode passthrough -start_number 0 "$WORK/wide/f-%03d.png"

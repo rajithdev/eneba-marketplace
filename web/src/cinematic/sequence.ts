@@ -8,22 +8,31 @@
  * As the visitor moves through the sequence, the picture furthest from
  * where they are now is released to make room for the next.
  *
- * Loading is in two passes. The coarse pass fetches every eighth frame and
- * the last one; when it is done the animation can already be scrubbed from
- * end to end, just in bigger steps. The second pass fills in the rest, and
- * only starts when it is asked for (`fill`): the stage asks once the
- * section is near, so the bulk of the download is not paid for by a
- * visitor who never scrolls down to it.
+ * Loading is in two passes. The coarse pass fetches about fourteen frames
+ * spread evenly (every eighth of a short sequence, every sixteenth of the
+ * published one) and the last one; when it is done the animation can
+ * already be scrubbed from end to end, just in bigger steps. The second
+ * pass fills in the rest, and only starts when it is asked for (`fill`):
+ * the stage asks once the section is near, so the bulk of the download is
+ * not paid for by a visitor who never scrolls down to it. It fills evenly
+ * too: the frames half way between those already in, then half way
+ * between those, so the steps get finer everywhere at once.
  */
 
-const COARSE_STEP = 8
+/** The coarse pass takes every so-many-th frame: about fourteen in all, and never more often than every eighth. */
+export const coarseStep = (frames: number) => Math.max(8, Math.round(frames / 13))
 const PARALLEL = 6
+
+/** How often a frame number halves evenly: 16 does four times, 12 twice, any odd number never. */
+const halvings = (frame: number) => (frame === 0 ? 31 : Math.log2(frame & -frame))
 
 export interface Sequence {
   /** Settles when the coarse pass is in and the first frame is decoded. Rejects if it cannot be loaded. */
   ready: Promise<void>
   /** The decoded picture for a frame, or the nearest one there is while that frame is fetched or decoded. */
   picture(frame: number): ImageBitmap | null
+  /** The decoded picture of exactly this frame, or null: nothing stands in for it. */
+  exact(frame: number): ImageBitmap | null
   /** Starts fetching the frames the coarse pass left out. Asking again does nothing. */
   fill(): void
   /** Called whenever another picture has been decoded, so the stage can draw again. */
@@ -84,7 +93,8 @@ export function loadSequence(urlFor: (frame: number) => string, frames: number, 
     }
   }
 
-  const coarse = Array.from({ length: frames }, (_, frame) => frame).filter((frame) => frame % COARSE_STEP === 0 || frame === frames - 1)
+  const step = coarseStep(frames)
+  const coarse = Array.from({ length: frames }, (_, frame) => frame).filter((frame) => frame % step === 0 || frame === frames - 1)
 
   const ready = Promise.all(coarse.map(fetchFrame)).then(async () => {
     coarseBytes = files.reduce((total, file) => total + (file?.size ?? 0), 0)
@@ -97,7 +107,10 @@ export function loadSequence(urlFor: (frame: number) => string, frames: number, 
     if (filling) return
     filling = true
     void ready.then(() => {
-      const rest = Array.from({ length: frames }, (_, frame) => frame).filter((frame) => !files[frame])
+      const rest = Array.from({ length: frames }, (_, frame) => frame)
+        .filter((frame) => !files[frame])
+        // The evenly spread ones first: every eighth, then every fourth, every second, and last the odd ones.
+        .sort((a, b) => halvings(b) - halvings(a) || a - b)
       const worker = async () => {
         while (rest.length > 0 && !disposed) await fetchFrame(rest.shift()!).catch(() => {})
       }
@@ -133,6 +146,7 @@ export function loadSequence(urlFor: (frame: number) => string, frames: number, 
       }
       return best
     },
+    exact: (frame) => pictures.get(frame) ?? null,
     stats: () => ({
       framesLoaded: files.filter(Boolean).length,
       bytesLoaded: files.reduce((total, file) => total + (file?.size ?? 0), 0),

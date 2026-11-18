@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arrival, dusk, softEdges, panelsPlacement, placed, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
+import { arrival, blendAt, dusk, framePosition, softEdges, toWholeFrame, panelsPlacement, placed, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
 
 const frame = { width: 640, height: 360 }
 
@@ -154,5 +154,36 @@ describe('dimming the page around the stage', () => {
     expect(dusk(-2100, 500, windowHeight)).toBeCloseTo(0.5)
     expect(dusk(-2400, 200, windowHeight)).toBe(0)
     expect(dusk(-3000, -400, windowHeight)).toBe(0)
+  })
+})
+
+describe('gliding between frames', () => {
+  it('knows how far between two frames the scroll is', () => {
+    expect(framePosition(0, 0.86, 209)).toBe(0)
+    expect(framePosition(0.43, 0.86, 209)).toBe(104)
+    expect(framePosition(0.431, 0.86, 209)).toBeCloseTo(104.242)
+    expect(framePosition(0.86, 0.86, 209)).toBe(208)
+    expect(framePosition(1, 0.86, 209)).toBe(208) // held on the last frame
+  })
+
+  it('lays the later frame over the earlier one, as solid as the position is far along', () => {
+    expect(blendAt(12.25, 209)).toEqual({ index: 12, mix: 0.25 })
+    expect(blendAt(12.75, 209)).toEqual({ index: 12, mix: 0.75 })
+  })
+
+  it('draws one frame alone when the position is on it', () => {
+    expect(blendAt(12, 209)).toEqual({ index: 12, mix: 0 })
+    expect(blendAt(12.9996, 209)).toEqual({ index: 13, mix: 0 }) // as good as on frame 13
+    expect(blendAt(208, 209)).toEqual({ index: 208, mix: 0 })
+    expect(blendAt(208.4, 209)).toEqual({ index: 208, mix: 0 }) // there is nothing after the last frame
+    expect(blendAt(-0.2, 209)).toEqual({ index: 0, mix: 0 })
+  })
+
+  it('rests on the nearest whole frame, whichever way it was reached', () => {
+    expect(12.3 + toWholeFrame(12.3)).toBe(12)
+    expect(12.7 + toWholeFrame(12.7)).toBe(13)
+    expect(toWholeFrame(40)).toBe(0)
+    // The same position, come to from below and from above, rests on the same frame.
+    expect(Math.round(framePosition(0.5, 0.86, 209))).toBe(frameAt(0.5, 0.86, 209))
   })
 })
