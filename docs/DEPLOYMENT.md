@@ -30,7 +30,7 @@ login cookie a first-party cookie (see Authentication in ARCHITECTURE.md).
 | `render.yaml` | The API service: Docker build, region, health check, every environment variable. The plan is left out on purpose, so a push keeps whichever plan the dashboard has set. Secrets are marked `sync: false` and typed into Render's dashboard. |
 | `api/Dockerfile` (stage `prod`) | The production image: Apache, PHP 8.4, no dev packages |
 | `api/docker/entrypoint.sh` | Start-up: listen on Render's port, refuse unsafe settings, cache config, run migrations |
-| `web/vercel.json` | Forwards `/api/*` to the confirmed Render address (a placeholder until one is confirmed); serves the app for every other path; switches off proxy caching for `/api`. Checked by `scripts/deploy/check-vercel-config.mjs`. |
+| `web/vercel.json` | Forwards `/api/*` to the confirmed Render address (a placeholder until one is confirmed); serves the app for every other path; switches off proxy caching for `/api`; says how long a browser may keep built scripts, showroom frames and covers. Checked by `scripts/deploy/check-vercel-config.mjs`. |
 
 ## Readiness checks
 

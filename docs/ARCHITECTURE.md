@@ -787,6 +787,27 @@ and four per product block (the products, then their games, platforms and
 regions), plus the check for overdue reservations. There is no cache: at
 this size it would add a way to be stale without a visible gain.
 
+**Coming back to a page.** Leaving a page and returning to it (a product
+and back, "Store" and back) redraws it from what the browser already has:
+about 50 ms on the live site, scroll position included (headless Chrome,
+1440 wide, 2026-11-19). Two settings keep it from then asking for
+everything again, which showed as covers going blank for a moment and as
+140 to 195 showroom frames requested on every visit to the homepage:
+
+- `web/vercel.json` says how long a browser may keep each kind of static
+  file. Vercel's own answer is "not at all". Built scripts and styles
+  (`/assets`, named after their content) are kept for good; showroom frames
+  (`/cinematic`) for 30 days, so a changed set must get a new folder name,
+  as each has so far; covers (`/covers`) for an hour, so a replaced cover
+  can take up to an hour to reach someone who has already seen the old
+  one. Pages and API answers are asked for every time.
+- `web/src/lib/queryClient.ts` keeps an answer nobody is looking at for 30
+  minutes rather than the library's five, and treats the catalog's lists
+  (homepage, store, Game Archive) as fresh for a minute. A price or stock
+  level on a card can therefore be a minute old; a product page and the
+  cart are still asked for every time, and the server prices every order
+  itself.
+
 ## Store and product pages (Built)
 
 **The URL is the state.** `/store?platform=steam,xbox-live&region=europe&sort=price_asc&page=2`
