@@ -621,15 +621,17 @@ deployments run it again and change nothing, so edits made in the database
 survive. Banner artwork is this project's own generated covers.
 
 **Pictures the frontend chooses.** The API names one cover per game
-(`/covers/<game>.svg`, a drawn placeholder). For some games the frontend
-has better pictures and shows those instead, keyed by the game in that
-address (`web/src/lib/coverArt.ts`): painted covers on the deals cards, a
-scene at the top of each best-seller card, wide artwork behind the
-featured banner and an illustration in each promotional tile. A game
-without one falls back to the cover the API named, so the blocks stay the
-backend's: which products and banners appear, their order, names, prices
-and links are never chosen here. `scripts/design/home_art.py` cuts the
-homepage's pictures out of the crops they were supplied as.
+(`/covers/<game>.svg`, a drawn placeholder). The frontend has better
+pictures and shows those instead, keyed by the game in that address
+(`web/src/lib/coverArt.ts`): a painted cover wherever a cover is shown
+(store and deals cards, the product page, search suggestions, cart and
+order lines), and for some games a scene at the top of the best-seller
+card, wide artwork behind the featured banner or an illustration in a
+promotional tile. Where there is no scene, artwork or illustration the
+cover is used, so the blocks stay the backend's: which products and
+banners appear, their order, names, prices and links are never chosen
+here. `scripts/design/home_art.py` cuts the homepage's pictures out of the
+crops they were supplied as.
 
 ### The deals block on a desktop: a showroom you scroll into
 
@@ -828,18 +830,28 @@ are marked sold out in the data so that state is always present.
 adds what is missing and updates catalog text and seed prices; it never
 brings back a key that was sold or reserved, and never resets a sales count.
 
-**Image rights.** No third-party artwork is used.
+**Image rights.** No publisher artwork is used.
 
 - Game cover art belongs to its publishers. Images from store CDNs or from
   game-database APIs (RAWG, IGDB) are that same publisher artwork; an API key
   grants access to data, not a licence to republish the art. Those sources are
   therefore ruled out. (This is a cautious reading, not legal advice, and the
   APIs' current terms were not re-read for this decision.)
-- Covers are **original images drawn by `scripts/catalog/generate-covers.mjs`**:
+- The cover the API names is an **original image drawn by `scripts/catalog/generate-covers.mjs`**:
   a colour gradient, a few shapes and the title set in type, all computed
   from the game's slug. Nothing is traced or derived from real artwork.
 - **One cover per game**, shared by all of its variants: 34 images for 71
   products, served by the frontend host from `web/public/covers`.
+- Every game also has a **painted cover** (`web/public/covers/art`), which
+  the frontend shows in place of the drawn one. Six were supplied by the
+  author. The other 28 are built by `scripts/catalog/paint-covers.mjs`: 22
+  from pictures that are in the public domain or under CC0 on Wikimedia
+  Commons (old paintings, NASA and Library of Congress photographs),
+  cropped to the card's shape with the title set in type, and six gift
+  cards and subscriptions drawn by the script with no logo. They are not
+  the games' artwork and are not derived from it; every source and its
+  licence is listed in `docs/COVER_CREDITS.md`, which the script writes.
+  `make test-web` fails if a game in the catalog has no painted cover.
 - `cover_image_url` is an ordinary column, so properly licensed artwork can
   replace a generated cover later without code changes.
 - Eneba's logo is not copied. The header uses a plain text wordmark; colours,

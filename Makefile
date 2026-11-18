@@ -35,6 +35,7 @@ test-web:
 	cd web && npm run lint && npm run typecheck && npm test
 	node scripts/deploy/check-vercel-config.mjs
 	node scripts/catalog/generate-covers.mjs --check
+	node scripts/catalog/paint-covers.mjs --check
 
 contracts: ## Regenerate the example API responses in web/src/contracts, then review the diff
 	docker compose run --rm -e UPDATE_CONTRACTS=1 api php artisan test --filter=ContractTest

@@ -54,10 +54,10 @@ describe('a deals card', () => {
     expect(card.getByRole('link', { name: new RegExp(product.name) })).toHaveAttribute('href', `/product/${product.slug}`)
   })
 
-  it('shows the painted cover where there is one and the cover the API names otherwise', () => {
+  it('shows the painted cover of the game the API names, and leaves any other address alone', () => {
     expect(coverArt('/covers/minecraft.svg')).toBe('/covers/art/minecraft.jpg')
     expect(coverArt('/covers/god-of-war.svg')).toBe('/covers/art/god-of-war.jpg')
-    expect(coverArt('/covers/stardew-valley.svg')).toBe('/covers/stardew-valley.svg')
+    expect(coverArt('/covers/terraria.svg')).toBe('/covers/art/terraria.jpg')
     expect(coverArt('https://elsewhere.example/minecraft.svg')).toBe('https://elsewhere.example/minecraft.svg')
     expect(coverArt(null)).toBeNull()
   })

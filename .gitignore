@@ -13,3 +13,6 @@ docs/ai-log/redactions.local.json
 !.env.example
 .vercel/
 cinematic/build/
+
+# Pictures downloaded by scripts/catalog/paint-covers.mjs to build the painted covers from.
+scripts/catalog/.cover-sources/

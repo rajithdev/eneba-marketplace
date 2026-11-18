@@ -1,12 +1,15 @@
 /*
  * Painted covers. The backend names each game's cover picture
- * (/covers/<game>.svg, a drawn placeholder). For the games listed here a
- * painted cover exists as well, at /covers/art/<game>.jpg, and every place
- * that shows a cover (store and deals cards, the product page, search
- * suggestions, cart and order lines) shows that one instead. It is also the
- * picture the scroll section's cases carry (cinematic/build.mjs reads the
- * same folder), which is what lets a case become its card without the
- * picture changing.
+ * (/covers/<game>.svg, a drawn placeholder). Every game also has a painted
+ * cover, at /covers/art/<game>.jpg, and every place that shows a cover (store
+ * and deals cards, the product page, search suggestions, cart and order
+ * lines) shows that one instead. It is also the picture the scroll section's
+ * cases carry (cinematic/build.mjs reads the same folder), which is what
+ * lets a case become its card without the picture changing.
+ *
+ * Where the painted covers come from is in docs/COVER_CREDITS.md.
+ * `make test-web` fails if a game in the catalog has none
+ * (scripts/catalog/paint-covers.mjs --check).
  *
  * The homepage has three more kinds of picture, chosen the same way: the
  * wide artwork behind the featured banner, the illustration in a
@@ -15,16 +18,15 @@
  * Only the picture is chosen here. Which products appear, their names,
  * prices and stock are the backend's.
  */
-const PAINTED = new Set(['minecraft', 'hogwarts-legacy', 'ea-sports-fc-25', 'god-of-war', 'doom-eternal', 'forza-horizon-5'])
 
 /** Which game a cover address belongs to ("/covers/minecraft.svg" is "minecraft"), or null when it is not one of ours. */
 export const coverGame = (coverUrl: string | null): string | null => coverUrl?.match(/^\/covers\/([a-z0-9-]+)\.svg$/)?.[1] ?? null
 
-/** The painted cover for the game a cover address belongs to, or the address unchanged when there is none. */
+/** The painted cover for the game a cover address belongs to, or the address unchanged when it is not one of ours. */
 export function coverArt(coverUrl: string | null): string | null {
   const game = coverGame(coverUrl)
 
-  return game && PAINTED.has(game) ? `/covers/art/${game}.jpg` : coverUrl
+  return game ? `/covers/art/${game}.jpg` : coverUrl
 }
 
 const SCENES = new Set(['grand-theft-auto-v', 'minecraft', 'ea-sports-fc-25', 'elden-ring', 'baldurs-gate-3', 'cyberpunk-2077'])

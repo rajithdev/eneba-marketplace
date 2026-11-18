@@ -2,6 +2,7 @@ import { fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import showExample from '../contracts/products.show.json'
 import { cart } from '../lib/cart'
+import { coverArt } from '../lib/coverArt'
 import { mockApi, renderAt } from '../test/render'
 
 const product = showExample.response.data
@@ -21,7 +22,7 @@ describe('product page', () => {
     expect(requested.filter((path) => path.startsWith('/api/products'))).toEqual([`/api/products/${product.slug}`])
 
     expect(screen.getByText(product.game.description)).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: `Cover of ${product.game.title}` })).toHaveAttribute('src', product.cover_image_url)
+    expect(screen.getByRole('img', { name: `Cover of ${product.game.title}` })).toHaveAttribute('src', coverArt(product.cover_image_url))
     expect(screen.getByText('25 Feb 2022')).toBeInTheDocument()
 
     const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' })

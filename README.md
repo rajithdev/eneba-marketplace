@@ -75,10 +75,10 @@ api/                  Laravel REST API
   tests/              PHPUnit tests (run against real PostgreSQL)
 web/                  React single-page app
   src/contracts/      example API responses, enforced by backend tests
-  public/covers/      generated cover images, one per game
+  public/covers/      cover images, one per game: drawn (.svg) and painted (art/)
 docs/                 architecture, deployment plan, AI conversation log
 scripts/ai-log/       saves the AI conversation history into docs/ai-log
-scripts/catalog/      draws the cover images from the catalog data
+scripts/catalog/      draws the cover images and builds the painted ones
 scripts/deploy/       local production check and deployment verification
 docker-compose.yml    local PostgreSQL and PHP
 ```
@@ -138,6 +138,9 @@ Things a reviewer should know are deliberate, approximate or not done yet.
   made-up strings that unlock nothing.
 - Cover images are abstract pictures drawn by a script, one per game. They
   are not official artwork, on purpose: the project has no licence for that.
+  Every game also has a painted cover, which the site shows instead: six
+  supplied by the author, 22 built from public-domain pictures and six
+  gift cards and subscriptions drawn by a script (`docs/COVER_CREDITS.md`).
 - One currency (EUR) throughout, including products for the United States.
 - Editions (Standard, Deluxe) are not modelled. A different edition would be
   a separate game entry.
