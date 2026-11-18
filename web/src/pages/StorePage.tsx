@@ -72,8 +72,8 @@ export function StorePage() {
           </button>
 
           <div id={filtersPanelId} className={`${filtersOpen ? 'mb-6 block' : 'hidden'} lg:block`}>
-            {filters.isPending && <div role="status" aria-label="Loading filters" className="h-64 animate-pulse bg-card" />}
-            {filters.isError && <p className="bg-card p-4 text-sm text-danger">The filters could not be loaded.</p>}
+            {filters.isPending && <div role="status" aria-label="Loading filters" className="h-64 animate-pulse rounded-card bg-card" />}
+            {filters.isError && <p className="rounded-card bg-card p-4 text-sm text-danger">The filters could not be loaded.</p>}
             {filters.data && <FilterPanel options={filters.data.data} params={params} onChange={setParams} />}
           </div>
         </aside>
@@ -106,7 +106,7 @@ export function StorePage() {
                       // The default order needs no parameter: /store stays /store.
                       setParams(withValue(params, 'sort', event.target.value === defaultSort ? null : event.target.value))
                     }
-                    className="h-10 border border-line bg-card px-2 font-extrabold text-white"
+                    className="h-10 rounded-control border border-edge/40 bg-card-mid px-3 font-extrabold text-white"
                   >
                     {sortOptions.map((option) => (
                       <option key={option.value} value={option.value}>

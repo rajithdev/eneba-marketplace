@@ -2,7 +2,7 @@ import { Link } from 'react-router'
 import type { Offer } from '../lib/catalog'
 import { Icon } from './Icon'
 import { PriceTag } from './PriceTag'
-import { smallPrimaryButton, smallSecondaryButton, surface } from './States'
+import { badge, smallPrimaryButton, smallSecondaryButton, surface } from './States'
 
 interface Props {
   offers: Offer[]
@@ -42,7 +42,7 @@ export function OfferTable({ offers, inCart, onAdd }: Props) {
       <tbody>
         {offers.map((offer) => (
           <tr key={offer.id} className={offer.in_stock ? '' : 'text-muted'}>
-            <th scope="row" className={`${cell} border-l px-3 font-normal sm:px-4`}>
+            <th scope="row" className={`${cell} rounded-l-card border-l px-3 font-normal sm:px-4`}>
               <div className="flex items-center gap-3">
                 {/* Stands in for a seller's picture: the first letter of the name. */}
                 <span aria-hidden="true" className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-panel text-base font-extrabold text-white sm:flex">
@@ -52,7 +52,7 @@ export function OfferTable({ offers, inCart, onAdd }: Props) {
                   <p className="flex flex-wrap items-center gap-2 font-extrabold text-white">
                     {offer.seller.name}
                     {offer.id === bestOfferId && (
-                      <span className="bg-deal px-2 py-0.5 text-[11px] font-extrabold uppercase text-black">Best price</span>
+                      <span className={`${badge} bg-deal text-black`}>Best price</span>
                     )}
                   </p>
                   <p className="mt-1 flex items-center gap-1 text-xs text-muted">
@@ -68,7 +68,7 @@ export function OfferTable({ offers, inCart, onAdd }: Props) {
             <td className={`${cell} w-px px-2 sm:px-4`}>
               <PriceTag price={offer.price} align="right" />
             </td>
-            <td className={`${cell} w-px border-r px-3 text-right text-sm font-extrabold sm:px-4`}>
+            <td className={`${cell} w-px rounded-r-card border-r px-3 text-right text-sm font-extrabold sm:px-4`}>
               {offer.in_stock ? (
                 <div className="flex flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
                   <span className="whitespace-nowrap text-xs text-region sm:text-sm">In stock</span>
@@ -103,4 +103,5 @@ export function OfferTable({ offers, inCart, onAdd }: Props) {
 
 // A row is one card: every cell carries the card's colour and its top and
 // bottom edge, the first and last cells close it at the sides.
-const cell = 'border-y border-line/60 bg-card py-3 align-middle'
+// A row is one card: its cells share the card's body and edge, and the first and last round its ends.
+const cell = 'border-y border-edge/30 bg-card-mid py-3 align-middle'

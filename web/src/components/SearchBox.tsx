@@ -130,7 +130,8 @@ export function SearchBox() {
       }}
     >
       {/* One bordered field, as on eneba.com: the glass, the text, the button. */}
-      <div className="flex h-12 items-center border border-white/70 bg-black/15 focus-within:border-accent hover:border-white">
+      {/* The field is one rounded box, so the focus ring is drawn around the whole of it, not around the text inside. */}
+      <div className="flex h-12 items-center overflow-hidden rounded-control border border-white/70 bg-black/15 focus-within:border-accent hover:border-white has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-accent">
         <label htmlFor={`${listId}-input`} className="sr-only">
           Search products
         </label>
@@ -154,7 +155,7 @@ export function SearchBox() {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          className="h-full w-full min-w-0 bg-transparent px-3 text-white placeholder:text-muted"
+          className="h-full w-full min-w-0 bg-transparent px-3 text-white outline-none placeholder:text-muted"
         />
         <button type="submit" className="flex h-full shrink-0 items-center gap-2 bg-accent px-4 text-sm font-extrabold text-black hover:bg-accent-strong">
           <Icon name="search" className="size-5 sm:hidden" />
@@ -172,7 +173,7 @@ export function SearchBox() {
         role="listbox"
         aria-label="Suggestions"
         hidden={!showList}
-        className="absolute inset-x-0 top-full z-40 mt-1 max-h-[70vh] overflow-auto border border-line bg-card shadow-2xl"
+        className="absolute inset-x-0 top-full z-40 mt-2 max-h-[70vh] overflow-auto rounded-card border border-edge/50 bg-card-mid shadow-2xl"
       >
         {showList && (
           <>

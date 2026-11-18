@@ -22,7 +22,7 @@ function pagesToShow(current: number, last: number): (number | 'gap')[] {
 export function Pagination({ currentPage, lastPage, hrefFor }: Props) {
   if (lastPage <= 1) return null
 
-  const cell = 'flex h-10 min-w-10 items-center justify-center px-3 text-sm font-extrabold'
+  const cell = 'flex h-10 min-w-10 items-center justify-center rounded-control px-3 text-sm font-extrabold'
 
   return (
     <nav aria-label="Pagination" className="mt-8 flex flex-wrap items-center justify-center gap-1">
@@ -41,7 +41,7 @@ export function Pagination({ currentPage, lastPage, hrefFor }: Props) {
             {page}
           </span>
         ) : (
-          <Link key={page} to={hrefFor(page)} aria-label={`Page ${page}`} className={`${cell} bg-card hover:text-accent`}>
+          <Link key={page} to={hrefFor(page)} aria-label={`Page ${page}`} className={`${cell} border border-edge/30 bg-card-mid hover:border-edge-lit hover:text-accent`}>
             {page}
           </Link>
         ),

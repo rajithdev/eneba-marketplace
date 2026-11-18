@@ -86,7 +86,7 @@ function ProductView({ product }: { product: ProductDetail }) {
               alt={`Cover of ${product.game.title}`}
               width={600}
               height={800}
-              className={`w-full ${product.in_stock ? '' : 'opacity-50 grayscale'}`}
+              className={`w-full rounded-card shadow-card ${product.in_stock ? '' : 'opacity-50 grayscale'}`}
             />
           )}
         </div>
@@ -188,11 +188,11 @@ function Fact({ term, value, highlight = false }: { term: string; value: string;
 function ProductSkeleton() {
   return (
     <div role="status" aria-label="Loading product" className="grid animate-pulse grid-cols-[104px_1fr] gap-x-4 gap-y-5 pt-[68px] md:grid-cols-[220px_1fr] md:gap-6">
-      <div className="aspect-[3/4] w-full bg-card" />
+      <div className="aspect-[3/4] w-full rounded-card bg-card" />
       <div className="space-y-4">
-        <div className="h-8 w-3/4 bg-card" />
-        <div className="h-4 w-1/2 bg-card" />
-        <div className="h-24 w-full bg-card" />
+        <div className="h-8 w-3/4 rounded-control bg-card" />
+        <div className="h-4 w-1/2 rounded-control bg-card" />
+        <div className="h-24 w-full rounded-card bg-card" />
       </div>
     </div>
   )

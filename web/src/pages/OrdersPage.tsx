@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
 import { Pagination } from '../components/Pagination'
 import { SessionNotice } from '../components/SessionNotice'
-import { LoadError, Notice, pageTitle, pageTop, primaryButton, surface } from '../components/States'
+import { badge, LoadError, Notice, pageTitle, pageTop, primaryButton, surface } from '../components/States'
 import { useSession } from '../lib/auth'
 import { fetchOrders, ordersKey, shortId, statusLabels, type OrderSummary } from '../lib/checkout'
 import { formatDateTime, formatMoney } from '../lib/money'
@@ -81,7 +81,7 @@ function OrderRow({ order }: { order: OrderSummary }) {
           </Link>
           <p className="text-sm text-muted">{formatDateTime(order.created_at)}</p>
         </div>
-        <span className={`px-2 py-0.5 text-xs font-extrabold uppercase ${statusColours[order.status] ?? 'bg-panel text-white'}`}>
+        <span className={`${badge} ${statusColours[order.status] ?? 'bg-panel text-white'}`}>
           {statusLabels[order.status] ?? order.status}
         </span>
         <p className="text-xl font-extrabold">{formatMoney(order.totals.total_cents, order.totals.currency)}</p>

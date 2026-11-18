@@ -5,9 +5,9 @@ import { formatMoney } from '../lib/money'
 /** The small cover beside a cart or order line. */
 export function LineCover({ url, dimmed = false }: { url: string | null; dimmed?: boolean }) {
   return url ? (
-    <img src={url} alt="" width={600} height={800} className={`h-20 w-[60px] shrink-0 object-cover ${dimmed ? 'opacity-50 grayscale' : ''}`} />
+    <img src={url} alt="" width={600} height={800} className={`h-20 w-[60px] shrink-0 rounded-md object-cover ${dimmed ? 'opacity-50 grayscale' : ''}`} />
   ) : (
-    <div className="h-20 w-[60px] shrink-0 bg-panel" />
+    <div className="h-20 w-[60px] shrink-0 rounded-md bg-panel" />
   )
 }
 

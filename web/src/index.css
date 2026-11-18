@@ -4,8 +4,13 @@
  * Design tokens. Values were read from eneba.com's own pages (computed
  * styles of its store and product pages): the purple page background, the
  * lighter purple of its panels, the near-black purple of its product cards,
- * the yellow of its primary buttons, heavy type, square corners.
+ * the yellow of its primary buttons, heavy type.
  * Components use these names, never raw colour values.
+ *
+ * The shapes are this site's own, not Eneba's square corners: cards are
+ * rounded, near-black violet deepening toward the foot, with a thin lit
+ * edge and a soft violet glow (the "edge", "card-*", "radius-*" and
+ * "shadow-*" names below).
  *
  * Eneba's typeface (Metropolis) is not bundled; it is used if the visitor has
  * it. Otherwise Avenir Next where it exists (Apple devices), the closest
@@ -29,6 +34,20 @@
   --color-region: #3ddcb1;
   --color-deal: #9cf03a;
   --color-danger: #ffb3b3;
+  /* A card's lit edge, at rest and under the pointer. */
+  --color-edge: #b08cff;
+  --color-edge-lit: #dcc4ff;
+  /* A card's body, from its top to its foot. */
+  --color-card-top: #1f0c49;
+  --color-card-mid: #150835;
+  --color-card-foot: #0e0526;
+  /* The lighter end of a raised panel; it ends in the panel colour. */
+  --color-panel-top: #6a33e0;
+  --radius-card: 1rem;
+  --radius-control: 0.625rem;
+  --shadow-card: 0 10px 28px -14px rgb(6 2 24 / 0.9);
+  --shadow-glow: 0 0 16px -3px rgb(168 85 247 / 0.6);
+  --shadow-glow-lit: 0 0 24px -1px rgb(192 132 252 / 0.8);
   --font-sans: Metropolis, 'Avenir Next', 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-weight-extrabold: 700;
   --font-weight-black: 800;

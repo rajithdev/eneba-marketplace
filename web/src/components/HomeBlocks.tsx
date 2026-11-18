@@ -4,7 +4,7 @@ import type { Banner, HomepageBlock } from '../lib/homepage'
 import { DealCard } from './DealCard'
 import { PriceTag } from './PriceTag'
 import { ProductCard } from './ProductCard'
-import { pageTitle, primaryButton, raised, smallSecondaryButton, surface } from './States'
+import { lit, pageTitle, primaryButton, raised, smallSecondaryButton, surface } from './States'
 
 /*
  * One component per type of homepage block. Each draws whatever the API
@@ -51,7 +51,7 @@ export function HeroBlock({ block }: { block: HomepageBlock }) {
   return (
     <Block block={block} label="Highlights">
       <div className={`grid gap-3 sm:gap-4 ${others.length > 0 ? 'lg:grid-cols-[2fr_1fr]' : ''}`}>
-        <div className="relative flex min-h-[300px] items-center overflow-hidden border border-line bg-panel sm:min-h-[400px]">
+        <div className={`relative flex min-h-[300px] items-center overflow-hidden sm:min-h-[400px] ${raised}`}>
           {main.image_url && (
             <img
               src={main.image_url}
@@ -89,7 +89,7 @@ export function HeroBlock({ block }: { block: HomepageBlock }) {
 /** A smaller banner: the whole tile is one link. */
 function BannerTile({ banner }: { banner: Banner }) {
   return (
-    <Link to={banner.link_url} className={`group flex h-full min-h-[150px] items-center gap-4 overflow-hidden p-5 ${surface} hover:border-region`}>
+    <Link to={banner.link_url} className={`group flex h-full min-h-[150px] items-center gap-4 overflow-hidden p-5 ${surface} ${lit}`}>
       {banner.image_url && <img src={banner.image_url} alt="" width={600} height={800} className="h-28 w-[84px] shrink-0 -rotate-3 object-cover shadow-xl" />}
       <span className="min-w-0">
         <span className="block text-xl font-black leading-tight group-hover:text-accent">{banner.title}</span>
@@ -109,11 +109,11 @@ export function BestSellersBlock({ block }: { block: HomepageBlock }) {
       <ol className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
         {products.map((product, index) => (
           <li key={product.slug}>
-            <Link to={`/product/${product.slug}`} className={`group flex h-full items-center gap-3 p-3 sm:gap-4 ${surface} hover:border-region`}>
+            <Link to={`/product/${product.slug}`} className={`group flex h-full items-center gap-3 p-3 sm:gap-4 ${surface} ${lit}`}>
               <span aria-hidden="true" className="w-9 shrink-0 text-center text-4xl font-black text-accent sm:w-11 sm:text-5xl">
                 {index + 1}
               </span>
-              {product.cover_image_url && <img src={product.cover_image_url} alt="" width={600} height={800} className="h-24 w-[72px] shrink-0 object-cover" />}
+              {product.cover_image_url && <img src={product.cover_image_url} alt="" width={600} height={800} className="h-24 w-[72px] shrink-0 rounded-md object-cover" />}
               <span className="min-w-0 flex-1">
                 <span className="sr-only">Number {index + 1}: </span>
                 <h3 className="line-clamp-2 text-sm font-extrabold leading-snug group-hover:underline">{product.name}</h3>
@@ -170,9 +170,9 @@ export function FeaturedBlock({ block }: { block: HomepageBlock }) {
       */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-6">
         <div className="col-span-2 sm:col-span-4 lg:col-span-2">
-          <Link to={`/product/${spotlight.slug}`} className={`group flex h-full items-center gap-4 p-4 sm:gap-6 sm:p-6 ${raised} hover:border-region`}>
+          <Link to={`/product/${spotlight.slug}`} className={`group flex h-full items-center gap-4 p-4 sm:gap-6 sm:p-6 ${raised} ${lit}`}>
             {spotlight.cover_image_url && (
-              <img src={spotlight.cover_image_url} alt="" width={600} height={800} className="h-auto w-28 shrink-0 object-cover shadow-2xl sm:w-40" />
+              <img src={spotlight.cover_image_url} alt="" width={600} height={800} className="h-auto w-28 shrink-0 rounded-lg object-cover shadow-2xl sm:w-40" />
             )}
             <span className="flex min-w-0 flex-1 flex-col gap-2">
               <h3 className="text-xl font-black leading-tight group-hover:underline sm:text-2xl">{spotlight.name}</h3>

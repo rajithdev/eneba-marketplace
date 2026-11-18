@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
 import type { ProductSummary } from '../lib/catalog'
 import { PriceTag } from './PriceTag'
-import { surface } from './States'
+import { glowing } from './States'
 
 /**
  * One product in a grid. The whole card is a single link to the product
@@ -11,7 +11,7 @@ import { surface } from './States'
  */
 export function ProductCard({ product, headingLevel: Heading = 'h2' }: { product: ProductSummary; headingLevel?: 'h2' | 'h3' }) {
   return (
-    <Link to={`/product/${product.slug}`} className={`group flex h-full flex-col ${surface} hover:border-region`}>
+    <Link to={`/product/${product.slug}`} className={`group flex h-full flex-col overflow-hidden ${glowing}`}>
       <div className="relative aspect-[3/4] overflow-hidden bg-panel">
         {product.cover_image_url && (
           <img

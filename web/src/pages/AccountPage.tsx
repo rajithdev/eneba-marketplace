@@ -137,7 +137,7 @@ function Field(props: { label: string; name: string; type: string; autoComplete:
         type={props.type}
         required
         autoComplete={props.autoComplete}
-        className="h-11 border border-line bg-panel px-3 text-white"
+        className="h-11 rounded-control border border-line bg-page px-3 text-white"
       />
       {props.errors?.map((message) => (
         <span key={message} role="alert" className="text-sm text-danger">

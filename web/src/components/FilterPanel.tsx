@@ -53,7 +53,7 @@ export function FilterPanel({ options, params, onChange }: Props) {
   )
 }
 
-const groupTitle = 'bg-panel px-4 py-3 text-base font-extrabold'
+const groupTitle = 'bg-linear-to-b from-panel-top to-panel px-4 py-3 text-base font-extrabold'
 
 function CheckboxGroup(props: {
   title: string
@@ -65,7 +65,7 @@ function CheckboxGroup(props: {
   const chosen = selected(props.params, props.filter)
 
   return (
-    <fieldset className={surface}>
+    <fieldset className={`overflow-hidden ${surface}`}>
       <legend className={`${groupTitle} float-left w-full`}>{props.title}</legend>
       <ul className="clear-both space-y-1 p-3">
         {props.items.map((item) => (
@@ -99,10 +99,10 @@ function PriceRange({ options, params, onChange }: Props) {
   }
 
   const { min_cents, max_cents, currency } = options.price
-  const field = 'h-10 w-full min-w-0 border border-line bg-page px-2 text-sm text-white placeholder:text-muted'
+  const field = 'h-10 w-full min-w-0 rounded-control border border-line bg-page px-3 text-sm text-white placeholder:text-muted'
 
   return (
-    <form onSubmit={apply} className={surface}>
+    <form onSubmit={apply} className={`overflow-hidden ${surface}`}>
       <fieldset>
         <legend className={`${groupTitle} float-left w-full`}>Price range ({currency})</legend>
         <div className="clear-both space-y-3 p-3">

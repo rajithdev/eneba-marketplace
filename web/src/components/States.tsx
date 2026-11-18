@@ -6,7 +6,7 @@ export function ProductGridSkeleton({ count = 8 }: { count?: number }) {
   return (
     <div role="status" aria-label="Loading products" className={productGrid}>
       {Array.from({ length: count }, (_, index) => (
-        <div key={index} className={`animate-pulse ${surface}`}>
+        <div key={index} className={`animate-pulse overflow-hidden ${surface}`}>
           <div className="aspect-[3/4] bg-panel" />
           <div className="space-y-2 p-3">
             <div className="h-3 w-4/5 bg-panel" />
@@ -78,14 +78,32 @@ export const pageTitle = 'text-2xl font-bold leading-tight sm:text-3xl'
 /** A heading inside a page: a section, a panel, a message. */
 export const sectionTitle = 'text-xl font-bold'
 
+// A card's body: rounded, near-black violet that deepens toward its foot.
+const cardBody = 'rounded-card border bg-linear-to-b from-card-top via-card-mid via-55% to-card-foot'
+
 /**
- * The two surfaces everything sits on, so every page is built from the
- * same two boxes. `surface` is the dark card with a thin edge: product
- * cards, rows, forms, messages. `raised` is the lighter panel that asks
- * for attention: the buy box and the order summaries.
+ * The surfaces everything sits on, so every page is built from the same
+ * few boxes.
+ *
+ * `surface` is the dark card with a thin lit edge: rows, forms, filters,
+ * messages. `raised` is the lighter panel that asks for attention: the
+ * buy box and the order summaries. `glowing` is a card that is itself the
+ * thing to open or buy (a product, a deal): it rests with a soft glow and
+ * lights up and lifts under the pointer. `lit` is added to a surface or
+ * raised panel that is a link, so that it answers the pointer the same way.
+ *
+ * A card's children are not clipped to its rounded corners unless the card
+ * also says `overflow-hidden`: say it where a picture or a coloured bar
+ * reaches the card's edge.
  */
-export const surface = 'border border-line/60 bg-card'
-export const raised = 'border border-line bg-panel'
+export const surface = `${cardBody} border-edge/30 shadow-card`
+export const raised = 'rounded-card border border-edge/50 bg-linear-to-b from-panel-top to-panel shadow-card'
+const answers = 'transition-[border-color,box-shadow,transform] duration-200 hover:border-edge-lit focus-within:border-edge-lit motion-safe:hover:-translate-y-0.5'
+export const glowing = `${cardBody} border-edge/60 shadow-glow hover:shadow-glow-lit ${answers}`
+export const lit = `hover:shadow-glow ${answers}`
+
+/** A small label on a coloured ground: "Best price", an order's status. */
+export const badge = 'rounded-md px-2 py-0.5 text-[11px] font-extrabold uppercase'
 
 /** Turns in a button while its request is on its way. Decorative: the button's text says what is happening. */
 export function Spinner() {
@@ -95,7 +113,7 @@ export function Spinner() {
 // Shared by every button: how it sits, how it answers a press, and how it
 // looks when it cannot be pressed. (The pointer and not-allowed cursors,
 // and the speed of colour changes, are set for all buttons in index.css.)
-const button = 'inline-flex items-center justify-center font-extrabold active:translate-y-px disabled:opacity-60 disabled:active:translate-y-0'
+const button = 'inline-flex items-center justify-center rounded-control font-extrabold active:translate-y-px disabled:opacity-60 disabled:active:translate-y-0'
 const primary = 'bg-accent text-black hover:bg-accent-strong'
 const secondary = 'border border-white/70 text-white hover:border-accent hover:text-accent'
 

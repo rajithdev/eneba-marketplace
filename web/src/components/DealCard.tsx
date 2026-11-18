@@ -3,6 +3,7 @@ import type { ProductSummary } from '../lib/catalog'
 import { coverArt } from '../lib/coverArt'
 import { formatMoney } from '../lib/money'
 import { BuyNow } from './BuyButtons'
+import { glowing } from './States'
 
 /*
  * A product in the deals row: its cover large, then the game's title, the
@@ -16,10 +17,7 @@ import { BuyNow } from './BuyButtons'
  * they are. The rounding of the cover's top corners is read from here too.
  */
 
-const card =
-  'group relative flex h-full flex-col rounded-2xl border border-[#b08cff]/60 bg-[linear-gradient(180deg,#1f0c49_0%,#150835_55%,#0e0526_100%)] ' +
-  'shadow-[0_0_16px_-3px_rgb(168_85_247/0.6)] transition-[border-color,box-shadow,transform] duration-200 ' +
-  'hover:border-[#dcc4ff] hover:shadow-[0_0_24px_-1px_rgb(192_132_252/0.8)] focus-within:border-[#dcc4ff] motion-safe:hover:-translate-y-0.5'
+const card = `group relative flex h-full flex-col ${glowing}`
 
 /**
  * The game's own title: the product's name without the platform and region

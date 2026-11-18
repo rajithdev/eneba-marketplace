@@ -76,11 +76,11 @@ export function HomePage() {
 function HomeSkeleton() {
   return (
     <div role="status" aria-label="Loading the homepage" className="animate-pulse pt-6">
-      <div className="h-[300px] bg-panel sm:h-[380px]" />
-      <div className="mt-10 h-8 w-48 bg-card" />
+      <div className="h-[300px] rounded-card bg-panel sm:h-[380px]" />
+      <div className="mt-10 h-8 w-48 rounded-control bg-card" />
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }, (_, index) => (
-          <div key={index} className="h-[120px] bg-card" />
+          <div key={index} className="h-[120px] rounded-card bg-card" />
         ))}
       </div>
     </div>

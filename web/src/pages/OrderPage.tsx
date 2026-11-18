@@ -213,7 +213,7 @@ function Payment({ order, userId, receivedAt, onExpired }: { order: Order; userI
         </p>
         <div className="mt-3 space-y-2">
           {order.payment_methods.map((option) => (
-            <label key={option.value} className={`flex cursor-pointer items-start gap-3 border p-3 ${method === option.value ? 'border-accent bg-page' : 'border-line'}`}>
+            <label key={option.value} className={`flex cursor-pointer items-start gap-3 rounded-control border p-3 ${method === option.value ? 'border-accent bg-page' : 'border-line'}`}>
               <input type="radio" name="payment_method" className="mt-1 accent-[#fad318]" value={option.value} checked={method === option.value} onChange={() => setMethod(option.value)} />
               <span>
                 <span className="block font-extrabold">{option.label}</span>
@@ -247,7 +247,7 @@ function Payment({ order, userId, receivedAt, onExpired }: { order: Order; userI
 function Outcome({ order }: { order: Order }) {
   if (order.status === 'paid') {
     return (
-      <section aria-labelledby="outcome-heading" className="border-l-4 border-deal bg-card p-5">
+      <section aria-labelledby="outcome-heading" className="rounded-card border-l-4 border-deal bg-card-mid p-5 shadow-card">
         <h1 id="outcome-heading" className={pageTitle}>
           Payment confirmed
         </h1>
@@ -270,7 +270,7 @@ function Outcome({ order }: { order: Order }) {
         : 'You cancelled this order. The keys went back on sale and you have not been charged.'
 
   return (
-    <section aria-labelledby="outcome-heading" role="alert" className="border-l-4 border-danger bg-card p-5">
+    <section aria-labelledby="outcome-heading" role="alert" className="rounded-card border-l-4 border-danger bg-card-mid p-5 shadow-card">
       <h1 id="outcome-heading" className={pageTitle}>
         {titles[order.status] ?? 'Order closed'}
       </h1>
@@ -341,7 +341,7 @@ function LicenseKey({ code }: { code: string }) {
   }
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 border border-dashed border-deal bg-page px-3 py-2">
+    <li className="flex flex-wrap items-center justify-between gap-3 rounded-control border border-dashed border-deal bg-page px-3 py-2">
       <code className="select-all break-all font-mono text-base font-bold tracking-wider">{code}</code>
       <button type="button" className="text-sm font-extrabold underline hover:text-accent" aria-label={`${copied ? 'Copied' : 'Copy'} key ${code}`} onClick={copy}>
         {copied ? 'Copied' : 'Copy'}

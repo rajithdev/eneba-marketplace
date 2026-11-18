@@ -219,7 +219,7 @@ function CartLine({ item, line, disabled }: { item: CartItem; line: QuoteLine | 
           <div className="flex items-center" role="group" aria-label={`Quantity of ${name}`}>
             <button
               type="button"
-              className="h-9 w-9 border border-line text-lg font-extrabold hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-line disabled:hover:text-white"
+              className="h-9 w-9 rounded-l-control border border-line text-lg font-extrabold hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-line disabled:hover:text-white"
               aria-label={`Decrease quantity of ${name}`}
               disabled={disabled || item.quantity <= 1}
               onClick={() => cart.setQuantity(item.offerId, item.quantity - 1)}
@@ -231,7 +231,7 @@ function CartLine({ item, line, disabled }: { item: CartItem; line: QuoteLine | 
             </span>
             <button
               type="button"
-              className="h-9 w-9 border border-line text-lg font-extrabold hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-line disabled:hover:text-white"
+              className="h-9 w-9 rounded-r-control border border-line text-lg font-extrabold hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-line disabled:hover:text-white"
               aria-label={`Increase quantity of ${name}`}
               disabled={disabled || !line || item.quantity >= max}
               onClick={() => cart.setQuantity(item.offerId, item.quantity + 1)}
@@ -265,7 +265,7 @@ function LineIssues({ item, line }: { item: CartItem; line: QuoteLine }) {
   const currency = line.unit_price?.currency ?? 'EUR'
 
   return (
-    <ul role="alert" className="mt-3 space-y-1 border-l-4 border-accent bg-page px-3 py-2 text-sm">
+    <ul role="alert" className="mt-3 space-y-1 rounded-control border-l-4 border-accent bg-page px-3 py-2 text-sm">
       {line.issues.includes('unavailable') && <li>This offer is no longer available. It will be removed when you update your cart.</li>}
       {line.issues.includes('price_changed') && line.unit_price && (
         <li>

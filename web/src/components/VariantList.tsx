@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
 import type { ProductSummary } from '../lib/catalog'
 import { formatMoney } from '../lib/money'
-import { surface } from './States'
+import { lit, surface } from './States'
 
 /** The same game on other platforms and regions, each linking to its own page. */
 export function VariantList({ variants }: { variants: ProductSummary[] }) {
@@ -13,7 +13,7 @@ export function VariantList({ variants }: { variants: ProductSummary[] }) {
         <li key={variant.slug}>
           <Link
             to={`/product/${variant.slug}`}
-            className={`flex items-center justify-between gap-3 px-4 py-3 ${surface} hover:border-region`}
+            className={`flex items-center justify-between gap-3 px-4 py-3 ${surface} ${lit}`}
           >
             <span>
               <span className="block text-sm font-extrabold">{variant.platform.name}</span>
