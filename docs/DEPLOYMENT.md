@@ -12,7 +12,7 @@ address.**
 | Part | Host | Why |
 |---|---|---|
 | React app | Vercel (Hobby) | Static hosting that does not sleep; documented reverse-proxy rewrites with a stated timeout |
-| Laravel API | Render (web service, Docker, Frankfurt; created on the free plan) | The only host checked that runs a Docker container free with no documented card requirement. The plan is chosen in Render's dashboard: the free one sleeps after 15 idle minutes, a paid instance does not |
+| Laravel API | Render (web service, Docker, Frankfurt; created on the free plan, on a paid instance of 0.5 CPU and 512 MB since 2026-11-19) | The only host checked that runs a Docker container free with no documented card requirement. The plan is chosen in Render's dashboard: the free one sleeps after 15 idle minutes, a paid instance does not |
 | PostgreSQL | Neon (Free, AWS Frankfurt) | No expiry; `pg_trgm` available |
 
 ```
@@ -317,11 +317,14 @@ page frame immediately, loading placeholders where data goes, and after
 four seconds a notice that the server may be waking up, which leaves when
 the data arrives. The host's documentation allows up to about a minute.
 
-This happens only on Render's free plan. A paid instance does not sleep, so
-the first request is as fast as any other (0.2 to 0.3 seconds for the
-health route, measured on 2026-11-18 with the service awake). Since
-2026-11-19 `render.yaml` names no plan, so moving the service to a paid
-instance in the dashboard is not undone by the next push.
+This happens only on Render's free plan. On 2026-11-19 the author moved
+the service to a paid instance in Render's dashboard (0.5 CPU, 512 MB, $7 a
+month as shown there), which does not sleep. `render.yaml` names no plan,
+so the next push does not undo that. The switch redeployed the same commit
+and the API answered throughout. Afterwards, a request sent 17 minutes
+after this check's previous one was answered in 0.19 seconds; other
+visitors in those minutes were not excluded, so Render's own page showing
+the paid plan is the firmer evidence.
 
 ### Diagnostics
 
@@ -497,6 +500,10 @@ one address (option C in ARCHITECTURE.md).
   corrected by a new commit.
 
 ## Free-tier limits verified on 2026-11-16
+
+The API has been on a paid Render instance since 2026-11-19, so the Render
+rows about sleeping and free instance hours describe the plan it was built
+on, not the one it runs on. Vercel and Neon are still on their free plans.
 
 Read from each provider's own documentation on that date. Providers change
 these; re-check before relying on a figure.

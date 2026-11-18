@@ -15,15 +15,15 @@ checkout with a simulated payment, key delivery, order history).
 |---|---|
 | Live URL | https://eneba-marketplace-ten.vercel.app |
 | Design and decisions | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| Hosting plan and verified free-tier limits | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Hosting, and the hosts' limits as verified | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | AI conversation history | [docs/ai-log/](docs/ai-log/README.md) |
 
 ## Trying it
 
-Open https://eneba-marketplace-ten.vercel.app. On its host's free plan the
-API sleeps after 15 idle minutes, and the first page may then take up to a
-minute to fill in (about 25 seconds when measured); the site says so while
-it waits. After that, and always on a paid instance, it is fast.
+Open https://eneba-marketplace-ten.vercel.app. Since 2026-11-19 the API
+runs on a paid instance that does not sleep, so the first page fills in at
+once. (Before that it was on the host's free plan, which sleeps after 15
+idle minutes: the first page could then take up to a minute.)
 
 1. **Browse.** The homepage is built from blocks the API returns. "Store"
    and the category links under the header list every product; filter by
@@ -182,7 +182,8 @@ Things a reviewer should know are deliberate, approximate or not done yet.
 - The cart is kept in the browser, not on the server: it does not follow a
   buyer to another device, and signing out does not empty it.
 - Keys are held for 10 minutes once checkout starts. There is no background
-  worker on the free tier, so overdue orders are settled by the next request
+  worker (the deployment was built for a free plan, which has none), so
+  overdue orders are settled by the next request
   that looks at stock or orders (`php artisan orders:expire` exists for a
   host with cron). Search suggestions and the filter counts skip that step,
   so they can show an expired hold as "sold out" until the next page load.
@@ -253,23 +254,24 @@ Things a reviewer should know are deliberate, approximate or not done yet.
   hiccup can replace an order on screen with "we could not check that you
   are signed in" until it is retried.
 
-**Deployment (free tiers)**
+**Deployment**
 
-- On the host's free plan the API sleeps after 15 minutes without traffic
-  (a paid instance does not; the plan is chosen in the host's dashboard,
-  not in `render.yaml`). The first request then
-  waits for it to start: 25 seconds when measured on 2026-11-17, up to
-  about a minute by the host's documentation. Pages show their loading
-  state meanwhile and, after four seconds, a notice that the server may be
-  waking up.
-- Migrations and catalog loading run when the container starts. The free
-  plan has no shell or rollback step, so a faulty migration is corrected by
-  a new one. The migration that introduced `games` refuses to run if
+- The frontend and the database are on free plans. The API was built for
+  one too and has been on the host's smallest paid instance since
+  2026-11-19, which does not sleep. The plan is chosen in the host's
+  dashboard, not in `render.yaml`. On the free plan the API slept after 15
+  minutes without traffic, and the first request then waited for it to
+  start: 25 seconds when measured on 2026-11-17. Should the server ever be
+  slow, pages show their loading state and, after four seconds, a notice
+  that it may be waking up.
+- Migrations and catalog loading run when the container starts. The
+  deployment uses no shell or rollback step (the free plan has neither),
+  so a faulty migration is corrected by a new one. The migration that introduced `games` refuses to run if
   products already exist, and changes nothing in that case.
 - Each run of `make verify` leaves throwaway `deploy-check-…` accounts in
   the production database (one, or two with `PURCHASE=1`), with any test
-  orders they placed. One real key of the seeded stock was consumed by the
-  one live test purchase.
+  orders they placed. Each live test purchase consumes one real key of the
+  seeded stock; the latest was on 2026-11-19.
 - Catalog pages have no rate limit of their own (search suggestions, the
   cart, checkout and sign-in do).
 - An API path ending in a slash is answered by the frontend host with its
