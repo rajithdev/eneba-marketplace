@@ -17,7 +17,7 @@ function api(options: { user?: typeof ada | null; filters?: { status?: number; b
 }
 
 describe('the header and footer', () => {
-  it('lists the product types the API reports as categories, linking to the store filtered by each', async () => {
+  it('lists the product types the API reports as categories, linking to the shelf of each', async () => {
     api()
     renderAt('/no-such-page')
 
@@ -26,7 +26,7 @@ describe('the header and footer', () => {
     expect(sold.length).toBeGreaterThan(1)
 
     for (const type of sold) {
-      expect(await within(categories).findByRole('link', { name: type.label })).toHaveAttribute('href', `/store?type=${type.value}`)
+      expect(await within(categories).findByRole('link', { name: type.label })).toHaveAttribute('href', `/archive?type=${type.value}`)
     }
     // The same links again in the footer.
     const shop = screen.getByRole('navigation', { name: 'Shop' })
@@ -56,6 +56,16 @@ describe('the header and footer', () => {
     const categories = screen.getByRole('navigation', { name: 'Categories' })
     expect(await within(categories).findByRole('link', { name: 'Games' })).toHaveAttribute('aria-current', 'page')
     expect(within(categories).getByRole('link', { name: 'Store' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('opens the Game Archive from "Store", and marks it on the shelf and on the list beside it', async () => {
+    api()
+    renderAt('/archive/all')
+
+    // The archive's pages are fetched when first opened, so the shell appears a moment later.
+    const store = within(await screen.findByRole('navigation', { name: 'Categories' })).getByRole('link', { name: 'Store' })
+    expect(store).toHaveAttribute('href', '/archive')
+    expect(store).toHaveAttribute('aria-current', 'page')
   })
 
   it('offers a visitor the account page, and a signed-in buyer their name and their orders', async () => {

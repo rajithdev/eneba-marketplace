@@ -165,18 +165,23 @@ export function AppShell() {
  * API (the same answer the store's filter panel uses), so a type added
  * there appears here. Until that answer arrives, or if it fails or is not
  * in the expected shape, there is only "Store".
+ *
+ * They open the Game Archive, the store as a shelf of boxed games. The
+ * list with its filters is one click from there ("Browse all"), and is
+ * still what a search and the "Browse the store" buttons open.
  */
 function useCategories(): { to: string; label: string; current: boolean }[] {
   const filters = useQuery({ queryKey: ['filters'], queryFn: fetchFilters, staleTime: 5 * 60_000 })
   const location = useLocation()
-  const inStore = location.pathname === '/store'
+  // The shelf, the list beside it, and the list at its own address: all three are the store.
+  const inStore = ['/archive', '/archive/all', '/store'].includes(location.pathname)
   const chosenType = new URLSearchParams(location.search).get('type')
 
   return [
-    { to: '/store', label: 'Store', current: inStore && !chosenType },
+    { to: '/archive', label: 'Store', current: inStore && !chosenType },
     ...(filters.data?.data?.types ?? [])
       .filter((type) => type.products_count > 0)
-      .map((type) => ({ to: `/store?type=${type.value}`, label: type.label, current: inStore && chosenType === type.value })),
+      .map((type) => ({ to: `/archive?type=${type.value}`, label: type.label, current: inStore && chosenType === type.value })),
   ]
 }
 

@@ -1,13 +1,14 @@
-# Game Archive (prototype)
+# Game Archive
 
 The store's catalog as a shelf of boxed games to walk along, instead of a grid
-to scan. It lives at its own addresses and replaces nothing:
+to scan. It lives at its own addresses beside the store page, which is
+unchanged:
 
-| Address | What it is |
-|---|---|
-| `/archive` | The shelf |
-| `/archive/all` | "Browse all": the store page itself (filters, sorting, pages) under the same two-way switch |
-| `/store` | The store page, untouched |
+| Address | What it is | What opens it |
+|---|---|---|
+| `/archive` | The shelf | "Store" and the category links in the header and footer |
+| `/archive/all` | "Browse all": the store page itself (filters, sorting, pages) under the same two-way switch | The switch on the shelf |
+| `/store` | The store page, untouched | A search, the "Browse the store" buttons, and the homepage's own links |
 
 Its code is fetched only when one of the first two is opened (a lazy route),
 so no other page pays for it. Nothing in `cinematic/` or `motion/` (the

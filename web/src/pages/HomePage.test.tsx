@@ -161,7 +161,7 @@ describe('homepage', () => {
     const nav = screen.getByRole('navigation', { name: 'Main' })
     expect(nav).toHaveTextContent('Cart')
     expect(nav).toHaveTextContent('Account')
-    expect(within(screen.getByRole('navigation', { name: 'Categories' })).getByRole('link', { name: 'Store' })).toHaveAttribute('href', '/store')
+    expect(within(screen.getByRole('navigation', { name: 'Categories' })).getByRole('link', { name: 'Store' })).toHaveAttribute('href', '/archive')
     expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#main')
   })
 })

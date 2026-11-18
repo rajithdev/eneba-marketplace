@@ -31,7 +31,7 @@ export const inShell = (pages: RouteObject[]): RouteObject[] => [
 export const routes: RouteObject[] = inShell([
   { path: '/', element: <HomePage /> },
   { path: '/store', element: <StorePage /> },
-  // The Game Archive prototype: the catalog as a shelf of boxed games, and the ordinary list beside it.
+  // The Game Archive, which "Store" in the header opens: the catalog as a shelf of boxed games, and the ordinary list beside it.
   // Its code is fetched only when one of its two addresses is opened.
   { path: '/archive', lazy: () => import('./archive/ArchivePage').then((archive) => ({ Component: archive.ArchivePage })) },
   { path: '/archive/all', lazy: () => import('./archive/ArchivePage').then((archive) => ({ Component: archive.ArchiveBrowsePage })) },
