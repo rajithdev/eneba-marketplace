@@ -164,6 +164,10 @@ Things a reviewer should know are deliberate, approximate or not done yet.
 - Four kinds of block exist (banners, best sellers, deals, featured). The
   banners are a static arrangement, not a rotating carousel.
 - "Deals" has no matching store filter yet, so that block has no "see all".
+- The homepage's scroll effects (the featured banner's depth, the best
+  sellers arriving, the page dimming as the store comes up) follow the
+  scroll position only and do not run with reduced motion. They have been
+  measured in Chrome only.
 - Nothing is cached; the homepage costs 15 small queries per visit.
 
 **Cart and checkout**

@@ -7,7 +7,7 @@
  */
 import type { HomepageBlock } from '../lib/homepage'
 import { coverGame } from '../lib/coverArt'
-import { arrival, softEdges, panelsPlacement, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
+import { arrival, dusk, softEdges, panelsPlacement, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
 import { LAYOUTS, type LayoutName } from './layouts'
 import { loadSequence, type Sequence } from './sequence'
 
@@ -67,6 +67,8 @@ export interface Elements {
   spacer: HTMLElement
   /** In a showroom, the box over the stage that holds an item for each panel; null otherwise. */
   hotspots: HTMLElement | null
+  /** A dark sheet behind the page's content, which dims the page around the stage as it comes and goes; null if there is none. */
+  shade: HTMLElement | null
 }
 
 export interface Armed {
@@ -132,7 +134,7 @@ interface Show {
   keep: number
 }
 
-function run(show: Show, { runway, canvas, holder, spacer, hotspots }: Elements, giveUp: () => void) {
+function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade }: Elements, giveUp: () => void) {
   const { layout, sequence } = show
   const showroom = layout.panels && hotspots ? { panels: layout.panels, box: hotspots } : null
   const context = canvas.getContext('2d')
@@ -289,6 +291,13 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots }: Elements,
   let last = 0
   let request = 0
   let edges = '' // the canvas's mask as last set
+  let dimmed = '' // the shade's opacity as last set
+  const dim = (amount: number) => {
+    const opacity = amount.toFixed(3)
+    if (!shade || opacity === dimmed) return
+    dimmed = opacity
+    shade.style.opacity = opacity
+  }
   const tick = (now: number) => {
     const section = runway.getBoundingClientRect()
     const target = progressAt(section.top, pin)
@@ -302,6 +311,8 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots }: Elements,
       canvas.style.setProperty('-webkit-mask-image', mask)
       canvas.style.setProperty('mask-image', mask)
     }
+    // The page around the stage dims as the stage arrives, and brightens again as it leaves.
+    dim(dusk(section.top, section.bottom, window.innerHeight))
     shown = shown < 0 ? target : target + (shown - target) * Math.exp(-(now - last) / CATCH_UP_MS)
     if (Math.abs(shown - target) < 0.0004) shown = target
     last = now
@@ -325,9 +336,11 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots }: Elements,
       last = performance.now()
       request = requestAnimationFrame(tick)
     } else {
-      // Off screen: hold no decoded pictures at all until the visitor comes back.
+      // Off screen: hold no decoded pictures at all until the visitor comes back,
+      // and leave the page as bright as it is everywhere else.
       sequence.release()
       drawn = ''
+      dim(0)
     }
   })
 
@@ -370,6 +383,7 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots }: Elements,
     holder.style.visibility = ''
     holder.style.position = ''
     delete canvas.dataset.armed
+    dim(0)
     canvas.style.removeProperty('-webkit-mask-image')
     canvas.style.removeProperty('mask-image')
     context.clearRect(0, 0, canvas.width, canvas.height)

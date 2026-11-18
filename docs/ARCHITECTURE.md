@@ -34,7 +34,7 @@ and that scope must be justified.
 | Depth | Features |
 |---|---|
 | Deep, with backend tests | Product and seller-offer model, search, checkout with key delivery |
-| Solid but standard | Store filters, sorting and pagination; authentication; homepage blocks, with a scroll-controlled showroom in front of the deals block on a desktop; order history |
+| Solid but standard | Store filters, sorting and pagination; authentication; homepage blocks, with scroll effects that lead into a scroll-controlled showroom in front of the deals block on a desktop; order history |
 | Cut | Seller accounts and dashboards, admin UI, reviews, wishlist, multiple currencies, emails, refunds UI, server-side rendering, genres, password reset, social login |
 
 Sellers are catalog data: they are seeded, they do not log in.
@@ -677,6 +677,48 @@ the rule for when the showroom may be used and the panels' buttons, and
 `cinematic/showroom_preview.mjs`, which drives a real browser: every
 panel's details at three window widths, the keyboard, both buttons, the
 same picture scrolling down and up, and the fallbacks.
+
+### The way down the page: scroll effects
+
+Three small effects tie the homepage's blocks into one journey from the
+featured banner to the store. All of them follow the scroll position and
+nothing else, so scrolling back up undoes exactly what scrolling down did;
+none of them touches scrolling itself, pins anything or moves anything
+else on the page.
+
+- **The featured banner has depth.** As the page scrolls, its artwork
+  slides down a little inside the banner and grows by up to 12% from the
+  foot of the tree, so it travels more slowly than the text, which rises
+  and fades. The slide is kept smaller than the room the zoom makes above
+  the picture, so the picture is never stretched and never uncovers the
+  banner behind it.
+- **Best sellers arrive and recede.** Each card starts 32px low, leaning
+  9 degrees back and transparent, and stands up into its place as its row
+  climbs the window, each a little after the one on its left, its text
+  after its picture. Near the top of the window it shrinks slightly and
+  dims. The cards are the same links throughout; only `transform` and
+  `opacity` are set, and they are removed again when a card is in place.
+- **The page dims as the store arrives.** A dark sheet behind the page's
+  content goes from clear to the store's own darkness while the store's
+  stage comes up the last three quarters of the window, and clears again
+  when the stage leaves. With the stage's soft edges, there is then no
+  brighter page left around the store to cross a line from.
+
+**How it is built.** No library. `web/src/motion/follow.ts` is one passive
+scroll listener and one `requestAnimationFrame` for all effects: in a
+frame, every effect first reads positions, then every effect writes
+styles. `poses.ts` is the arithmetic (what is drawn at which position),
+free of the browser and unit-tested; `home.ts` applies it to the banner
+and the row. The dimming is done by the stage's own loop, which already
+runs while the stage is near. With reduced motion none of it runs, and
+phones get the first two effects without the stage.
+
+**Checked with** unit tests for the arithmetic and
+`cinematic/journey.mjs`, which scrolls the whole page in a real browser at
+five window sizes: the same pictures on the way down and back up, no
+layout shift and no sideways overflow, every card clickable while it
+moves, time between display frames (also with the processor slowed four
+times), reduced motion, and a recording of each scroll.
 
 **Cost.** 15 queries however large the catalog: the layout, the banners,
 and four per product block (the products, then their games, platforms and

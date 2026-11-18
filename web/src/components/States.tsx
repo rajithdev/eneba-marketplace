@@ -98,7 +98,7 @@ const cardBody = 'rounded-card border bg-linear-to-b from-card-top via-card-mid 
  */
 export const surface = `${cardBody} border-edge/30 shadow-card`
 export const raised = 'rounded-card border border-edge/50 bg-linear-to-b from-panel-top to-panel shadow-card'
-const answers = 'transition-[border-color,box-shadow,transform] duration-200 hover:border-edge-lit focus-within:border-edge-lit motion-safe:hover:-translate-y-0.5'
+const answers = 'transition-[border-color,box-shadow,translate] duration-200 hover:border-edge-lit focus-within:border-edge-lit motion-safe:hover:-translate-y-0.5'
 export const glowing = `${cardBody} border-edge/60 shadow-glow hover:shadow-glow-lit ${answers}`
 export const lit = `hover:shadow-glow ${answers}`
 

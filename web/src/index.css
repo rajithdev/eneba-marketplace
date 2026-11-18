@@ -24,6 +24,8 @@
 @theme {
   /* The colour the whole site sits on: a near-black violet, lit from its top corners (see body). */
   --color-night: #160a36;
+  /* The darkness of the game store in the scroll section; the page dims to it as the store arrives. */
+  --color-dusk: #0a0420;
   /* The brighter purple: fields and highlighted rows inside cards. */
   --color-page: #4618ac;
   /* The page colour under 25% black, as eneba.com shades its category bar. */

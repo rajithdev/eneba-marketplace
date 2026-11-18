@@ -34,6 +34,7 @@ export function CinematicDeals({ block }: { block: HomepageBlock }) {
   const holder = useRef<HTMLDivElement>(null)
   const spacer = useRef<HTMLDivElement>(null)
   const hotspots = useRef<HTMLDivElement>(null)
+  const shade = useRef<HTMLDivElement>(null)
 
   const products = (block.data.products ?? []).map((product) => product.slug)
   const [layout, setLayout] = useState(() => layoutHere(products.length))
@@ -93,12 +94,19 @@ export function CinematicDeals({ block }: { block: HomepageBlock }) {
   useEffect(() => {
     if (!armed || !runway.current || !canvas.current || !holder.current || !spacer.current) return
 
-    return armed.run({ runway: runway.current, canvas: canvas.current, holder: holder.current, spacer: spacer.current, hotspots: hotspots.current }, () => setArmed(null))
+    return armed.run({ runway: runway.current, canvas: canvas.current, holder: holder.current, spacer: spacer.current, hotspots: hotspots.current, shade: shade.current }, () => setArmed(null))
   }, [armed])
 
   return (
     // The runway: the stage plus an empty stretch as long as the animation lasts.
     <div ref={runway}>
+      {/*
+        The dusk: a dark sheet over the whole window, behind everything on
+        the page, clear until the stage is about to arrive. stage.ts dims
+        the page with it as the store comes up the window, so the page is
+        already as dark as the store when the store takes over.
+      */}
+      {layout && <div ref={shade} aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 bg-dusk opacity-0" />}
       {/* The stage stays at the top of the window while the runway scrolls past. */}
       <div className={layout ? 'sticky top-0 flex min-h-[100svh] flex-col justify-center' : undefined}>
         <canvas

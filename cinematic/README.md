@@ -14,6 +14,7 @@ ordinary React block, backed by the API.
 | `scene.py` | The Blender scene, built entirely by script. The whole scene is a function of scroll progress (0 to 1), so every frame is repeatable and the last frame can be described exactly. |
 | `build.mjs` | Prepares cover textures, asks the API which products the deals block holds, runs Blender, writes the manifest and publishes frames to `web/public/cinematic/<version>/`. |
 | `measure.mjs` | Opens the site in Chrome at several window sizes and measures loading, memory, alignment and scroll smoothness, and records the scroll. |
+| `journey.mjs` | Scrolls the whole homepage in Chrome, from the featured banner through the store, at five window sizes: the same pictures down and back up, layout shift, clickable cards, frame timing, reduced motion, and a recording of each scroll. |
 | `compare.py` | Measures a clip from a video model against the Blender motion reference it was made from. |
 | `build/` | Working files (not committed): rendered frames, `.blend` files, reference material. |
 | `web/src/cinematic/` | The page side: `layouts.ts` (which windows get the section, and its memory budgets), `fit.ts` (arithmetic), `sequence.ts` (frame loading and release), `stage.ts` (drawing), `CinematicDeals.tsx` (the block with its fallback). |
@@ -28,6 +29,7 @@ node cinematic/build.mjs              # the blockout at final frame size, both l
 node cinematic/build.mjs --reference  # motion reference videos and stills for look development
 node cinematic/build.mjs --samples    # a few frames at final size in several encodings, to measure file sizes
 node cinematic/measure.mjs http://localhost:4173 design-review/cinematic/harness
+node cinematic/journey.mjs http://localhost:4173 design-review/scroll-journey   # the homepage's scroll effects, top to store
 ```
 
 ## How the last frame meets the page

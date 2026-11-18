@@ -4,6 +4,7 @@
  * is, where the frame is drawn, and how well the cases in the last frame
  * sit on the real product cards.
  */
+import { clamp, smoothstep } from '../lib/curves'
 
 /** A rectangle: left, top, width, height. */
 export interface Rect {
@@ -23,14 +24,6 @@ export interface Placement {
   scale: number
   x: number
   y: number
-}
-
-export const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
-
-/** 0 below `from`, 1 above `to`, an S-curve between: starts and ends gently. */
-export function smoothstep(from: number, to: number, value: number) {
-  const t = clamp((value - from) / (to - from), 0, 1)
-  return t * t * (3 - 2 * t)
 }
 
 /**
@@ -173,4 +166,20 @@ export function softEdges(top: number, bottom: number, windowHeight: number, sta
   const most = stageHeight * 0.3
 
   return { top: clamp(top / reach, 0, 1) * most, bottom: clamp((windowHeight - bottom) / reach, 0, 1) * most }
+}
+
+/**
+ * How dark the page around the stage is, from 0 (as it always is) to 1 (the
+ * store's own darkness). The stage is a dark room set into a lighter page;
+ * with this, the page dims as the room comes up the window, so by the time
+ * the room fills the window there is no brighter page left around it to
+ * cross a line from. It lets go the same way once the stage scrolls away.
+ *
+ * `top` and `bottom` are the section's edges, measured down from the top of
+ * the window. The dimming takes three quarters of a window of scrolling.
+ */
+export function dusk(top: number, bottom: number, windowHeight: number) {
+  const reach = windowHeight * 0.75
+
+  return smoothstep(0, reach, reach - top) * (1 - smoothstep(0, reach, windowHeight - bottom))
 }

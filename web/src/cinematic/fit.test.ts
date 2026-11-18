@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arrival, softEdges, panelsPlacement, placed, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
+import { arrival, dusk, softEdges, panelsPlacement, placed, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
 
 const frame = { width: 640, height: 360 }
 
@@ -132,5 +132,27 @@ describe('what is on screen', () => {
     // Let go and scrolling away: the bottom edge is in the window, and fades.
     expect(softEdges(-270, 630, windowHeight, stageHeight)).toEqual({ top: 0, bottom: 135 })
     expect(softEdges(-800, 100, windowHeight, stageHeight)).toEqual({ top: 0, bottom: 270 })
+  })
+})
+
+describe('dimming the page around the stage', () => {
+  const windowHeight = 800
+
+  it('leaves the page alone until the stage is three quarters of a window from the top', () => {
+    expect(dusk(1400, 4000, windowHeight)).toBe(0)
+    expect(dusk(600, 3200, windowHeight)).toBe(0)
+  })
+
+  it('dims gradually as the stage comes up, and fully once it fills the window', () => {
+    expect(dusk(300, 2900, windowHeight)).toBeCloseTo(0.5)
+    expect(dusk(150, 2750, windowHeight)).toBeGreaterThan(dusk(450, 3050, windowHeight))
+    expect(dusk(0, 2600, windowHeight)).toBe(1)
+    expect(dusk(-1200, 1400, windowHeight)).toBe(1) // pinned
+  })
+
+  it('brightens again as the stage scrolls away at the end', () => {
+    expect(dusk(-2100, 500, windowHeight)).toBeCloseTo(0.5)
+    expect(dusk(-2400, 200, windowHeight)).toBe(0)
+    expect(dusk(-3000, -400, windowHeight)).toBe(0)
   })
 })

@@ -1,9 +1,10 @@
-import { useId, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { gameTitle } from '../lib/catalog'
 import { coverArt, heroArt, promoArt, sceneArt } from '../lib/coverArt'
 import type { Banner, HomepageBlock } from '../lib/homepage'
 import { formatMoney } from '../lib/money'
+import { heroMotion, shelfMotion } from '../motion/home'
 import { DealCard } from './DealCard'
 import { Icon } from './Icon'
 import { PriceTag } from './PriceTag'
@@ -51,6 +52,9 @@ function Block({ block, label, className = '', children }: { block: HomepageBloc
 /** The top of the page: the first banner large, the others as tiles beside it. */
 export function HeroBlock({ block }: { block: HomepageBlock }) {
   const [main, ...others] = block.data.banners ?? []
+  // As the page scrolls, the artwork travels more slowly than the text (see motion/home.ts).
+  const banner = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => heroMotion(banner.current), [])
 
   if (!main) return null
 
@@ -62,10 +66,11 @@ export function HeroBlock({ block }: { block: HomepageBlock }) {
   return (
     <Block block={block} label="Highlights">
       <div className={`grid gap-3 sm:gap-4 ${others.length > 0 ? 'lg:grid-cols-[2fr_1fr]' : ''}`}>
-        <div className="hero-glass relative flex min-h-[320px] items-center overflow-hidden rounded-card border border-edge/50 shadow-glow sm:min-h-[400px]">
+        <div ref={banner} className="hero-glass relative isolate flex min-h-[320px] items-center overflow-hidden rounded-card border border-edge/50 shadow-glow sm:min-h-[400px]">
           {art ? (
             // Wide artwork on the right, melting into the banner toward the text.
             <img
+              data-hero="art"
               src={art}
               alt=""
               width={892}
@@ -87,7 +92,7 @@ export function HeroBlock({ block }: { block: HomepageBlock }) {
               </>
             )
           )}
-          <div className="relative max-w-xl p-6 sm:p-10">
+          <div data-hero="copy" className="relative max-w-xl p-6 sm:p-10">
             <p className="inline-flex items-center gap-2 rounded-full border border-edge/60 bg-white/5 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">
               <Icon name="star" className="size-3.5 text-accent" />
               Featured
@@ -151,10 +156,13 @@ function BannerTile({ banner }: { banner: Banner }) {
 /** A chart: products in the order given, each with its rank, as a row of tall cards. */
 export function BestSellersBlock({ block }: { block: HomepageBlock }) {
   const products = block.data.products ?? []
+  // The cards rise into their places as the row scrolls in, and recede as it leaves (see motion/home.ts).
+  const list = useRef<HTMLOListElement>(null)
+  useLayoutEffect(() => shelfMotion(list.current), [])
 
   return (
     <Block block={block} label="Best sellers">
-      <ol className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
+      <ol ref={list} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
         {products.map((product, index) => {
           const title = gameTitle(product)
           // A scene of the game where there is one; otherwise its cover, from the top.
@@ -179,7 +187,7 @@ export function BestSellersBlock({ block }: { block: HomepageBlock }) {
                   <span className="inline-block skew-x-12">{index + 1}</span>
                 </span>
 
-                <span className="relative -mt-5 flex flex-1 flex-col px-3 pb-3 xl:px-3.5 xl:pb-4">
+                <span data-reveal="info" className="relative -mt-5 flex flex-1 flex-col px-3 pb-3 xl:px-3.5 xl:pb-4">
                   <span className="sr-only">Number {index + 1}: </span>
                   <h3 className="line-clamp-2 text-[15px] font-black leading-snug group-hover:underline sm:text-base">
                     {title === product.name ? (

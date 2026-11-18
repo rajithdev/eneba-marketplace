@@ -125,9 +125,11 @@ for (const game of games) {
   }
 }
 
-// A cover with no game behind it is a leftover.
+// A drawn cover with no game behind it is a leftover. Only the drawn covers
+// are looked at: the folder also holds art/, the pictures the frontend
+// chooses for some games (web/src/lib/coverArt.ts), which are not made here.
 const expected = new Set(games.map((game) => `${game.slug}.svg`))
-const strays = readdirSync(outDir).filter((name) => !expected.has(name))
+const strays = readdirSync(outDir).filter((name) => name.endsWith('.svg') && !expected.has(name))
 for (const name of strays) console.log(`not in the catalog: web/public/covers/${name}`)
 
 if (checkOnly) {
