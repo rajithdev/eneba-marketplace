@@ -832,12 +832,40 @@ use the same examples as mock data.
 | `PriceTag` | Every price: amount, struck-through original, percentage, or "Sold out" |
 | `FilterPanel` | Checkbox groups and price range, driven by the URL |
 | `Pagination` | Page links that keep the other parameters |
-| `OfferTable` | Sellers' offers side by side, in the API's order |
-| `VariantList` | The same game on other platforms and regions |
 | `Notice`, `LoadError`, `ProductGridSkeleton` | Empty, error and loading states |
 | `SessionNotice` | What a buyer-only page shows while nobody is confirmed as signed in |
 | `HomeBlocks` | One component per homepage block type |
 | `OrderLines` | Cover, title and price breakdown shared by the cart and the order page |
+
+**The product page** (`web/src/pages/ProductPage.tsx`, its parts in
+`web/src/product`) is a "spotlight": the game's artwork behind its title, a
+buy panel beside it, every seller's offer, and the game's other versions.
+
+- *Artwork.* The catalog's covers are 600 x 800, too small to fill a wide
+  screen sharply, so none is shown enlarged as it is. The wide picture
+  behind the title is deliberately blurred into a wash of the game's
+  colours; the cover is shown sharp, at most 300 pixels wide (a
+  high-density screen draws that from the full 600). A missing or broken
+  cover becomes a panel with the game's first letter.
+- *Choosing a seller.* The offers are one group of radio buttons
+  (`SellerPicker`): choosing one makes it the buy panel's offer, whose one
+  yellow button puts it in the cart. The cheapest is chosen to begin with;
+  every seller at the lowest price is marked. Sold-out offers keep their
+  price but cannot be chosen. Stock is only "in stock" or "sold out",
+  because that is all the API says.
+- *Versions.* The panel's platform and region controls (`VersionPicker`)
+  list only versions the API returned, each a link to its own page.
+  Switching between versions of the same game keeps the page on screen
+  while the other loads, with everything that could buy switched off
+  until it has.
+- *Phones.* The panel follows the title; once its "Add to cart" has
+  scrolled away, a slim bar at the foot of the screen (`BuyBar`) keeps the
+  chosen offer's price and the button there until the footer comes up.
+- *Motion* is CSS only (`product/spotlight.css`): an entrance once, and
+  scroll-driven animations for the artwork's drift and each block's
+  reveal, which the browser ties to the scroll position (no JavaScript,
+  undone exactly by scrolling back). Browsers without them, and visitors
+  who prefer reduced motion, get everything in place, still.
 
 **States.** Loading shows skeletons; changing page keeps the current results
 dimmed instead of flashing. "No results", "invalid filters", "not found" and

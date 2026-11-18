@@ -1,0 +1,86 @@
+/*
+ * The product page's motion, all of it in CSS.
+ *
+ * - On arrival the artwork fades in and the title, cover and buy panel rise
+ *   into place once (spot-enter).
+ * - While the page scrolls, the artwork behind the title drifts down a
+ *   little more slowly than the page, and the cover rises a little faster
+ *   (spot-drift, spot-lift).
+ * - Each row and block below the first screen fades and rises as it comes
+ *   into view (spot-reveal).
+ *
+ * The scroll effects use the browser's scroll-driven animations: the
+ * browser itself ties each animation to the scroll position, so they cost
+ * no JavaScript, run off the main thread, and undo themselves exactly when
+ * the page is scrolled back. Where a browser cannot do that, or the visitor
+ * has asked for reduced motion, nothing moves and everything is simply in
+ * its place (index.css also switches every animation off for reduced
+ * motion). Only transform and opacity change, so nothing around a moving
+ * element is pushed about.
+ */
+
+@keyframes spot-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes spot-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Staggered by --spot-delay, set where it is used. */
+.spot-enter {
+  animation: spot-rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--spot-delay, 0ms);
+}
+
+.spot-enter-fade {
+  animation: spot-fade 900ms ease-out both;
+}
+
+@keyframes spot-drift {
+  to {
+    transform: translate3d(0, 120px, 0);
+  }
+}
+
+@keyframes spot-lift {
+  to {
+    transform: translate3d(0, -28px, 0);
+  }
+}
+
+@keyframes spot-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* Over the first 700 pixels of scrolling: by then the title has left the window. */
+    .spot-drift {
+      animation: spot-drift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 700px;
+    }
+
+    .spot-lift {
+      animation: spot-lift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 700px;
+    }
+
+    /* From the moment its top edge enters at the foot of the window until it is wholly in view. */
+    .spot-reveal {
+      animation: spot-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+    }
+  }
+}
