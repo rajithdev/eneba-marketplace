@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arrival, panelsPlacement, placed, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
+import { arrival, softEdges, panelsPlacement, placed, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, progressAt, type Rect } from './fit'
 
 const frame = { width: 640, height: 360 }
 
@@ -118,5 +118,19 @@ describe('what is on screen', () => {
     }
     // Where covering the stage already shows them all, it is left covering.
     expect(panelsPlacement(film, { width: 1920, height: 1080 }, left, right).scale).toBeCloseTo(coverPlacement(film, { width: 1920, height: 1080 }).scale)
+  })
+
+  it('fades the picture into the page at whichever edge of the stage is inside the window', () => {
+    const [windowHeight, stageHeight] = [900, 900]
+
+    // Coming up from below: the top edge is in the window, and fades.
+    expect(softEdges(850, 1750, windowHeight, stageHeight)).toEqual({ top: 270, bottom: 0 })
+    expect(softEdges(270, 1170, windowHeight, stageHeight)).toEqual({ top: 135, bottom: 0 })
+    // Filling the window, pinned: no fade at all.
+    expect(softEdges(0, 900, windowHeight, stageHeight)).toEqual({ top: 0, bottom: 0 })
+    expect(softEdges(-400, 2000, windowHeight, stageHeight)).toEqual({ top: 0, bottom: 0 })
+    // Let go and scrolling away: the bottom edge is in the window, and fades.
+    expect(softEdges(-270, 630, windowHeight, stageHeight)).toEqual({ top: 0, bottom: 135 })
+    expect(softEdges(-800, 100, windowHeight, stageHeight)).toEqual({ top: 0, bottom: 270 })
   })
 })

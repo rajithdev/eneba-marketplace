@@ -156,3 +156,21 @@ export function panelsPlacement(frame: Size, stage: Size, left: number, right: n
 
   return { scale, x, y: (stage.height - frame.height * scale) / 2 }
 }
+
+/**
+ * How far the picture fades into the page at the stage's top and bottom
+ * edges, in pixels. The stage is a dark picture set into a page of another
+ * colour: scrolled into with a hard edge, it looks cut out of the page. So
+ * while its top edge is still coming up the window the picture's top fades
+ * into the page, less and less until the stage fills the window; and the
+ * same at its bottom edge once the stage is let go and scrolls away.
+ *
+ * `top` and `bottom` are where the stage's edges are, measured down from
+ * the top of the window, which is `windowHeight` tall.
+ */
+export function softEdges(top: number, bottom: number, windowHeight: number, stageHeight: number) {
+  const reach = windowHeight * 0.6 // an edge this far inside the window has its full fade
+  const most = stageHeight * 0.3
+
+  return { top: clamp(top / reach, 0, 1) * most, bottom: clamp((windowHeight - bottom) / reach, 0, 1) * most }
+}

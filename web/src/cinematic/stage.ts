@@ -7,7 +7,7 @@
  */
 import type { HomepageBlock } from '../lib/homepage'
 import { coverGame } from '../lib/coverArt'
-import { arrival, panelsPlacement, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
+import { arrival, softEdges, panelsPlacement, showroomFits, between, coverPlacement, frameAt, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
 import { LAYOUTS, type LayoutName } from './layouts'
 import { loadSequence, type Sequence } from './sequence'
 
@@ -288,8 +288,20 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots }: Elements,
   let shown = -1
   let last = 0
   let request = 0
+  let edges = '' // the canvas's mask as last set
   const tick = (now: number) => {
-    const target = progressAt(runway.getBoundingClientRect().top, pin)
+    const section = runway.getBoundingClientRect()
+    const target = progressAt(section.top, pin)
+    // The picture's top fades into the page while the section is still
+    // coming up the window, and its bottom once the stage scrolls away
+    // (see softEdges). In between, pinned, it has no mask at all.
+    const soft = softEdges(section.top, section.bottom, window.innerHeight, stage.height)
+    const mask = soft.top < 1 && soft.bottom < 1 ? '' : `linear-gradient(to bottom, transparent 0, #000 ${soft.top.toFixed(0)}px, #000 calc(100% - ${soft.bottom.toFixed(0)}px), transparent 100%)`
+    if (mask !== edges) {
+      edges = mask
+      canvas.style.setProperty('-webkit-mask-image', mask)
+      canvas.style.setProperty('mask-image', mask)
+    }
     shown = shown < 0 ? target : target + (shown - target) * Math.exp(-(now - last) / CATCH_UP_MS)
     if (Math.abs(shown - target) < 0.0004) shown = target
     last = now
@@ -358,6 +370,8 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots }: Elements,
     holder.style.visibility = ''
     holder.style.position = ''
     delete canvas.dataset.armed
+    canvas.style.removeProperty('-webkit-mask-image')
+    canvas.style.removeProperty('mask-image')
     context.clearRect(0, 0, canvas.width, canvas.height)
     holder.style.opacity = ''
     holder.style.pointerEvents = ''
