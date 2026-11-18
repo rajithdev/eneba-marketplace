@@ -9,7 +9,7 @@
  * Only the picture is chosen here. Which products appear, their names,
  * prices and stock are the backend's.
  */
-const PAINTED = new Set(['minecraft', 'hogwarts-legacy', 'ea-sports-fc-25', 'doom-eternal', 'forza-horizon-5'])
+const PAINTED = new Set(['minecraft', 'hogwarts-legacy', 'ea-sports-fc-25', 'god-of-war', 'doom-eternal', 'forza-horizon-5'])
 
 /** The painted cover for the game a cover address belongs to, or the address unchanged when there is none. */
 export function coverArt(coverUrl: string | null): string | null {
