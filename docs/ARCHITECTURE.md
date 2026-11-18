@@ -933,15 +933,16 @@ brings back a key that was sold or reserved, and never resets a sales count.
 - **One cover per game**, shared by all of its variants: 34 images for 71
   products, served by the frontend host from `web/public/covers`.
 - Every game also has a **painted cover** (`web/public/covers/art`), which
-  the frontend shows in place of the drawn one. Six were supplied by the
-  author. The other 28 are built by `scripts/catalog/paint-covers.mjs`: 22
-  from pictures that are in the public domain or under CC0 on Wikimedia
-  Commons (old paintings, NASA and Library of Congress photographs),
-  cropped to the card's shape with the title set in type, and six gift
-  cards and subscriptions drawn by the script with no logo. They are not
-  the games' artwork and are not derived from it; every source and its
-  licence is listed in `docs/COVER_CREDITS.md`, which the script writes.
-  `make test-web` fails if a game in the catalog has no painted cover.
+  the frontend shows in place of the drawn one. 25 were made and supplied
+  by the author as finished pictures. The other nine are built by
+  `scripts/catalog/paint-covers.mjs`: three from pictures that are in the
+  public domain on Wikimedia Commons (a painting, a NASA and a Library of
+  Congress photograph), cropped to the card's shape with the title set in
+  type, and six gift cards and subscriptions drawn by the script with no
+  logo. Those nine are not the games' artwork and are not derived from it;
+  their sources and licences are listed in `docs/COVER_CREDITS.md`, which
+  the script writes. `make test-web` fails if a game in the catalog has no
+  painted cover.
 - `cover_image_url` is an ordinary column, so properly licensed artwork can
   replace a generated cover later without code changes.
 - Eneba's logo is not copied. The header uses a plain text wordmark; colours,

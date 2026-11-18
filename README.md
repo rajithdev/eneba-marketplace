@@ -138,9 +138,10 @@ Things a reviewer should know are deliberate, approximate or not done yet.
   made-up strings that unlock nothing.
 - Cover images are abstract pictures drawn by a script, one per game. They
   are not official artwork, on purpose: the project has no licence for that.
-  Every game also has a painted cover, which the site shows instead: six
-  supplied by the author, 22 built from public-domain pictures and six
-  gift cards and subscriptions drawn by a script (`docs/COVER_CREDITS.md`).
+  Every game also has a painted cover, which the site shows instead: 25
+  made and supplied by the author, three built from public-domain pictures
+  and six gift cards and subscriptions drawn by a script
+  (`docs/COVER_CREDITS.md`).
 - One currency (EUR) throughout, including products for the United States.
 - Editions (Standard, Deluxe) are not modelled. A different edition would be
   a separate game entry.

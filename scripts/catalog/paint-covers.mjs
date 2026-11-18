@@ -17,8 +17,9 @@
 // - "card": a gift card or subscription, drawn entirely here with CSS. No
 //   logo is used; only the platform's name, in type.
 //
-// Six more covers in the same folder were supplied by the author and are not
-// built here.
+// The other covers in the same folder were made and supplied by the author
+// as finished pictures, and are not built here. Running this script never
+// touches them.
 //
 // How: each cover is a small HTML page that Chrome renders without a window
 // and saves as a picture; ffmpeg turns that into a JPEG. Both must be
@@ -142,15 +143,15 @@ writeFileSync(
 
 Written by \`scripts/catalog/paint-covers.mjs\` from \`scripts/catalog/painted-covers.json\`. Do not edit by hand.
 
-Every game has a painted cover in \`web/public/covers/art/\`. None is a game's
-official artwork, and none is derived from it.
+Every game has a painted cover in \`web/public/covers/art/\`. None is a
+publisher's official artwork.
 
 ## Built from public-domain pictures
 
 ${rows.length} covers are built from pictures that are in the public domain or released
 under CC0, found on Wikimedia Commons. Each was cropped to the card's shape
 (600 x 800), shaded at the top and the foot, and given the game's title in
-type.
+type. They are not derived from the games' artwork.
 
 The licence in each row is the one Wikimedia Commons states on the file's
 page, read on 18 November 2026. This is a cautious reading, not legal advice.
@@ -166,7 +167,8 @@ no logo: ${drawn.join(', ')}.
 
 ## Supplied by the author
 
-The remaining ${games.length - covers.length} covers were supplied by the author.
+The remaining ${games.length - covers.length} covers were made and supplied by the author as finished
+pictures, and scaled to 600 x 800: ${games.filter((game) => !covers.some((cover) => cover.game === game.slug)).map((game) => game.title).join(', ')}.
 
 ## Fonts
 
