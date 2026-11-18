@@ -36,8 +36,11 @@ done)
 #    separate: it uses GitHub's private no-reply address).
 #    Lock files are skipped: they list the public contact addresses of
 #    open-source package authors.
+#    A log file of a versioned Homebrew package ("postgresql@14.log") has
+#    the same shape and is not an address: nothing after its "@" but a
+#    version number and ".log", which is not a mail domain.
 emails=$(echo "$files" | grep -vE '(composer\.lock|package-lock\.json)$' | while read -r f; do [ -f "$f" ] && grep -IhoE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}' "$f"; done | sort -u \
-    | grep -vE '@(example\.(com|org|test)|anthropic\.com|users\.noreply\.github\.com|laravel\.com)$|^hello@example|^git@github\.com$')
+    | grep -vE '@(example\.(com|org|test)|anthropic\.com|users\.noreply\.github\.com|laravel\.com)$|^hello@example|^git@github\.com$|@[0-9.]+\.log$')
 [ -z "$emails" ] && pass "no personal email address in tracked files" \
     || fail "email addresses found: $(echo $emails)"
 
