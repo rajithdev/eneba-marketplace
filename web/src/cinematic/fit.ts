@@ -189,12 +189,44 @@ export function panelsPlacement(frame: Size, stage: Size, left: number, right: n
  *
  * `top` and `bottom` are where the stage's edges are, measured down from
  * the top of the window, which is `windowHeight` tall.
+ *
+ * The stage now comes in behind a curved edge instead (see entrance), so
+ * only `bottom` is used; `top` is the straight fade it replaced.
  */
 export function softEdges(top: number, bottom: number, windowHeight: number, stageHeight: number) {
   const reach = windowHeight * 0.6 // an edge this far inside the window has its full fade
   const most = stageHeight * 0.3
 
   return { top: clamp(top / reach, 0, 1) * most, bottom: clamp((windowHeight - bottom) / reach, 0, 1) * most }
+}
+
+/** How deep the entrance's curve hangs in the middle, as a share of the window's width, so it keeps its shape at every width; */
+const WAVE_SHARE = 0.075
+/** but never shallower or deeper than this, in pixels. (RESTING_DEPTH in components/wave.ts is the same rule in CSS.) */
+const WAVE_DEPTH = { least: 32, most: 140 }
+
+/**
+ * The store's entrance: the stage comes up the window behind a curved
+ * edge, the best sellers above it and the store showing below it (see
+ * components/WaveEdge.tsx). `top` is where the stage's top edge is,
+ * measured down from the top of the window.
+ *
+ * depth  how far the middle of the curve hangs below the stage's top, in
+ *        pixels. Full while the stage's top is in the lower 40% of the
+ *        window; then less and less, so the edge rises faster in the
+ *        middle than at the sides and flattens out, until it is 0 as the
+ *        stage reaches the top of the window. That is where the camera
+ *        starts to move, so it starts with nothing hidden.
+ * glow   how bright the lit line along the curve is, 0 to 1: it goes out
+ *        over the last 30% of the window, a little ahead of the curve.
+ *
+ * Like everything that follows the scroll, it depends on the position
+ * alone, so scrolling back up undoes it exactly.
+ */
+export function entrance(top: number, windowHeight: number, width: number) {
+  const full = clamp(width * WAVE_SHARE, WAVE_DEPTH.least, WAVE_DEPTH.most)
+
+  return { depth: full * smoothstep(0, windowHeight * 0.6, top), glow: smoothstep(0, windowHeight * 0.3, top) }
 }
 
 /**

@@ -122,3 +122,15 @@
     radial-gradient(85% 130% at 100% 0%, rgb(104 44 210 / 0.55), transparent 62%),
     linear-gradient(160deg, var(--color-card-top), var(--color-card-mid) 55%, var(--color-card-foot));
 }
+
+/*
+ * A band whose top edge is a wave (the deals band, see DealsBlock): its
+ * full-width background, drawn by ::before, is cut to the curve. The mask
+ * itself is built in components/wave.ts and handed over in --wave-mask.
+ */
+@utility wave-top {
+  &::before {
+    -webkit-mask: var(--wave-mask);
+    mask: var(--wave-mask);
+  }
+}

@@ -7,7 +7,8 @@
  */
 import type { HomepageBlock } from '../lib/homepage'
 import { coverGame } from '../lib/coverArt'
-import { arrival, blendAt, dusk, framePosition, softEdges, toWholeFrame, panelsPlacement, showroomFits, between, coverPlacement, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
+import { waveMask } from '../components/wave'
+import { arrival, blendAt, dusk, entrance, framePosition, softEdges, toWholeFrame, panelsPlacement, showroomFits, between, coverPlacement, handoffPlacement, mismatches, phases, placed, progressAt, type Placement, type Rect, type Size } from './fit'
 import { LAYOUTS, type LayoutName } from './layouts'
 import { loadSequence, type Sequence } from './sequence'
 
@@ -73,6 +74,8 @@ export interface Elements {
   hotspots: HTMLElement | null
   /** A dark sheet behind the page's content, which dims the page around the stage as it comes and goes; null if there is none. */
   shade: HTMLElement | null
+  /** The lit line along the curved edge the stage comes in behind (components/WaveEdge.tsx); null if there is none. */
+  edge: HTMLElement | null
 }
 
 export interface Armed {
@@ -138,7 +141,7 @@ interface Show {
   keep: number
 }
 
-function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade }: Elements, giveUp: () => void) {
+function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade, edge }: Elements, giveUp: () => void) {
   const { layout, sequence } = show
   const showroom = layout.panels && hotspots ? { panels: layout.panels, box: hotspots } : null
   const context = canvas.getContext('2d')
@@ -310,6 +313,7 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade }: El
   let nudge = 0 // how far the picture has been eased from where the scroll is toward a whole frame, in frames
   let request = 0
   let edges = '' // the canvas's mask as last set
+  let lit = '' // the curved edge's line as last set
   let dimmed = '' // the shade's opacity as last set
   const dim = (amount: number) => {
     const opacity = amount.toFixed(3)
@@ -320,15 +324,25 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade }: El
   const tick = (now: number) => {
     const section = runway.getBoundingClientRect()
     const target = progressAt(section.top, pin)
-    // The picture's top fades into the page while the section is still
-    // coming up the window, and its bottom once the stage scrolls away
-    // (see softEdges). In between, pinned, it has no mask at all.
+    // While the section is still coming up the window, the picture shows
+    // only below a curved edge, which flattens out and is gone as the stage
+    // fills the window (see entrance). Its bottom fades into the page once
+    // the stage scrolls away (see softEdges). In between, pinned, it has no
+    // mask at all.
+    const curve = entrance(section.top, window.innerHeight, stage.width)
     const soft = softEdges(section.top, section.bottom, window.innerHeight, stage.height)
-    const mask = soft.top < 1 && soft.bottom < 1 ? '' : `linear-gradient(to bottom, transparent 0, #000 ${soft.top.toFixed(0)}px, #000 calc(100% - ${soft.bottom.toFixed(0)}px), transparent 100%)`
+    const mask = curve.depth >= 0.5 ? waveMask(`${curve.depth.toFixed(1)}px`) : soft.bottom >= 1 ? `linear-gradient(to bottom, #000 calc(100% - ${soft.bottom.toFixed(0)}px), transparent 100%)` : ''
     if (mask !== edges) {
       edges = mask
-      canvas.style.setProperty('-webkit-mask-image', mask)
-      canvas.style.setProperty('mask-image', mask)
+      canvas.style.setProperty('-webkit-mask', mask)
+      canvas.style.setProperty('mask', mask)
+    }
+    // The lit line along the curve: as deep as the curve, and going out a little ahead of it.
+    const line = curve.depth >= 0.5 && curve.glow > 0.002 ? `${curve.depth.toFixed(1)}|${curve.glow.toFixed(3)}` : ''
+    if (edge && line !== lit) {
+      lit = line
+      edge.style.height = line ? `${curve.depth.toFixed(1)}px` : '0px'
+      edge.style.opacity = line ? curve.glow.toFixed(3) : '0'
     }
     // The page around the stage dims as the stage arrives, and brightens again as it leaves.
     dim(dusk(section.top, section.bottom, window.innerHeight))
@@ -418,8 +432,9 @@ function run(show: Show, { runway, canvas, holder, spacer, hotspots, shade }: El
     holder.style.position = ''
     delete canvas.dataset.armed
     dim(0)
-    canvas.style.removeProperty('-webkit-mask-image')
-    canvas.style.removeProperty('mask-image')
+    canvas.style.removeProperty('-webkit-mask')
+    canvas.style.removeProperty('mask')
+    if (edge) edge.style.opacity = '0'
     context.clearRect(0, 0, canvas.width, canvas.height)
     holder.style.opacity = ''
     holder.style.pointerEvents = ''

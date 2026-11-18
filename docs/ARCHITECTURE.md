@@ -694,7 +694,7 @@ same picture scrolling down and up, and the fallbacks.
 
 ### The way down the page: scroll effects
 
-Three small effects tie the homepage's blocks into one journey from the
+Four small effects tie the homepage's blocks into one journey from the
 featured banner to the store. All of them follow the scroll position and
 nothing else, so scrolling back up undoes exactly what scrolling down did;
 none of them touches scrolling itself, pins anything or moves anything
@@ -723,8 +723,8 @@ scroll listener and one `requestAnimationFrame` for all effects: in a
 frame, every effect first reads positions, then every effect writes
 styles. `poses.ts` is the arithmetic (what is drawn at which position),
 free of the browser and unit-tested; `home.ts` applies it to the banner
-and the row. The dimming is done by the stage's own loop, which already
-runs while the stage is near. With reduced motion none of it runs, and
+and the row. The dimming and the wave are done by the stage's own loop,
+which already runs while the stage is near. With reduced motion none of it runs, and
 phones get the first two effects without the stage.
 
 **Checked with** unit tests for the arithmetic and
@@ -765,6 +765,20 @@ use the same examples as mock data.
 
 | Component | Used for |
 |---|---|
+- **The store opens below the best sellers along a wave.** The stage comes
+  up the window behind a curved edge across the whole width, highest at
+  the sides and lowest in the middle, with a thin violet line along it, a
+  soft blurred glow and a touch of gold where it turns. The curve is a
+  mask on the store's canvas (only below it is the store drawn) and the
+  line an SVG over it; both are the same curve, stretched to the window's
+  width, 7.5% of it deep (32 to 140px). As the stage rises the curve
+  flattens and the line goes out, and both are gone exactly as the stage
+  fills the window, which is where the camera starts: the camera, frames
+  and pinning are untouched, and the curve replaced the straight fade the
+  stage's top edge used to have. The best sellers sit above it, so the
+  glow passes behind the cards. Where the store does not run (phones,
+  tablets, reduced motion) the deals band's top edge is the same curve,
+  standing still.
 | `AppShell` | Header, category links, skip link and footer around every page; the slow-server notice |
 | `ProductCard` | A product in any grid: the store, search results, homepage blocks |
 | `PriceTag` | Every price: amount, struck-through original, percentage, or "Sold out" |

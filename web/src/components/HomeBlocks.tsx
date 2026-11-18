@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { gameTitle } from '../lib/catalog'
 import { coverArt, heroArt, promoArt, sceneArt } from '../lib/coverArt'
@@ -8,6 +8,8 @@ import { heroMotion, shelfMotion } from '../motion/home'
 import { DealCard } from './DealCard'
 import { Icon } from './Icon'
 import { PriceTag } from './PriceTag'
+import { RESTING_DEPTH, waveMask } from './wave'
+import { WaveEdge } from './WaveEdge'
 import { ProductCard } from './ProductCard'
 import { glowing, lit, pageTitle, primaryButton, raised, smallSecondaryButton } from './States'
 
@@ -19,7 +21,7 @@ import { glowing, lit, pageTitle, primaryButton, raised, smallSecondaryButton } 
  */
 
 /** A block's frame: its title, its optional "see more" link, its content. */
-function Block({ block, label, className = '', children }: { block: HomepageBlock; label: string; className?: string; children: ReactNode }) {
+function Block({ block, label, className = '', style, children }: { block: HomepageBlock; label: string; className?: string; style?: CSSProperties; children: ReactNode }) {
   const headingId = useId()
 
   return (
@@ -27,6 +29,7 @@ function Block({ block, label, className = '', children }: { block: HomepageBloc
       aria-labelledby={block.title ? headingId : undefined}
       aria-label={block.title ? undefined : label}
       className={`mt-12 first:mt-6 ${className}`}
+      style={style}
     >
       {(block.title || block.link) && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
@@ -161,7 +164,8 @@ export function BestSellersBlock({ block }: { block: HomepageBlock }) {
   useLayoutEffect(() => shelfMotion(list.current), [])
 
   return (
-    <Block block={block} label="Best sellers">
+    // Above what comes after it: the store's curved edge and its glow pass behind the cards, not over them.
+    <Block block={block} label="Best sellers" className="relative z-[1]">
       <ol ref={list} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
         {products.map((product, index) => {
           const title = gameTitle(product)
@@ -241,12 +245,23 @@ export function BestSellersBlock({ block }: { block: HomepageBlock }) {
 // as wide as the screen, and the shell clips what would stick out).
 const band = 'relative isolate py-10 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:bg-band'
 
+/**
+ * The deals band's top edge is the same curve the store comes in behind,
+ * standing still: where the store scene does not run (phones, tablets,
+ * reduced motion) the page still opens into the band along a wave rather
+ * than a straight line. The band is cut to it by a mask (`.wave-top` in
+ * index.css), and the band's padding grows by the curve's depth so the
+ * title stays clear of it.
+ */
+const waveStyle = { '--wave-mask': waveMask(RESTING_DEPTH), '--wave-depth': RESTING_DEPTH } as CSSProperties
+
 /** Discounted products on a band of their own, each on a card that shows its discount and buys it. */
 export function DealsBlock({ block }: { block: HomepageBlock }) {
   const products = block.data.products ?? []
 
   return (
-    <Block block={block} label="Deals" className={band}>
+    <Block block={block} label="Deals" className={`${band} wave-top pt-[calc(2.5rem+var(--wave-depth))]`} style={waveStyle}>
+      <WaveEdge className="absolute left-1/2 top-0 w-screen -translate-x-1/2" style={{ height: RESTING_DEPTH }} />
       <ul className={dealRow}>
         {products.map((product) => (
           <li key={product.slug}>
