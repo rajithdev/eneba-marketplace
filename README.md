@@ -20,10 +20,10 @@ checkout with a simulated payment, key delivery, order history).
 
 ## Trying it
 
-Open https://eneba-marketplace-ten.vercel.app. The API runs on a free plan
-that sleeps after 15 idle minutes, so the first page may take up to a
+Open https://eneba-marketplace-ten.vercel.app. On its host's free plan the
+API sleeps after 15 idle minutes, and the first page may then take up to a
 minute to fill in (about 25 seconds when measured); the site says so while
-it waits. After that it is fast.
+it waits. After that, and always on a paid instance, it is fast.
 
 1. **Browse.** The homepage is built from blocks the API returns. "Store"
    and the category links under the header list every product; filter by
@@ -255,7 +255,9 @@ Things a reviewer should know are deliberate, approximate or not done yet.
 
 **Deployment (free tiers)**
 
-- The API sleeps after 15 minutes without traffic. The first request then
+- On the host's free plan the API sleeps after 15 minutes without traffic
+  (a paid instance does not; the plan is chosen in the host's dashboard,
+  not in `render.yaml`). The first request then
   waits for it to start: 25 seconds when measured on 2026-11-17, up to
   about a minute by the host's documentation. Pages show their loading
   state meanwhile and, after four seconds, a notice that the server may be

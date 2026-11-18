@@ -12,7 +12,7 @@ address.**
 | Part | Host | Why |
 |---|---|---|
 | React app | Vercel (Hobby) | Static hosting that does not sleep; documented reverse-proxy rewrites with a stated timeout |
-| Laravel API | Render (free web service, Docker, Frankfurt) | The only host checked that runs a Docker container free with no documented card requirement |
+| Laravel API | Render (web service, Docker, Frankfurt; created on the free plan) | The only host checked that runs a Docker container free with no documented card requirement. The plan is chosen in Render's dashboard: the free one sleeps after 15 idle minutes, a paid instance does not |
 | PostgreSQL | Neon (Free, AWS Frankfurt) | No expiry; `pg_trgm` available |
 
 ```
@@ -27,7 +27,7 @@ login cookie a first-party cookie (see Authentication in ARCHITECTURE.md).
 
 | File | What it controls |
 |---|---|
-| `render.yaml` | The API service: Docker build, free plan, region, health check, every environment variable. Secrets are marked `sync: false` and typed into Render's dashboard. |
+| `render.yaml` | The API service: Docker build, region, health check, every environment variable. The plan is left out on purpose, so a push keeps whichever plan the dashboard has set. Secrets are marked `sync: false` and typed into Render's dashboard. |
 | `api/Dockerfile` (stage `prod`) | The production image: Apache, PHP 8.4, no dev packages |
 | `api/docker/entrypoint.sh` | Start-up: listen on Render's port, refuse unsafe settings, cache config, run migrations |
 | `web/vercel.json` | Forwards `/api/*` to the confirmed Render address (a placeholder until one is confirmed); serves the app for every other path; switches off proxy caching for `/api`. Checked by `scripts/deploy/check-vercel-config.mjs`. |
@@ -317,6 +317,12 @@ page frame immediately, loading placeholders where data goes, and after
 four seconds a notice that the server may be waking up, which leaves when
 the data arrives. The host's documentation allows up to about a minute.
 
+This happens only on Render's free plan. A paid instance does not sleep, so
+the first request is as fast as any other (0.2 to 0.3 seconds for the
+health route, measured on 2026-11-18 with the service awake). Since
+2026-11-19 `render.yaml` names no plan, so moving the service to a paid
+instance in the dashboard is not undone by the next push.
+
 ### Diagnostics
 
 `DEPLOY_DIAGNOSTICS` was switched off in `render.yaml` once authentication
@@ -374,7 +380,8 @@ the migrations when the API first starts.
 2. Sign up at dashboard.render.com with GitHub and allow access to the
    `eneba-marketplace` repository.
 3. **New > Blueprint**, pick the repository. Render reads `render.yaml` and
-   shows one service, `eneba-marketplace-api`: Docker, **Free**, Frankfurt.
+   shows one service, `eneba-marketplace-api`: Docker, Frankfurt. The file
+   names no plan (see its comment), so choose **Free** here.
 4. It asks for five values:
 
    | Variable | Value |

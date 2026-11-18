@@ -5,7 +5,13 @@ services:
   - type: web
     name: eneba-marketplace-api
     runtime: docker
-    plan: free
+    # No "plan" on purpose. Render keeps whichever plan the service already
+    # has when the field is left out, so the plan is chosen in Render's
+    # dashboard and a push can never change what is billed. With "plan: free"
+    # written here, every push would put a service that had been moved to a
+    # paid instance (one that does not sleep) back on the free plan.
+    # A service created fresh from this file gets Render's default plan, which
+    # may be a paid one: choose the plan in the dashboard when creating it.
     region: frankfurt
     dockerfilePath: ./api/Dockerfile
     dockerContext: ./api
